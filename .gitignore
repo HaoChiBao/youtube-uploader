@@ -1,0 +1,28 @@
+# Secrets and credentials
+secrets/
+*.json
+!config/*.example
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# State / runtime
+state/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
