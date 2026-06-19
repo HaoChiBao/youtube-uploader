@@ -1,0 +1,29 @@
+channels:
+- id: justcavefire
+  name: Cavefire
+  youtube_channel_id: UCAKbpNSZFZ7hYPjuUOOA9bQ
+  token_path: secrets/justcavefire/youtube_token.json
+  registry_path: state/justcavefire/upload_registry.txt
+  category_id: '10'
+  default_tags: []
+  made_for_kids: false
+  publish:
+    timezone: America/New_York
+    hour: 9
+    interval_hours: 24.0
+  custom_url: '@justcavefire'
+- id: mmmactually
+  name: Erm Actually
+  youtube_channel_id: UCzwG8QFCn0XbdgMcDbDVSRg
+  token_path: secrets/mmmactually/youtube_token.json
+  registry_path: state/mmmactually/upload_registry.txt
+  category_id: '10'
+  default_tags: []
+  made_for_kids: false
+  publish:
+    timezone: America/New_York
+    hour: 9
+    interval_hours: 24.0
+  custom_url: '@mmmactually'
+google:
+  oauth_port: 8080

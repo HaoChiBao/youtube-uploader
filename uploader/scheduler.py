@@ -14,6 +14,7 @@ from uploader.channels import AppConfig, ChannelConfig, get_channel
 from uploader.progress import MultiProgress
 from uploader.registry import UploadEntry, UploadRegistry
 from uploader.storage import load_description, resolve_to_local_path
+from uploader.oauth import resolve_oauth_settings
 from uploader.youtube_client import upload_video_with_retry
 
 
@@ -86,11 +87,11 @@ def run_channel(
     """Process all pending uploads for a channel."""
     channel = get_channel(config, channel_id)
     registry = UploadRegistry(channel.registry_path)
-    pending = registry.pending(channel_id=channel_id)
+    pending = registry.pending(channel_id=channel.id)
     if limit is not None:
         pending = pending[: max(0, limit)]
 
-    result = RunResult(channel_id=channel_id, total=len(pending))
+    result = RunResult(channel_id=channel.id, total=len(pending))
     if not pending:
         return result
 
@@ -105,9 +106,11 @@ def run_channel(
     if dry_run:
         return result
 
-    client_secret = config.google.client_secret_path
+    oauth = resolve_oauth_settings(
+        config.google.client_secret_path,
+        oauth_port=config.google.oauth_port,
+    )
     token_path = channel.token_path
-    oauth_port = config.google.oauth_port
     effective_tags = tags if tags is not None else channel.default_tags
 
     labels = [entry.id for entry, _ in plan]
@@ -152,7 +155,8 @@ def run_channel(
                     on_retry=on_retry,
                     title=title,
                     description=description,
-                    client_secret=client_secret,
+                    client_secret=oauth.client_secret_path,
+                    client_config=oauth.client_config,
                     token_path=token_path,
                     privacy=privacy,
                     category_id=channel.category_id,
@@ -160,7 +164,7 @@ def run_channel(
                     made_for_kids=channel.made_for_kids,
                     thumbnail_path=thumb_path,
                     publish_at=publish_at or None,
-                    oauth_port=oauth_port,
+                    oauth_port=oauth.oauth_port,
                     on_progress=on_progress,
                 )
 

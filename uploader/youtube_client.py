@@ -9,7 +9,20 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# YouTube Data API v3 scopes used by this service:
+# - youtube.upload:     insert videos, set thumbnails, schedule on upload (publishAt)
+# - youtube.readonly:   channels.list, playlistItems.list, videos.list (channel add + uploader list)
+# - youtube.force-ssl:  videos.update / delete (reschedule or fix metadata after upload)
+#
+# Not included (not needed for a standard channel uploader):
+# - youtube                  (superset of upload+force-ssl; broader OAuth verification)
+# - youtubepartner           (YouTube CMS / content-owner accounts only)
+# - youtubepartner-channel-audit
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+]
 
 DEFAULT_CATEGORY_ID = "10"
 DEFAULT_PRIVACY = "private"
@@ -97,20 +110,93 @@ def is_transient_upload_error(exc: BaseException) -> bool:
     return False
 
 
-def get_credentials(client_secret: Path, token_path: Path, *, oauth_port: int = 8080):
-    """Load cached OAuth creds, refreshing or running the browser flow as needed."""
+def _credentials_need_reauth(creds) -> bool:
+    """True when the token is missing a refresh token or any required scope."""
+    if not creds or not creds.refresh_token:
+        return True
+    granted = set(creds.scopes or [])
+    return not all(scope in granted for scope in SCOPES)
+
+
+def _oauth_prompt(*, force_reauth: bool, oauth_prompt: str | None) -> str:
+    """Pick a Google prompt that returns a refresh token (required for uploads)."""
+    if oauth_prompt is not None:
+        return oauth_prompt
+    if force_reauth:
+        return "select_account consent"
+    return "consent"
+
+
+def get_credentials(
+    token_path: Path,
+    *,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
+    oauth_port: int = 8080,
+    force_reauth: bool = False,
+    oauth_prompt: str | None = None,
+):
+    """Load cached OAuth creds, refreshing or running the browser flow as needed.
+
+    When ``force_reauth`` is True, always opens the browser so you can pick a
+    Google account. Uses ``prompt=select_account consent`` so Google returns a
+    refresh token (required for unattended uploads).
+    """
+    if client_config is None and client_secret is None:
+        raise ValueError("Provide client_config (env) or client_secret (JSON file path).")
+
     Request, Credentials, InstalledAppFlow, _build, _HttpError, _Media = _require_google_libs()
 
     creds = None
-    if token_path.is_file():
-        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+    if not force_reauth and token_path.is_file():
+        try:
+            creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+            if _credentials_need_reauth(creds):
+                creds = None
+        except (ValueError, KeyError):
+            creds = None
 
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+        if (
+            not force_reauth
+            and creds
+            and creds.expired
+            and creds.refresh_token
+        ):
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(str(client_secret), SCOPES)
-            creds = flow.run_local_server(port=oauth_port, redirect_uri_trailing_slash=False)
+            if client_config is not None:
+                flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(str(client_secret), SCOPES)
+            oauth_kwargs: dict = {
+                "access_type": "offline",
+                "prompt": _oauth_prompt(force_reauth=force_reauth, oauth_prompt=oauth_prompt),
+            }
+            try:
+                creds = flow.run_local_server(
+                    port=oauth_port,
+                    redirect_uri_trailing_slash=False,
+                    **oauth_kwargs,
+                )
+            except OSError as e:
+                winerr = getattr(e, "winerror", None)
+                if winerr in (10013, 10048) or e.errno in (98, 10048):
+                    raise RuntimeError(
+                        f"Cannot start OAuth callback server on port {oauth_port}. "
+                        "Another app is likely using that port (common on Windows with 8080). "
+                        f"Fix: set GOOGLE_OAUTH_PORT=8765 in .env, add "
+                        f"http://localhost:8765 and http://127.0.0.1:8765 to your Google Cloud "
+                        "OAuth client redirect URIs, then run again."
+                    ) from e
+                raise
+            if not creds.refresh_token:
+                raise RuntimeError(
+                    "Google did not return a refresh token. "
+                    "Revoke this app at https://myaccount.google.com/permissions "
+                    "(look for 'YouTube Uploader' or your Google Cloud project), "
+                    "then run: uploader channel add"
+                )
         token_path.parent.mkdir(parents=True, exist_ok=True)
         token_path.write_text(creds.to_json(), encoding="utf-8")
     return creds
@@ -121,8 +207,9 @@ def upload_video(
     *,
     title: str,
     description: str,
-    client_secret: Path,
     token_path: Path,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
     privacy: str = DEFAULT_PRIVACY,
     category_id: str = DEFAULT_CATEGORY_ID,
     tags: list[str] | None = None,
@@ -139,7 +226,12 @@ def upload_video(
         raise FileNotFoundError(f"Video not found: {video_path}")
 
     _Request, _Credentials, _Flow, build, _HttpError, MediaFileUpload = _require_google_libs()
-    creds = get_credentials(client_secret, token_path, oauth_port=oauth_port)
+    creds = get_credentials(
+        token_path,
+        client_secret=client_secret,
+        client_config=client_config,
+        oauth_port=oauth_port,
+    )
     youtube = build("youtube", "v3", credentials=creds)
 
     status: dict = {

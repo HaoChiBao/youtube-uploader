@@ -29,6 +29,7 @@ class ChannelConfig:
     made_for_kids: bool = False
     publish: PublishConfig = field(default_factory=PublishConfig)
     youtube_channel_id: str = ""
+    custom_url: str = ""
 
 
 @dataclass
@@ -63,10 +64,8 @@ def load_config(path: Path | None = None) -> AppConfig:
 
     path = path.expanduser().resolve()
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Config not found: {path}\n"
-            "Copy config/channels.yaml.example to config/channels.yaml and edit."
-        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("channels: []\n\ngoogle:\n  oauth_port: 8080\n", encoding="utf-8")
 
     base = path.parent.parent if path.parent.name == "config" else path.parent
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -78,9 +77,10 @@ def load_config(path: Path | None = None) -> AppConfig:
     if not client_secret:
         client_secret = "secrets/shared/client_secret.json"
 
+    oauth_port = int(os.environ.get("GOOGLE_OAUTH_PORT", google_raw.get("oauth_port", 8080)))
     google = GoogleConfig(
         client_secret_path=_resolve_path(client_secret, base),
-        oauth_port=int(google_raw.get("oauth_port", 8080)),
+        oauth_port=oauth_port,
     )
 
     channels: list[ChannelConfig] = []
@@ -105,18 +105,40 @@ def load_config(path: Path | None = None) -> AppConfig:
                     interval_hours=float(publish_raw.get("interval_hours", 24)),
                 ),
                 youtube_channel_id=raw.get("youtube_channel_id", ""),
+                custom_url=raw.get("custom_url", ""),
             )
         )
 
     if not channels:
-        raise ValueError(f"No channels defined in {path}")
+        # Empty config is valid until the user runs `uploader channel add`.
+        pass
 
     return AppConfig(channels=channels, google=google)
 
 
-def get_channel(config: AppConfig, channel_id: str) -> ChannelConfig:
+def resolve_channel(config: AppConfig, ref: str) -> ChannelConfig:
+    """Find a channel by config id, display name, @handle, or YouTube channel id."""
+    needle = ref.strip().lower().lstrip("@")
+    if not needle:
+        raise KeyError("Channel reference is empty.")
+
     for ch in config.channels:
-        if ch.id == channel_id:
+        if ch.id.lower() == needle:
             return ch
-    ids = ", ".join(c.id for c in config.channels)
-    raise KeyError(f"Unknown channel {channel_id!r}. Configured channels: {ids}")
+        if ch.name.lower() == needle:
+            return ch
+        if ch.youtube_channel_id.lower() == needle:
+            return ch
+
+    for ch in config.channels:
+        if ch.custom_url and ch.custom_url.lower().lstrip("@") == needle:
+            return ch
+
+    ids = ", ".join(
+        f"{c.id} ({c.name})" if c.name and c.name != c.id else c.id for c in config.channels
+    ) or "(none — run: uploader channel add)"
+    raise KeyError(f"Unknown channel {ref!r}. Configured: {ids}")
+
+
+def get_channel(config: AppConfig, channel_id: str) -> ChannelConfig:
+    return resolve_channel(config, channel_id)

@@ -1,28 +1,7 @@
-channels:
-  - id: channel-a
-    name: "My Channel"
-    token_path: secrets/channel-a/youtube_token.json
-    registry_path: state/channel-a/upload_registry.txt
-    category_id: "10"
-    default_tags: [lofi, chill]
-    made_for_kids: false
-    publish:
-      timezone: America/New_York
-      hour: 9
-      interval_hours: 24
+# Channels are added via: uploader channel add
+# Each entry is created automatically from the YouTube channel name / @handle.
 
-  - id: channel-b
-    name: "Second Channel"
-    token_path: secrets/channel-b/youtube_token.json
-    registry_path: state/channel-b/upload_registry.txt
-    category_id: "10"
-    default_tags: [lofi]
-    made_for_kids: false
-    publish:
-      timezone: America/New_York
-      hour: 12
-      interval_hours: 24
+channels: []
 
 google:
-  client_secret_path: secrets/shared/client_secret.json
   oauth_port: 8080

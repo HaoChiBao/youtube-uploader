@@ -15,6 +15,10 @@ venv/
 
 # State / runtime
 state/
+logs/
+
+# OAuth client secrets at repo root (use .env instead)
+client_secret*.json
 
 # IDE
 .idea/

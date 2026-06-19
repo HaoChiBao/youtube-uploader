@@ -37,11 +37,22 @@ def _parse_api_datetime(value: str) -> datetime:
     return datetime.fromisoformat(text)
 
 
-def _build_youtube(client_secret: Path, token_path: Path, *, oauth_port: int = 8080):
+def _build_youtube(
+    token_path: Path,
+    *,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
+    oauth_port: int = 8080,
+):
     from uploader.youtube_client import _require_google_libs
 
     _Request, _Credentials, _Flow, build, _HttpError, _Media = _require_google_libs()
-    creds = get_credentials(client_secret, token_path, oauth_port=oauth_port)
+    creds = get_credentials(
+        token_path,
+        client_secret=client_secret,
+        client_config=client_config,
+        oauth_port=oauth_port,
+    )
     return build("youtube", "v3", credentials=creds)
 
 
@@ -78,14 +89,20 @@ def _iter_upload_video_ids(youtube, playlist_id: str) -> list[str]:
 
 
 def list_channel_videos(
-    client_secret: Path,
     token_path: Path,
     *,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
     scheduled_only: bool = False,
     oauth_port: int = 8080,
 ) -> list[YouTubeVideoInfo]:
     """Return metadata for every video on the OAuth-authorized channel."""
-    youtube = _build_youtube(client_secret, token_path, oauth_port=oauth_port)
+    youtube = _build_youtube(
+        token_path,
+        client_secret=client_secret,
+        client_config=client_config,
+        oauth_port=oauth_port,
+    )
     playlist_id = _uploads_playlist_id(youtube)
     video_ids = _iter_upload_video_ids(youtube, playlist_id)
 
