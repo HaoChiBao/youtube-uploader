@@ -72,7 +72,9 @@ def test_resolve_channel_by_name():
     assert resolve_channel(config, "UC123").id == "lofi-radio"
 
 
-def test_read_raw_config_creates_file(tmp_path: Path):
+def test_read_raw_config_creates_file(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    monkeypatch.delenv("UPLOADER_STORAGE_BUCKET", raising=False)
     path = tmp_path / "config" / "channels.yaml"
     data = _read_raw_config(path)
     assert data["channels"] == []

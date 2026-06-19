@@ -205,30 +205,38 @@ Activate `.venv` then use `uploader …` (entry point: `pyproject.toml` → `cli
 
 | Command | Description |
 |---------|-------------|
-| `uploader queue add --channel X --video PATH --title "…"` | Stage job folder to `queue/` + `pending` registry row |
+| `uploader queue add …` | Stage job folder to `queue/` + `pending` registry row |
+| `uploader queue list [--channel X]` | Pending count + job ids (one channel or all) |
+| `uploader queue upload --channel X [--count N]` | Upload oldest N pending jobs (default N=1) |
+| `uploader queue remove --channel X --id JOB_ID` | Delete queue folder + registry row |
 | `uploader plan --channel X` | Preview publish schedule (dry run) |
-| `uploader run --channel X` | Upload all pending jobs for one channel |
+| `uploader run --channel X [--limit N]` | Upload all (or N) pending jobs for one channel |
 | `uploader run-all` | Upload pending jobs for every channel |
 | `uploader list --channel X [--scheduled-only]` | List videos on YouTube |
+
+**Default scheduling** (unless `--no-schedule`): first job publishes **tomorrow at channel `publish.hour`** (from `channels.yaml`, default 9 AM in `publish.timezone`), then + `interval_hours` (default 24) per additional job. Preview with `plan`.
+
+**Example — stage, inspect, upload one:**
+
+```bash
+uploader queue add --channel justcavefire \
+  --video ./my-video.mp4 --title "My Title" --description "…"
+
+uploader queue list --channel justcavefire
+uploader plan --channel justcavefire
+uploader queue upload --channel justcavefire          # 1 job
+uploader queue upload --channel justcavefire --count 3  # up to 3
+uploader run --channel justcavefire --upload-retries 5  # all pending
+uploader list --channel justcavefire --scheduled-only
+```
 
 ### Direct upload & testing
 
 | Command | Description |
 |---------|-------------|
 | `uploader test --channel X --video PATH` | Quick private test upload |
-| `uploader upload --channel X --video PATH` | Single direct upload |
+| `uploader upload --channel X --video PATH` | Single direct upload (bypass queue) |
 | `uploader enqueue …` | Append registry row (when URIs already exist) |
-
-**Example — stage then run:**
-
-```bash
-uploader queue add --channel justcavefire \
-  --video ./my-video.mp4 --title "My Title" --description "…"
-
-uploader plan --channel justcavefire --start "2026-06-21 09:00" --interval-hours 24
-uploader run --channel justcavefire --upload-retries 5
-uploader list --channel justcavefire --scheduled-only
-```
 
 **Daily cron example:**
 
@@ -244,7 +252,7 @@ uploader list --channel justcavefire --scheduled-only
 
 | Phase | Deliverable |
 |-------|-------------|
-| **1** | CLI worker: `queue add`, `run`, R2 storage, job metadata + defaults |
+| **1** | CLI worker: `queue add/list/upload/remove`, `run`, R2, metadata + scheduling |
 | **2** | Assembler writes S3 URIs + pending jobs; cron on one VM |
 | **3** | HTTP API (`POST /v1/jobs`), Postgres registry, secrets manager |
 | **4** | Idempotency, quota tracking, alerts on failure |

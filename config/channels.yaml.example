@@ -23,6 +23,12 @@ defaults:
 #     privacy: public
 #     is_short: true
 #     tags: [lofi, chill]
+#
+# Publish scheduling (used by plan / run / queue upload unless --no-schedule):
+#   publish:
+#     timezone: America/New_York
+#     hour: 9              # first video publishes tomorrow at this hour (local)
+#     interval_hours: 24   # gap between videos in a batch
 
 channels: []
 

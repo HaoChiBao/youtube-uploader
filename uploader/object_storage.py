@@ -223,7 +223,19 @@ def list_keys(prefix_uri: str) -> list[str]:
         kwargs: dict = {"Bucket": bucket, "Prefix": prefix}
         if token:
             kwargs["ContinuationToken"] = token
-        response = client.list_objects_v2(**kwargs)
+        try:
+            response = client.list_objects_v2(**kwargs)
+        except Exception as e:
+            from botocore.exceptions import ClientError
+
+            if isinstance(e, ClientError) and e.response.get("Error", {}).get("Code") in (
+                "404",
+                "NoSuchKey",
+                "NotFound",
+                "NoSuchBucket",
+            ):
+                return []
+            raise
         for item in response.get("Contents") or []:
             key = item.get("Key", "")
             if key and not key.endswith("/"):

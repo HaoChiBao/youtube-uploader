@@ -121,6 +121,67 @@ def migrate_config_data(data: dict, base: Path) -> bool:
     return changed
 
 
+def list_storage_channel_ids(base: Path) -> list[str]:
+    """Discover channel ids from state/{channel_id}/ objects in R2 or local storage."""
+    from uploader.object_storage import list_keys
+
+    ids: set[str] = set()
+    if remote_storage_enabled():
+        keys = list_keys(bucket_layout.s3_uri("state/"))
+    else:
+        state_dir = base / "state"
+        if not state_dir.is_dir():
+            return []
+        keys = list_keys(str(state_dir))
+    for key in keys:
+        parts = key.replace("\\", "/").split("/")
+        if len(parts) >= 2 and parts[0] == "state" and parts[1]:
+            ids.add(parts[1])
+    return sorted(ids)
+
+
+def _entry_from_channel_meta(channel_id: str, base: Path) -> dict | None:
+    """Build a channels.yaml entry from state/{id}/channel.meta.json (and token if present)."""
+    meta_loc = bucket_layout.channel_meta_location(channel_id, base)
+    token_loc = bucket_layout.token_location(channel_id, base)
+    if exists(meta_loc):
+        try:
+            meta = json.loads(read_text(meta_loc))
+        except json.JSONDecodeError:
+            meta = {}
+        raw = {
+            "id": channel_id,
+            "name": meta.get("name") or channel_id,
+            "youtube_channel_id": meta.get("youtube_channel_id", ""),
+            "custom_url": meta.get("custom_url", ""),
+        }
+        return normalize_channel_entry(raw, base)
+    if exists(token_loc):
+        return normalize_channel_entry({"id": channel_id, "name": channel_id}, base)
+    return None
+
+
+def sync_config_from_storage(data: dict, base: Path) -> bool:
+    """Add channels.yaml rows for state/ folders not yet listed in config."""
+    existing = {raw.get("id") for raw in data.get("channels") or [] if raw.get("id")}
+    changed = False
+    for channel_id in list_storage_channel_ids(base):
+        if channel_id in existing:
+            continue
+        entry = _entry_from_channel_meta(channel_id, base)
+        if entry is None:
+            continue
+        data.setdefault("channels", []).append(entry)
+        existing.add(channel_id)
+        changed = True
+    return changed
+
+
+def config_storage_uri(base: Path) -> str:
+    """Canonical URI/path for channels.yaml (R2 when configured)."""
+    return bucket_layout.config_location(base)
+
+
 def read_raw_config(local_path: Path) -> dict:
     """Load channels.yaml from R2 (primary) or local disk, migrating local → R2 once."""
     local_path = local_path.expanduser().resolve()
@@ -137,14 +198,23 @@ def read_raw_config(local_path: Path) -> dict:
                 text = _EMPTY_CONFIG
                 write_text(loc, text)
         data = _parse_yaml(text)
+        changed = sync_config_from_storage(data, base)
         if migrate_config_data(data, base):
+            changed = True
+        if changed:
             write_raw_config(local_path, data)
         return data
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
     if not local_path.is_file():
         local_path.write_text(_EMPTY_CONFIG, encoding="utf-8")
-    return _parse_yaml(local_path.read_text(encoding="utf-8"))
+    data = _parse_yaml(local_path.read_text(encoding="utf-8"))
+    changed = sync_config_from_storage(data, base)
+    if migrate_config_data(data, base):
+        changed = True
+    if changed:
+        write_raw_config(local_path, data)
+    return data
 
 
 def write_raw_config(local_path: Path, data: dict) -> None:

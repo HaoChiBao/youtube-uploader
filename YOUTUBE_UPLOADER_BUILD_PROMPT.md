@@ -159,7 +159,7 @@ Default registry path: `state/{channel_id}/upload_registry.txt` (or `s3://bucket
 
 Env: `CLOUDFLARE_R2_*`. Defaults: `UPLOADER_DEFAULT_*` in `.env`, `defaults:` in channels.yaml.
 
-Init: `uploader storage init`. Stage: `uploader queue add`. Library: `job_store.stage_job()`, `job_metadata.JobMetadata`.
+Init: `uploader storage init`. Stage: `uploader queue add`. Upload: `queue upload` (N jobs) or `run` (all). Library: `job_store.stage_job()`, `job_store.remove_job()`, `job_metadata.JobMetadata`.
 
 **Backward compatibility:** also accept legacy rows where `video` is a local path and `description` is a path to a `.txt` file (read file contents).
 
@@ -203,12 +203,18 @@ uploader storage init
 # Stage a video into queue/ + register as pending (preferred)
 uploader queue add --channel justcavefire --video ./test.mp4 --title "Test" --description "Desc"
 
-# Preview schedule for pending jobs (no upload)
-uploader plan --channel justcavefire [--start "2026-06-21 09:00"] [--interval-hours 24]
+# Queue management
+uploader queue list --channel justcavefire       # pending count + job ids
+uploader queue upload --channel justcavefire     # upload 1 (oldest)
+uploader queue upload --channel justcavefire --count N
+uploader queue remove --channel justcavefire --id JOB_ID
 
-# Process all pending for one channel or all channels
+# Preview schedule for pending jobs (no upload)
+uploader plan --channel justcavefire [--start "2026-06-21 09:00"] [--interval-hours 24] [--no-schedule]
+
+# Process pending: all or limited
 uploader run --channel justcavefire [--upload-retries 5] [--retry-delay 30] [--limit N]
-uploader run-all [--upload-retries 5]
+uploader run-all [--upload-retries 5] [--limit N]
 
 # Quick test upload (bypass registry)
 uploader test --channel justcavefire --video ./test.mp4
@@ -229,6 +235,7 @@ uploader enqueue --channel justcavefire --id test_01 \
 2. For each `pending` entry (respect `--limit`):
    - Resolve `video_uri` / `thumbnail_uri` / `description` via `storage.py` (download S3 to temp dir)
    - Compute `publish_at`: from `--start` + index × `--interval-hours` (convert local → RFC3339 UTC), unless `--no-schedule`
+   - Default (no `--start`): tomorrow at channel `publish.hour` in `publish.timezone` from `channels.yaml`
    - Show per-job progress bar during upload
    - Call `upload_video_with_retry`
    - On success: `mark_uploaded`, persist refreshed OAuth token

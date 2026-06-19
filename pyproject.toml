@@ -20,15 +20,16 @@ dependencies = [
 
 [project.optional-dependencies]
 s3 = ["boto3>=1.34"]
-api = ["fastapi>=0.110", "uvicorn>=0.27", "pydantic>=2.0"]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "pydantic>=2.0", "httpx>=0.27"]
 dev = ["pytest>=7.0"]
 
 [project.scripts]
 uploader = "cli.main:main"
+uploader-api = "api.server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["uploader*", "cli*"]
+include = ["uploader*", "cli*", "api*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

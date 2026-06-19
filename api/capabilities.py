@@ -1,0 +1,126 @@
+"""Inventory of CLI commands and their API coverage."""
+
+from __future__ import annotations
+
+CLI_COMMANDS: list[dict] = [
+    {
+        "group": "channel",
+        "command": "uploader channel add",
+        "description": "OAuth in browser; save YouTube channel",
+        "api": "POST /v1/oauth/start?mode=add",
+        "implemented": True,
+    },
+    {
+        "group": "channel",
+        "command": "uploader channel list",
+        "description": "List configured channels and auth status",
+        "api": "GET /v1/channels",
+        "implemented": True,
+    },
+    {
+        "group": "channel",
+        "command": "uploader channel reauth <ref>",
+        "description": "Re-authenticate a saved channel",
+        "api": "POST /v1/channels/{id}/oauth/start",
+        "implemented": True,
+    },
+    {
+        "group": "channel",
+        "command": "uploader channels",
+        "description": "Alias for channel list",
+        "api": "GET /v1/channels",
+        "implemented": True,
+    },
+    {
+        "group": "storage",
+        "command": "uploader storage init",
+        "description": "Create R2/local bucket layout",
+        "api": "POST /v1/storage/init",
+        "implemented": True,
+    },
+    {
+        "group": "queue",
+        "command": "uploader queue add",
+        "description": "Stage video + metadata to queue/",
+        "api": "POST /v1/channels/{id}/jobs (multipart)",
+        "implemented": False,
+    },
+    {
+        "group": "queue",
+        "command": "uploader queue list [--channel]",
+        "description": "Show pending jobs",
+        "api": "GET /v1/jobs?channel=&status=pending",
+        "implemented": True,
+    },
+    {
+        "group": "queue",
+        "command": "uploader queue upload --count N",
+        "description": "Upload oldest N pending jobs",
+        "api": "POST /v1/channels/{id}/runs",
+        "implemented": True,
+    },
+    {
+        "group": "queue",
+        "command": "uploader queue remove",
+        "description": "Remove staged job from queue",
+        "api": "DELETE /v1/channels/{id}/jobs/{job_id}",
+        "implemented": True,
+    },
+    {
+        "group": "scheduler",
+        "command": "uploader plan",
+        "description": "Preview publish schedule (dry run)",
+        "api": "GET /v1/channels/{id}/plan",
+        "implemented": True,
+    },
+    {
+        "group": "scheduler",
+        "command": "uploader run",
+        "description": "Upload all pending for one channel",
+        "api": "POST /v1/channels/{id}/runs (count=all)",
+        "implemented": True,
+    },
+    {
+        "group": "scheduler",
+        "command": "uploader run-all",
+        "description": "Upload pending for every channel",
+        "api": "POST /v1/runs/all",
+        "implemented": True,
+    },
+    {
+        "group": "youtube",
+        "command": "uploader list [--scheduled-only]",
+        "description": "List videos on YouTube channel",
+        "api": "GET /v1/channels/{id}/youtube/videos",
+        "implemented": True,
+    },
+    {
+        "group": "direct",
+        "command": "uploader test / upload",
+        "description": "Direct upload bypassing queue",
+        "api": "POST /v1/channels/{id}/upload/direct",
+        "implemented": False,
+    },
+    {
+        "group": "registry",
+        "command": "uploader enqueue",
+        "description": "Append registry row only",
+        "api": "POST /v1/channels/{id}/jobs/enqueue",
+        "implemented": False,
+    },
+]
+
+YOUTUBE_FEATURES: list[dict] = [
+    {"id": "oauth_multi_channel", "name": "Multi-channel OAuth", "description": "One refresh token per YouTube channel"},
+    {"id": "resumable_upload", "name": "Resumable video upload", "description": "YouTube Data API v3 insert with progress"},
+    {"id": "custom_thumbnail", "name": "Custom thumbnail", "description": "Best-effort thumbnail set after upload"},
+    {"id": "schedule_publish", "name": "Scheduled publish", "description": "publishAt RFC3339 UTC; uploads as private until publish time"},
+    {"id": "upload_registry", "name": "Upload registry", "description": "JSON-lines queue: pending → uploading → uploaded | failed"},
+    {"id": "batch_stagger", "name": "Batch stagger", "description": "interval_hours between videos in a run"},
+    {"id": "retry_transient", "name": "Retry transient errors", "description": "408/429/5xx and network errors with backoff"},
+    {"id": "list_scheduled", "name": "List scheduled videos", "description": "Query channel for future publishAt videos"},
+    {"id": "r2_storage", "name": "Cloudflare R2 storage", "description": "Config, tokens, queue/, uploaded/ on R2"},
+    {"id": "job_metadata", "name": "Per-job metadata", "description": "metadata.json: privacy, is_short, tags, category, made_for_kids"},
+    {"id": "layered_defaults", "name": "Layered defaults", "description": ".env → channels.yaml defaults → channel → CLI/API flags"},
+    {"id": "shorts", "name": "YouTube Shorts flag", "description": "is_short in job metadata"},
+]

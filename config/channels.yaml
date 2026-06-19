@@ -1,12 +1,3 @@
-# Global defaults for queued video jobs (overridden by .env UPLOADER_DEFAULT_*)
-defaults:
-  privacy: private
-  is_short: false
-  category_id: "10"
-  made_for_kids: false
-  language: en
-  tags: []   # no tags unless you set them per video or per channel
-
 channels:
 - id: justcavefire
   name: Cavefire
@@ -34,5 +25,18 @@ channels:
     hour: 9
     interval_hours: 24.0
   custom_url: '@mmmactually'
+- id: yourdopaminerat
+  name: Dopamine Rat
+  youtube_channel_id: UC9fwC1kxFt_PhRNnX09Y0Fw
+  token_path: s3://youtuber-uploader/secrets/yourdopaminerat/youtube_token.json
+  registry_path: s3://youtuber-uploader/state/yourdopaminerat/upload_registry.txt
+  category_id: '10'
+  default_tags: []
+  made_for_kids: false
+  publish:
+    timezone: America/New_York
+    hour: 9
+    interval_hours: 24.0
+  custom_url: '@yourdopaminerat'
 google:
   oauth_port: 8080

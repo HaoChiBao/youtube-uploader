@@ -35,6 +35,8 @@ uploader --version                # verify CLI is available
 
 All commands below use `uploader …`. If the command is not found, activate `.venv` first or run `.\.venv\Scripts\uploader.exe …`.
 
+On **Windows**, `tzdata` is installed automatically (required for publish timezone scheduling).
+
 ### 2. Configure
 
 ```bash
@@ -108,6 +110,35 @@ uploader list --channel justcavefire --scheduled-only
 
 **Production upload flow:** `queue add` (stage to R2) → `run` (upload to YouTube). Files move from `queue/` to `uploaded/` after success.
 
+## HTTP API + web UI (local)
+
+Run the FastAPI server with a simple dashboard (channels, queue, upload triggers, OAuth):
+
+```bash
+pip install -e ".[api,s3,dev]"
+uploader-api
+# open http://127.0.0.1:8000
+```
+
+Interactive API docs: http://127.0.0.1:8000/docs
+
+**OAuth for the API:** add this redirect URI in Google Cloud Console (Web application client):
+
+`http://127.0.0.1:8000/v1/oauth/callback`
+
+Set `UPLOADER_API_PUBLIC_URL=http://127.0.0.1:8000` in `.env` if using a different host/port.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /v1/capabilities` | All CLI commands + YouTube features + API routes |
+| `GET /v1/channels` | `{ config_uri, storage, channels[] }` — auth status + pending counts |
+| `GET /v1/jobs?status=pending` | Upload queue |
+| `POST /v1/oauth/start` | Connect a new YouTube channel (browser OAuth) |
+| `POST /v1/channels/{id}/runs` | Start background upload (`{"count": 1}` or omit count for all) |
+| `GET /v1/runs/{run_id}` | Poll upload progress |
+
+The CLI remains available for scripting and debugging.
+
 ## CLI reference
 
 Channel reference (`<ref>`) can be config id, display name, `@handle`, or YouTube channel id.
@@ -176,6 +207,18 @@ Channel reference (`<ref>`) can be config id, display name, `@handle`, or YouTub
 5. CLI flags (highest priority)
 
 **`run` / `run-all`:** omit `--privacy` to use each job's `metadata.json` privacy.
+
+**Default publish scheduling** (for `plan`, `run`, `queue upload`, `run-all` — unless `--no-schedule`):
+
+Per-channel `publish:` block in `channels.yaml` (defaults: `America/New_York`, hour `9`, `interval_hours: 24`):
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| First video | Tomorrow at channel `hour` | Sets YouTube `publishAt` (video uploads private now) |
+| Each additional job in batch | + `interval_hours` | Staggered publish times |
+| `--no-schedule` | — | No `publishAt`; uses metadata privacy immediately |
+
+Preview: `uploader plan --channel justcavefire`
 
 ### Scheduler — batch upload from registry
 
@@ -253,7 +296,10 @@ uploader test --channel justcavefire --video ./test.mp4
 **Production pipeline:**
 ```bash
 uploader queue add --channel justcavefire --video ./video.mp4 --title "..." --description "..."
-uploader plan --channel justcavefire
+uploader queue list --channel justcavefire          # see pending count
+uploader plan --channel justcavefire              # preview publish times
+uploader queue upload --channel justcavefire        # upload 1 (oldest pending)
+# or upload all pending:
 uploader run --channel justcavefire --upload-retries 5
 ```
 
@@ -264,7 +310,9 @@ uploader run-all --upload-retries 5
 
 ## Cloudflare R2 bucket layout
 
-When `CLOUDFLARE_R2_BUCKET` is set, all durable state lives in R2 (local `config/` and `secrets/` are mirrored for convenience):
+When `CLOUDFLARE_R2_BUCKET` is set, **R2 is the source of truth** for `config/channels.yaml`. The API and CLI read from `s3://{bucket}/config/channels.yaml` on every request, mirror a copy to local `config/channels.yaml`, and write changes back to R2. If a channel has `state/{channel_id}/` in R2 but is missing from the yaml, it is auto-discovered from `channel.meta.json` and added to the config.
+
+All durable state lives in R2 (local `config/` and `secrets/` are mirrored for convenience):
 
 ```
 {bucket}/
@@ -411,7 +459,7 @@ youtube-uploader/
 │   ├── object_storage.py      # S3/R2 I/O
 │   ├── state_store.py         # Durable config + token persistence
 │   ├── registry.py            # JSON-lines upload queue
-│   ├── job_store.py           # stage_job (queue add) + archive after upload
+│   ├── job_store.py           # stage_job, remove_job, archive after upload
 │   ├── job_metadata.py        # metadata.json schema + load/write
 │   ├── job_defaults.py        # layered defaults (.env → channels.yaml → CLI)
 │   ├── scheduler.py           # Batch run + run-all

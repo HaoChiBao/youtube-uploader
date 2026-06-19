@@ -323,14 +323,19 @@ uploader storage init
 # Stage video into queue/ + register as pending
 uploader queue add --channel justcavefire --video ./clip.mp4 --title "..." --description "..."
 
-# Process all pending for one channel
-uploader run --channel justcavefire
+# Inspect queue
+uploader queue list --channel justcavefire
 
-# Process all channels
+# Upload one (or N) pending jobs — oldest first
+uploader queue upload --channel justcavefire
+uploader queue upload --channel justcavefire --count 3
+
+# Or upload all pending for one channel / all channels
+uploader run --channel justcavefire
 uploader run-all --upload-retries 5
 
-# Dry-run schedule plan
-uploader plan --channel justcavefire --start "2026-06-21 09:00" --interval-hours 24
+# Preview publish schedule (default: tomorrow 9 AM ET + 24h interval)
+uploader plan --channel justcavefire
 
 # List scheduled on YouTube
 uploader list --channel justcavefire --scheduled-only
@@ -510,10 +515,10 @@ youtube-uploader/
 - [x] New repo, copy core modules, fix imports
 - [x] Generalized `UploadEntry` + `UploadRegistry` (file + s3:// backed)
 - [x] `storage.py`: resolve `s3://` and `file://` to local Path
-- [x] CLI: `channel add`, `run`, `run-all`, `plan`, `list`, `storage init`
+- [x] CLI: `channel add`, `queue add/list/upload/remove`, `run`, `run-all`, `plan`, `list`, `storage init`
 - [x] Dynamic `channels.yaml` + `channel_store.py`
 - [x] Cloudflare R2 durable state (`bucket_layout`, `state_store`, `object_storage`)
-- [x] Integration test with private upload (manual, 2026-06-19)
+- [x] Windows `tzdata` dependency for `ZoneInfo` scheduling
 
 ### Phase 2 — Assembler integration
 
@@ -583,7 +588,9 @@ generate-music-videos -n 1 --thumbnail-text "OMYO" --workers 2
 uploader channel add
 uploader storage init
 uploader queue add --channel justcavefire --video ./clip.mp4 --title "..." --description "..."
-uploader plan --channel justcavefire --start "2026-06-21 09:00" --interval-hours 24
+uploader queue list --channel justcavefire
+uploader queue upload --channel justcavefire --count 1
+uploader plan --channel justcavefire
 uploader run --channel justcavefire --upload-retries 5
 uploader run-all --upload-retries 5
 uploader list --channel justcavefire --scheduled-only
