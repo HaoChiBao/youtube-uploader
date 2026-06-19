@@ -493,14 +493,22 @@ youtube-uploader/
 │   ├── scheduler.py           # run_channel + run_all_channels
 │   ├── storage.py
 │   ├── channels.py
+│   ├── cache_signals.py       # API cache invalidation
 │   └── progress.py
 ├── cli/main.py
-├── api/app.py                 # FastAPI Phase 3 (stub)
+├── api/
+│   ├── app.py                 # FastAPI (local MVP + dashboard)
+│   ├── cache.py               # Dashboard/config cache
+│   ├── deps.py, schemas.py, capabilities.py
+│   ├── oauth_sessions.py
+│   └── static/index.html
 ├── scripts/
 │   ├── run-channel.sh / .ps1
 │   └── run-all-channels.sh / .ps1
 └── tests/
     ├── test_registry.py
+    ├── test_api.py
+    ├── test_cache_signals.py
     ├── test_scheduler.py
     ├── test_bucket_layout.py
     └── test_state_store.py
@@ -528,12 +536,20 @@ youtube-uploader/
 - [ ] Cron on one VM: assembler builds overnight → uploader runs at 06:00
 - [ ] Remove `schedule-music-videos` from assembler default workflow
 
-### Phase 3 — HTTP API + multi-channel (week 3–4)
+### Phase 3 — HTTP API + multi-channel
 
-- [ ] FastAPI `POST /v1/jobs`
+- [x] FastAPI local server (`uploader-api`) + OpenAPI docs
+- [x] Web OAuth redirect flow (add channel + reauth) with PKCE
+- [x] Dashboard UI at `/` — channels, queue, upload triggers
+- [x] `GET /v1/dashboard` — cached channels + pending jobs (Review 1)
+- [x] R2 `config/channels.yaml` as source of truth; fast reads (skip migrate on routine load)
+- [x] `GET /v1/channels`, `/v1/jobs`, job detail, DELETE remove, plan, runs
+- [x] `GET /v1/health`, `GET /v1/capabilities`
+- [x] `GET /v1/channels/{id}/youtube/videos`
+- [ ] FastAPI `POST /v1/jobs` (multipart stage from assembler)
 - [ ] Postgres registry option
 - [ ] Secrets manager for tokens
-- [ ] Health check + `list scheduled` endpoint
+- [ ] Hosted deploy + API key auth
 - [ ] Alerting on failures
 
 ### Phase 4 — Hardening

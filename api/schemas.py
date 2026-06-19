@@ -103,6 +103,14 @@ class ChannelListResponse(BaseModel):
     channels: list[ChannelOut]
 
 
+class DashboardResponse(BaseModel):
+    config_uri: str
+    storage: str
+    channels: list[ChannelOut]
+    jobs: list[JobOut]
+    cached: bool = False
+
+
 class CapabilitiesOut(BaseModel):
     cli_commands: list[dict]
     youtube_features: list[dict]

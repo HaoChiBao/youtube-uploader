@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from api.cache import build_dashboard, get_token_status
 from api.capabilities import CLI_COMMANDS, YOUTUBE_FEATURES
 from api.deps import (
     api_public_base,
@@ -29,6 +30,7 @@ from api.schemas import (
     CapabilitiesOut,
     ChannelListResponse,
     ChannelOut,
+    DashboardResponse,
     HealthResponse,
     JobOut,
     OAuthStartResponse,
@@ -49,11 +51,11 @@ from uploader.oauth_web import (
     build_authorization_url,
     credentials_to_json,
     exchange_code_for_credentials,
-    inspect_token_file,
     new_oauth_state,
     register_channel_from_credentials,
 )
 from uploader.registry import UploadRegistry
+from uploader.cache_signals import bump
 from uploader.scheduler import compute_publish_schedule, parse_start, run_all_channels, run_channel
 from uploader.state_store import ensure_bucket_structure
 
@@ -93,6 +95,7 @@ def create_app() -> FastAPI:
         endpoints = [
             {"method": "GET", "path": "/v1/health", "description": "Health check"},
             {"method": "GET", "path": "/v1/capabilities", "description": "CLI inventory + YouTube features"},
+            {"method": "GET", "path": "/v1/dashboard", "description": "Channels + pending jobs (cached, ?refresh=true to bypass)"},
             {"method": "GET", "path": "/v1/channels", "description": "List channels + auth status + pending counts"},
             {"method": "GET", "path": "/v1/channels/{id}", "description": "Single channel detail"},
             {"method": "GET", "path": "/v1/jobs", "description": "List queue jobs (?channel= &status=)"},
@@ -116,15 +119,10 @@ def create_app() -> FastAPI:
 
     def _token_status(channel) -> TokenStatus:
         oauth = get_oauth_settings()
-        info = inspect_token_file(
+        return get_token_status(
+            channel.id,
             channel.token_path,
-            client_secret=oauth.client_secret_path,
-            client_config=oauth.client_config,
-        )
-        return TokenStatus(
-            has_token=info.get("has_token", False),
-            valid=info.get("valid", False),
-            status=info.get("status", "unknown"),
+            oauth,
         )
 
     def _channel_out(ch) -> ChannelOut:
@@ -140,6 +138,10 @@ def create_app() -> FastAPI:
             auth=_token_status(ch),
             pending_count=pending,
         )
+
+    @app.get("/v1/dashboard", response_model=DashboardResponse)
+    def dashboard(refresh: bool = Query(default=False, description="Bypass cache and reload from storage")):
+        return build_dashboard(config_path(), force=refresh)
 
     @app.get("/v1/channels", response_model=ChannelListResponse)
     def list_channels():
@@ -286,8 +288,10 @@ def create_app() -> FastAPI:
                 interval_hours=body.interval_hours,
             )
             set_complete(tracked, result)
+            bump("queue")
         except Exception as e:
             set_failed(tracked, str(e))
+            bump("queue")
 
     @app.post("/v1/channels/{channel_ref}/runs", response_model=RunResponse, status_code=202)
     def start_run(channel_ref: str, body: RunRequest, background_tasks: BackgroundTasks):

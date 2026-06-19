@@ -59,7 +59,7 @@ def ensure_config_file(config_path: Path) -> None:
 
 
 def _read_raw_config(config_path: Path) -> dict:
-    return read_raw_config(config_path)
+    return read_raw_config(config_path, sync=True, migrate=True)
 
 
 def _write_raw_config(config_path: Path, data: dict) -> None:

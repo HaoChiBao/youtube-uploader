@@ -254,7 +254,7 @@ uploader list --channel justcavefire --scheduled-only
 |-------|-------------|
 | **1** | CLI worker: `queue add/list/upload/remove`, `run`, R2, metadata + scheduling |
 | **2** | Assembler writes S3 URIs + pending jobs; cron on one VM |
-| **3** | HTTP API (`POST /v1/jobs`), Postgres registry, secrets manager |
+| **3** | HTTP API — **Review 1 done:** local FastAPI + dashboard, OAuth web flow, R2 config source of truth, cached `/v1/dashboard`. **Remaining:** `POST /v1/jobs`, Postgres, secrets manager, hosted deploy |
 | **4** | Idempotency, quota tracking, alerts on failure |
 
 ---

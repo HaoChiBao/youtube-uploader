@@ -182,10 +182,29 @@ def config_storage_uri(base: Path) -> str:
     return bucket_layout.config_location(base)
 
 
-def read_raw_config(local_path: Path) -> dict:
-    """Load channels.yaml from R2 (primary) or local disk, migrating local → R2 once."""
+def read_raw_config(
+    local_path: Path,
+    *,
+    sync: bool = False,
+    migrate: bool = False,
+) -> dict:
+    """Load channels.yaml from R2 (primary) or local disk.
+
+    sync/migrate are expensive (R2 list + head requests). Use only for
+    ``storage init``, OAuth, or explicit repair — not routine API reads.
+    """
     local_path = local_path.expanduser().resolve()
     base = config_base_from_path(local_path)
+
+    def _maybe_sync_and_migrate(data: dict) -> dict:
+        changed = False
+        if sync and sync_config_from_storage(data, base):
+            changed = True
+        if migrate and migrate_config_data(data, base):
+            changed = True
+        if changed:
+            write_raw_config(local_path, data)
+        return data
 
     if remote_storage_enabled():
         loc = bucket_layout.config_location(base)
@@ -198,23 +217,13 @@ def read_raw_config(local_path: Path) -> dict:
                 text = _EMPTY_CONFIG
                 write_text(loc, text)
         data = _parse_yaml(text)
-        changed = sync_config_from_storage(data, base)
-        if migrate_config_data(data, base):
-            changed = True
-        if changed:
-            write_raw_config(local_path, data)
-        return data
+        return _maybe_sync_and_migrate(data)
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
     if not local_path.is_file():
         local_path.write_text(_EMPTY_CONFIG, encoding="utf-8")
     data = _parse_yaml(local_path.read_text(encoding="utf-8"))
-    changed = sync_config_from_storage(data, base)
-    if migrate_config_data(data, base):
-        changed = True
-    if changed:
-        write_raw_config(local_path, data)
-    return data
+    return _maybe_sync_and_migrate(data)
 
 
 def write_raw_config(local_path: Path, data: dict) -> None:
@@ -228,11 +237,17 @@ def write_raw_config(local_path: Path, data: dict) -> None:
         write_text(bucket_layout.config_location(base), body)
     local_path.parent.mkdir(parents=True, exist_ok=True)
     local_path.write_text(body, encoding="utf-8")
+    from uploader.cache_signals import bump
+
+    bump("config")
 
 
 def save_token(channel_id: str, token_json: str, *, base: Path) -> str:
     loc = bucket_layout.token_location(channel_id, base)
     write_text(loc, token_json)
+    from uploader.cache_signals import bump
+
+    bump("tokens")
     return loc
 
 
@@ -284,7 +299,7 @@ def ensure_bucket_structure(local_config_path: Path) -> list[str]:
     base = config_base_from_path(local_config_path)
     created: list[str] = []
 
-    data = read_raw_config(local_config_path)
+    data = read_raw_config(local_config_path, sync=True, migrate=True)
 
     config_loc = bucket_layout.config_location(base)
     if not exists(config_loc):

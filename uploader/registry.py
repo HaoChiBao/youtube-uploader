@@ -97,9 +97,12 @@ class UploadRegistry:
         body = "".join(e.to_json() + "\n" for e in entries)
         if self._remote:
             write_text(self.location, body)
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(body, encoding="utf-8")
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(body, encoding="utf-8")
+        from uploader.cache_signals import bump
+
+        bump("queue")
 
     def append(self, entry: UploadEntry) -> None:
         if not entry.created_at:
@@ -107,10 +110,13 @@ class UploadRegistry:
         line = entry.to_json() + "\n"
         if self._remote:
             append_line(self.location, line)
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(line)
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as f:
+                f.write(line)
+        from uploader.cache_signals import bump
+
+        bump("queue")
 
     def pending(self, channel_id: str | None = None) -> list[UploadEntry]:
         entries = [e for e in self.load() if e.status == STATUS_PENDING]

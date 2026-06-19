@@ -128,8 +128,22 @@ Interactive API docs: http://127.0.0.1:8000/docs
 
 Set `UPLOADER_API_PUBLIC_URL=http://127.0.0.1:8000` in `.env` if using a different host/port.
 
+The dashboard uses **`GET /v1/dashboard`** (one request for channels + queue). In-memory caching keeps repeat loads fast (~100ms vs ~20s before optimization).
+
+**Cache invalidation** (automatic — no manual flush needed):
+
+| Event | What refreshes |
+|-------|----------------|
+| `queue add` / `queue remove` / upload run | Queue + dashboard |
+| OAuth connect / reauth | Config + tokens + dashboard |
+| `write_raw_config` / `channel add` | Config + dashboard |
+| TTL expiry (fallback) | Dashboard 60s, config 120s, tokens 300s |
+
+Use **Refresh** in the UI (calls `?refresh=true`) to force reload from R2. Routine API reads skip expensive R2 sync/migrate; use `uploader storage init` for full sync.
+
 | Endpoint | Description |
 |----------|-------------|
+| `GET /v1/dashboard` | **Preferred** — channels + pending jobs in one cached request (`?refresh=true` to bypass cache) |
 | `GET /v1/capabilities` | All CLI commands + YouTube features + API routes |
 | `GET /v1/channels` | `{ config_uri, storage, channels[] }` — auth status + pending counts |
 | `GET /v1/jobs?status=pending` | Upload queue |
@@ -439,6 +453,9 @@ Upstream (ai-music-assembler) appends `pending` rows and uploads video files. Th
 | `UPLOADER_DEFAULT_MADE_FOR_KIDS` | Default made-for-kids flag |
 | `UPLOADER_DEFAULT_LANGUAGE` | Default language code (e.g. `en`) |
 | `UPLOADER_DEFAULT_TAGS` | Default comma-separated tags (unset = **no tags**) |
+| `UPLOADER_DASHBOARD_CACHE_TTL` | Dashboard cache max age in seconds (default `60`) |
+| `UPLOADER_CONFIG_CACHE_TTL` | `channels.yaml` cache max age (default `120`) |
+| `UPLOADER_TOKEN_CACHE_TTL` | OAuth token status cache max age (default `300`) |
 
 ## Testing
 
@@ -463,7 +480,14 @@ youtube-uploader/
 │   ├── job_metadata.py        # metadata.json schema + load/write
 │   ├── job_defaults.py        # layered defaults (.env → channels.yaml → CLI)
 │   ├── scheduler.py           # Batch run + run-all
+│   ├── cache_signals.py       # Cache invalidation (API + CLI)
 │   └── storage.py             # URI → local temp file
+├── api/
+│   ├── app.py                 # FastAPI routes
+│   ├── cache.py               # Dashboard + config cache
+│   ├── deps.py
+│   ├── oauth_sessions.py
+│   └── static/index.html      # Local dashboard UI
 ├── cli/main.py
 ├── scripts/
 │   ├── run-channel.sh / .ps1

@@ -48,7 +48,7 @@ def test_sync_config_from_storage_adds_missing_channel(tmp_path: Path, monkeypat
     assert len(data["channels"]) == 1
     assert data["channels"][0]["id"] == "yourdopaminerat"
 
-    loaded = read_raw_config(config_path)
+    loaded = read_raw_config(config_path, sync=True)
     assert any(ch["id"] == "yourdopaminerat" for ch in loaded["channels"])
 
 

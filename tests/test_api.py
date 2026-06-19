@@ -25,6 +25,12 @@ def isolated_api_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         encoding="utf-8",
     )
     monkeypatch.setenv("UPLOADER_CONFIG", str(config_path))
+    try:
+        from api.cache import clear_all_caches
+
+        clear_all_caches()
+    except ImportError:
+        pass
 
 
 @pytest.fixture
@@ -47,6 +53,20 @@ def test_capabilities(client):
     assert "cli_commands" in data
     assert "youtube_features" in data
     assert len(data["youtube_features"]) >= 5
+
+
+def test_dashboard(client):
+    r = client.get("/v1/dashboard")
+    assert r.status_code == 200
+    data = r.json()
+    assert "channels" in data
+    assert "jobs" in data
+    assert "config_uri" in data
+    assert data["cached"] is False
+    r2 = client.get("/v1/dashboard")
+    assert r2.json()["cached"] is True
+    r3 = client.get("/v1/dashboard?refresh=true")
+    assert r3.json()["cached"] is False
 
 
 def test_channels_list(client):

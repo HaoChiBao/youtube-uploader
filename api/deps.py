@@ -7,9 +7,11 @@ from pathlib import Path
 
 from dotenv import find_dotenv, load_dotenv
 
-from uploader.channels import AppConfig, load_config, resolve_channel
+from uploader.channels import AppConfig, resolve_channel
 from uploader.oauth import OAuthSettings, oauth_is_configured, resolve_oauth_settings
 from uploader.state_store import config_base_from_path, config_storage_uri, remote_storage_enabled
+
+from api.cache import get_cached_config
 
 load_dotenv(find_dotenv(usecwd=True))
 
@@ -22,8 +24,8 @@ def config_path() -> Path:
 
 
 def get_app_config() -> AppConfig:
-    """Load channels.yaml fresh from R2 (primary) or local mirror."""
-    return load_config(config_path())
+    """Load channels.yaml (cached; invalidated on config/registry/token changes)."""
+    return get_cached_config(config_path())
 
 
 def get_storage_base() -> Path:

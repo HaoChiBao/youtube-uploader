@@ -107,12 +107,15 @@
       return res.json();
     }
 
-    async function loadChannels() {
-      const data = await api('/v1/channels');
-      const channels = data.channels || data;
+    async function loadDashboard(force) {
+      const qs = force ? '?refresh=true' : '';
+      const data = await api('/v1/dashboard' + qs);
+      dashboardData = data;
+      const channels = data.channels || [];
       const storageEl = document.getElementById('storage-info');
+      const cacheNote = data.cached ? ' · cached' : '';
       if (data.config_uri) {
-        storageEl.textContent = 'Config: ' + data.config_uri + ' (' + (data.storage || 'local') + ')';
+        storageEl.textContent = 'Config: ' + data.config_uri + ' (' + (data.storage || 'local') + ')' + cacheNote;
       } else {
         storageEl.textContent = '';
       }
@@ -122,6 +125,7 @@
       filter.innerHTML = '<option value="">All channels</option>';
       if (!channels.length) {
         tbody.innerHTML = '<tr><td colspan="4">No channels — click Connect YouTube channel</td></tr>';
+        renderJobs([]);
         return channels;
       }
       tbody.innerHTML = channels.map(ch => `
@@ -142,19 +146,21 @@
         filter.appendChild(opt);
       });
       if (prev) filter.value = prev;
+      renderJobs(data.jobs || []);
       return channels;
     }
 
-    async function loadJobs() {
+    let dashboardData = null;
+
+    function renderJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
-      const qs = channel ? '?channel=' + encodeURIComponent(channel) + '&status=pending' : '?status=pending';
-      const jobs = await api('/v1/jobs' + qs);
+      const filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs;
       const tbody = document.getElementById('jobs-body');
-      if (!jobs.length) {
+      if (!filtered.length) {
         tbody.innerHTML = '<tr><td colspan="5">No pending jobs</td></tr>';
         return;
       }
-      tbody.innerHTML = jobs.map((j, i) => `
+      tbody.innerHTML = filtered.map((j, i) => `
         <tr>
           <td>${i + 1}</td>
           <td>${j.channel_id}</td>
@@ -164,6 +170,22 @@
             <button data-remove="${j.channel_id}" data-job="${j.id}">Remove</button>
           </td>
         </tr>`).join('');
+    }
+
+    async function loadChannels() {
+      await loadDashboard(false);
+      return dashboardData ? dashboardData.channels : [];
+    }
+
+    async function loadJobs() {
+      if (dashboardData && dashboardData.jobs) {
+        renderJobs(dashboardData.jobs);
+        return;
+      }
+      const channel = document.getElementById('channel-filter').value;
+      const qs = channel ? '?channel=' + encodeURIComponent(channel) + '&status=pending' : '?status=pending';
+      const jobs = await api('/v1/jobs' + qs);
+      renderJobs(jobs);
     }
 
     async function pollRun(runId) {
@@ -203,8 +225,7 @@
       channelsSection.classList.add('loading-overlay');
       jobsSection.classList.add('loading-overlay');
       try {
-        await loadChannels();
-        await loadJobs();
+        await loadDashboard(true);
       } finally {
         btn.disabled = false;
         btn.classList.remove('refreshing');
@@ -221,7 +242,10 @@
       window.location.href = res.auth_url;
     };
 
-    document.getElementById('channel-filter').onchange = loadJobs;
+    document.getElementById('channel-filter').onchange = () => {
+      if (dashboardData && dashboardData.jobs) renderJobs(dashboardData.jobs);
+      else loadJobs();
+    };
 
     document.getElementById('channels-body').onclick = async (e) => {
       const t = e.target;
