@@ -1,9 +1,18 @@
+# Global defaults for queued video jobs (overridden by .env UPLOADER_DEFAULT_*)
+defaults:
+  privacy: private
+  is_short: false
+  category_id: "10"
+  made_for_kids: false
+  language: en
+  tags: []   # no tags unless you set them per video or per channel
+
 channels:
 - id: justcavefire
   name: Cavefire
   youtube_channel_id: UCAKbpNSZFZ7hYPjuUOOA9bQ
-  token_path: secrets/justcavefire/youtube_token.json
-  registry_path: state/justcavefire/upload_registry.txt
+  token_path: s3://youtuber-uploader/secrets/justcavefire/youtube_token.json
+  registry_path: s3://youtuber-uploader/state/justcavefire/upload_registry.txt
   category_id: '10'
   default_tags: []
   made_for_kids: false
@@ -15,8 +24,8 @@ channels:
 - id: mmmactually
   name: Erm Actually
   youtube_channel_id: UCzwG8QFCn0XbdgMcDbDVSRg
-  token_path: secrets/mmmactually/youtube_token.json
-  registry_path: state/mmmactually/upload_registry.txt
+  token_path: s3://youtuber-uploader/secrets/mmmactually/youtube_token.json
+  registry_path: s3://youtuber-uploader/state/mmmactually/upload_registry.txt
   category_id: '10'
   default_tags: []
   made_for_kids: false

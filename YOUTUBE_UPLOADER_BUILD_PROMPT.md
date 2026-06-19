@@ -18,7 +18,8 @@ Build a new Python project called **youtube-uploader** — a standalone microser
 - Batch processing of pending jobs with staggered publish times
 - Retry transient failures (timeouts, connection errors, HTTP 408/429/5xx) with linear backoff
 - List all videos on a channel; filter to **scheduled only** (private + future `publishAt`)
-- Multi-channel via `config/channels.yaml`
+- Multi-channel via `config/channels.yaml` (dynamic `uploader channel add`)
+- Cloudflare R2 durable storage for config, tokens, registries, and video jobs
 - CLI for cron-based daily runs
 - Resolve video/thumbnail from `file://`, local paths, or `s3://` URIs
 
@@ -72,6 +73,9 @@ youtube-uploader/
 │   ├── registry.py             # UploadEntry, UploadRegistry (JSON-lines)
 │   ├── scheduler.py            # process pending batch, compute publish_at
 │   ├── channels.py             # load channels.yaml
+│   ├── bucket_layout.py      # canonical R2/local paths
+│   ├── object_storage.py       # S3/R2 I/O
+│   ├── state_store.py          # durable config + token persistence
 │   ├── storage.py              # resolve URI → local Path (file + s3)
 │   └── progress.py             # multi-line progress bars for CLI
 ├── cli/
@@ -79,8 +83,8 @@ youtube-uploader/
 └── tests/
     ├── test_registry.py
     ├── test_scheduler.py
-    ├── test_retry.py
-    └── test_storage.py
+    ├── test_bucket_layout.py
+    └── test_state_store.py
 ```
 
 ### Dependencies (`pyproject.toml`)
@@ -115,12 +119,12 @@ Use `pip install .` (not editable on Python 3.14+).
 ```json
 {
   "id": "mv_20260617_180732_01",
-  "channel_id": "channel-a",
+  "channel_id": "justcavefire",
   "status": "pending",
   "title": "YouTube title (final, from upstream)",
   "description": "Full description text, or s3://bucket/path/description.txt",
-  "video_uri": "s3://bucket/videos/channel-a/mv_20260617_180732_01/video.mp4",
-  "thumbnail_uri": "s3://bucket/videos/channel-a/mv_20260617_180732_01/thumbnail.png",
+  "video_uri": "s3://bucket/queue/justcavefire/job-001/video.mp4",
+  "thumbnail_uri": "s3://bucket/queue/justcavefire/job-001/thumbnail.png",
   "youtube_id": "",
   "youtube_url": "",
   "publish_at": "",
@@ -138,7 +142,24 @@ Registry API:
 - `pending(channel_id=None) -> list[UploadEntry]`
 - `append(entry)`, `mark_uploading(id)`, `mark_uploaded(id, youtube_id, publish_at)`, `mark_failed(id, error)`
 
-Default registry path: `state/{channel_id}/upload_registry.txt` (configurable).
+Default registry path: `state/{channel_id}/upload_registry.txt` (or `s3://bucket/state/...` when R2 configured).
+
+### Cloudflare R2 bucket layout
+
+```
+{bucket}/config/channels.yaml
+{bucket}/secrets/{channel_id}/youtube_token.json
+{bucket}/state/{channel_id}/channel.meta.json
+{bucket}/state/{channel_id}/upload_registry.txt
+{bucket}/queue/{channel_id}/{job_id}/video.mp4
+{bucket}/queue/{channel_id}/{job_id}/thumbnail.png
+{bucket}/queue/{channel_id}/{job_id}/metadata.json
+{bucket}/uploaded/{channel_id}/{job_id}/
+```
+
+Env: `CLOUDFLARE_R2_*`. Defaults: `UPLOADER_DEFAULT_*` in `.env`, `defaults:` in channels.yaml.
+
+Init: `uploader storage init`. Stage: `uploader queue add`. Library: `job_store.stage_job()`, `job_metadata.JobMetadata`.
 
 **Backward compatibility:** also accept legacy rows where `video` is a local path and `description` is a path to a `.txt` file (read file contents).
 
@@ -148,10 +169,10 @@ Default registry path: `state/{channel_id}/upload_registry.txt` (configurable).
 
 ```yaml
 channels:
-  - id: channel-a
-    name: "My Channel"
-    token_path: secrets/channel-a/youtube_token.json
-    registry_path: state/channel-a/upload_registry.txt
+  - id: justcavefire
+    name: "Just Cavefire"
+    token_path: s3://bucket/secrets/justcavefire/youtube_token.json
+    registry_path: s3://bucket/state/justcavefire/upload_registry.txt
     category_id: "10"
     default_tags: [lofi, chill]
     made_for_kids: false
@@ -161,29 +182,45 @@ channels:
       interval_hours: 24
 
 google:
-  client_secret_path: secrets/shared/client_secret.json
-  oauth_port: 8080
+  oauth_port: 8765
 ```
+
+OAuth credentials come from `.env` (`GOOGLE_CLIENT_ID`, etc.). When R2 is configured, `channel add` and `storage init` write canonical `s3://` paths automatically.
 
 ---
 
 ### CLI commands (implement all)
 
 ```bash
-# OAuth — opens browser, saves refresh token for channel
-uploader auth --channel channel-a
+# OAuth — opens browser, saves channel by YouTube name/handle
+uploader channel add
+uploader channel list
+uploader channel reauth <ref>
+
+# Initialize Cloudflare R2 bucket layout
+uploader storage init
+
+# Stage a video into queue/ + register as pending (preferred)
+uploader queue add --channel justcavefire --video ./test.mp4 --title "Test" --description "Desc"
 
 # Preview schedule for pending jobs (no upload)
-uploader plan --channel channel-a [--start "2026-06-21 09:00"] [--interval-hours 24]
+uploader plan --channel justcavefire [--start "2026-06-21 09:00"] [--interval-hours 24]
 
-# Process all pending for channel
-uploader run --channel channel-a [--upload-retries 5] [--retry-delay 30] [--limit N]
+# Process all pending for one channel or all channels
+uploader run --channel justcavefire [--upload-retries 5] [--retry-delay 30] [--limit N]
+uploader run-all [--upload-retries 5]
+
+# Quick test upload (bypass registry)
+uploader test --channel justcavefire --video ./test.mp4
+uploader upload --channel justcavefire --video ./test.mp4 --title "Test"
 
 # List videos on YouTube
-uploader list --channel channel-a [--scheduled-only]
+uploader list --channel justcavefire [--scheduled-only]
 
-# Append a job manually (for testing)
-uploader enqueue --channel channel-a --id test_01 --video ./test.mp4 --title "Test" --description "Desc"
+# Append registry row only (when URIs already exist)
+uploader enqueue --channel justcavefire --id test_01 \
+  --video s3://bucket/queue/justcavefire/test_01/video.mp4 \
+  --title "Test" --description "Desc"
 ```
 
 **`uploader run` flow:**
@@ -236,11 +273,11 @@ The video assembler will produce jobs like:
 ```json
 {
   "id": "mv_20260617_180732_01",
-  "channel_id": "channel-a",
+  "channel_id": "justcavefire",
   "title": "...",
   "description": "... with YouTube chapter timestamps ...",
-  "video_uri": "s3://bucket/videos/channel-a/mv_.../mv_..._video.mp4",
-  "thumbnail_uri": "s3://bucket/videos/channel-a/mv_.../mv_..._thumbnail.png"
+  "video_uri": "s3://bucket/queue/justcavefire/job-001/video.mp4",
+  "thumbnail_uri": "s3://bucket/queue/justcavefire/job-001/thumbnail.png"
 }
 ```
 
@@ -252,8 +289,8 @@ Uploader owns everything after that.
 
 1. Enable YouTube Data API v3
 2. OAuth consent screen
-3. OAuth client (Desktop app for `uploader auth`)
-4. Register redirect: `http://localhost:8080` (no trailing slash)
+3. OAuth Web app client → `uploader channel add`
+4. Register redirect: `http://localhost:8765` and `http://127.0.0.1:8765` (no trailing slash)
 5. Verified channel required for custom thumbnails
 
 ---

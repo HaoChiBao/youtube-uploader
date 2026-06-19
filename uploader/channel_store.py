@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import re
-import shutil
 from pathlib import Path
 
-import yaml
-
 from uploader.channel_info import AuthorizedChannelInfo, get_authorized_channel_info
-from uploader.channels import ChannelConfig, PublishConfig, _resolve_path
-from uploader.object_storage import is_s3_uri, registry_uri, storage_bucket
+from uploader import bucket_layout
+from uploader.channels import ChannelConfig, PublishConfig
 from uploader.oauth import OAuthSettings
+from uploader.state_store import init_channel_storage, read_raw_config, save_token, write_raw_config
 from uploader.youtube_client import get_credentials
 
 _PENDING_TOKEN = Path("secrets/.oauth_pending/youtube_token.json")
@@ -57,26 +55,15 @@ def _config_base(config_path: Path) -> Path:
 
 def ensure_config_file(config_path: Path) -> None:
     """Create an empty channels.yaml if it does not exist."""
-    config_path = config_path.expanduser().resolve()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    if not config_path.is_file():
-        config_path.write_text(
-            "channels: []\n\ngoogle:\n  oauth_port: 8080\n",
-            encoding="utf-8",
-        )
+    read_raw_config(config_path.expanduser().resolve())
 
 
 def _read_raw_config(config_path: Path) -> dict:
-    ensure_config_file(config_path)
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    if "channels" not in data:
-        data["channels"] = []
-    return data
+    return read_raw_config(config_path)
 
 
 def _write_raw_config(config_path: Path, data: dict) -> None:
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(yaml.safe_dump(data, sort_keys=False, default_flow_style=False), encoding="utf-8")
+    write_raw_config(config_path, data)
 
 
 def _channel_entry_dict(
@@ -84,18 +71,17 @@ def _channel_entry_dict(
     channel_id: str,
     name: str,
     youtube_channel_id: str,
+    base: Path,
     custom_url: str = "",
     publish: PublishConfig | None = None,
 ) -> dict:
     pub = publish or PublishConfig()
-    bucket = storage_bucket()
-    reg_path = registry_uri(channel_id) if bucket else f"state/{channel_id}/upload_registry.txt"
     entry: dict = {
         "id": channel_id,
         "name": name,
         "youtube_channel_id": youtube_channel_id,
-        "token_path": f"secrets/{channel_id}/youtube_token.json",
-        "registry_path": reg_path,
+        "token_path": bucket_layout.token_location(channel_id, base),
+        "registry_path": bucket_layout.registry_location(channel_id, base),
         "category_id": "10",
         "default_tags": [],
         "made_for_kids": False,
@@ -166,14 +152,26 @@ def add_and_authenticate_channel(
     existing = _existing_youtube_ids(data)
     channel_id = make_unique_channel_id(base_id, info.youtube_channel_id, existing)
 
-    token_path = _resolve_path(f"secrets/{channel_id}/youtube_token.json", base)
-    token_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(_PENDING_TOKEN), str(token_path))
+    token_loc = save_token(
+        channel_id,
+        _PENDING_TOKEN.read_text(encoding="utf-8"),
+        base=base,
+    )
+    _PENDING_TOKEN.unlink(missing_ok=True)
+
+    init_channel_storage(
+        channel_id,
+        base=base,
+        name=info.title,
+        youtube_channel_id=info.youtube_channel_id,
+        custom_url=info.custom_url,
+    )
 
     entry = _channel_entry_dict(
         channel_id=channel_id,
         name=info.title,
         youtube_channel_id=info.youtube_channel_id,
+        base=base,
         custom_url=info.custom_url,
         publish=publish,
     )
@@ -186,18 +184,11 @@ def add_and_authenticate_channel(
 
     _write_raw_config(config_path, data)
 
-    reg = entry["registry_path"]
-    if not is_s3_uri(reg):
-        registry_path = _resolve_path(reg, base)
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
-    else:
-        registry_path = reg
-
     return ChannelConfig(
         id=channel_id,
         name=info.title,
-        token_path=token_path,
-        registry_path=registry_path,
+        token_path=token_loc,
+        registry_path=entry["registry_path"],
         youtube_channel_id=info.youtube_channel_id,
         custom_url=info.custom_url,
         publish=publish or PublishConfig(),
@@ -243,6 +234,15 @@ def reauthenticate_channel(
         if info.custom_url:
             entry["custom_url"] = info.custom_url
         _write_raw_config(config_path, data)
+
+    base = _config_base(config_path)
+    init_channel_storage(
+        channel.id,
+        base=base,
+        name=info.title,
+        youtube_channel_id=info.youtube_channel_id,
+        custom_url=info.custom_url or channel.custom_url,
+    )
 
     return ChannelConfig(
         id=channel.id,

@@ -38,7 +38,7 @@ def _parse_api_datetime(value: str) -> datetime:
 
 
 def _build_youtube(
-    token_path: Path,
+    token_path: str | Path,
     *,
     client_secret: Path | None = None,
     client_config: dict | None = None,
@@ -89,7 +89,7 @@ def _iter_upload_video_ids(youtube, playlist_id: str) -> list[str]:
 
 
 def list_channel_videos(
-    token_path: Path,
+    token_path: str | Path,
     *,
     client_secret: Path | None = None,
     client_config: dict | None = None,

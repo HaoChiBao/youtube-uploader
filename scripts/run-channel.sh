@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Cron entrypoint: process pending uploads for one channel.
-# Usage: scripts/run-channel.sh channel-a
+# Usage: scripts/run-channel.sh justcavefire
 # Crontab example:
-#   0 3 * * * /path/to/youtube-uploader/scripts/run-channel.sh channel-a
+#   0 3 * * * /path/to/youtube-uploader/scripts/run-channel.sh justcavefire
 
 set -euo pipefail
 
-CHANNEL="${1:-${UPLOADER_DEFAULT_CHANNEL:-channel-a}}"
+CHANNEL="${1:-${UPLOADER_DEFAULT_CHANNEL:-justcavefire}}"
 RETRIES="${UPLOADER_UPLOAD_RETRIES:-5}"
 LOG_DIR="${UPLOADER_LOG_DIR:-logs}"
 

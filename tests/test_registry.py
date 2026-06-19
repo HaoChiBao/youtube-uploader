@@ -66,6 +66,18 @@ def test_mark_uploading_uploaded_failed(tmp_path: Path) -> None:
     assert failed.error == "timeout"
 
 
+def test_pending_preserves_fifo_order(tmp_path: Path) -> None:
+    reg_path = tmp_path / "registry.txt"
+    registry = UploadRegistry(reg_path)
+    registry.append(UploadEntry(id="first", channel_id="channel-a"))
+    registry.append(UploadEntry(id="second", channel_id="channel-a"))
+    registry.append(UploadEntry(id="third", channel_id="channel-a"))
+
+    pending = registry.pending(channel_id="channel-a")
+    assert [e.id for e in pending] == ["first", "second", "third"]
+    assert [e.id for e in pending[:1]] == ["first"]
+
+
 def test_legacy_video_field(tmp_path: Path) -> None:
     reg_path = tmp_path / "registry.txt"
     registry = UploadRegistry(reg_path)

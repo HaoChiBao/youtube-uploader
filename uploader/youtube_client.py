@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import errno
+import json
 import os
 import socket
 import time
 from collections.abc import Callable
 from pathlib import Path
+
+from uploader.object_storage import exists, read_text, write_text
 
 # YouTube Data API v3 scopes used by this service:
 # - youtube.upload:     insert videos, set thumbnails, schedule on upload (publishAt)
@@ -128,7 +131,7 @@ def _oauth_prompt(*, force_reauth: bool, oauth_prompt: str | None) -> str:
 
 
 def get_credentials(
-    token_path: Path,
+    token_path: str | Path,
     *,
     client_secret: Path | None = None,
     client_config: dict | None = None,
@@ -148,12 +151,15 @@ def get_credentials(
     Request, Credentials, InstalledAppFlow, _build, _HttpError, _Media = _require_google_libs()
 
     creds = None
-    if not force_reauth and token_path.is_file():
+    loc = str(token_path)
+    if not force_reauth and exists(loc):
         try:
-            creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-            if _credentials_need_reauth(creds):
+            text = read_text(loc)
+            if text.strip():
+                creds = Credentials.from_authorized_user_info(json.loads(text), SCOPES)
+            if creds and _credentials_need_reauth(creds):
                 creds = None
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, json.JSONDecodeError):
             creds = None
 
     if not creds or not creds.valid:
@@ -197,8 +203,7 @@ def get_credentials(
                     "(look for 'YouTube Uploader' or your Google Cloud project), "
                     "then run: uploader channel add"
                 )
-        token_path.parent.mkdir(parents=True, exist_ok=True)
-        token_path.write_text(creds.to_json(), encoding="utf-8")
+        write_text(loc, creds.to_json())
     return creds
 
 
@@ -207,7 +212,7 @@ def upload_video(
     *,
     title: str,
     description: str,
-    token_path: Path,
+    token_path: str | Path,
     client_secret: Path | None = None,
     client_config: dict | None = None,
     privacy: str = DEFAULT_PRIVACY,

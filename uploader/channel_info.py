@@ -16,7 +16,7 @@ class AuthorizedChannelInfo:
 
 
 def get_authorized_channel_info(
-    token_path: Path,
+    token_path: str | Path,
     *,
     client_secret: Path | None = None,
     client_config: dict | None = None,

@@ -1,12 +1,12 @@
 # Windows Task Scheduler / manual cron equivalent.
-# Usage: .\scripts\run-channel.ps1 channel-a
+# Usage: .\scripts\run-channel.ps1 justcavefire
 
 param(
     [string]$Channel = $env:UPLOADER_DEFAULT_CHANNEL
 )
 
 $ErrorActionPreference = "Stop"
-if (-not $Channel) { $Channel = "channel-a" }
+if (-not $Channel) { $Channel = "justcavefire" }
 
 $Retries = if ($env:UPLOADER_UPLOAD_RETRIES) { $env:UPLOADER_UPLOAD_RETRIES } else { "5" }
 $LogDir = if ($env:UPLOADER_LOG_DIR) { $env:UPLOADER_LOG_DIR } else { "logs" }

@@ -14,7 +14,10 @@ from uploader.channels import AppConfig, ChannelConfig, get_channel
 from uploader.progress import MultiProgress
 from uploader.registry import UploadEntry, UploadRegistry
 from uploader.storage import load_description, resolve_to_local_path
+from uploader.job_metadata import load_job_metadata
+from uploader.job_store import archive_job_from_entry
 from uploader.oauth import resolve_oauth_settings
+from uploader.state_store import config_base_from_path
 from uploader.youtube_client import upload_video_with_retry
 
 
@@ -79,7 +82,7 @@ def run_channel(
     interval_hours: float | None = None,
     limit: int | None = None,
     no_schedule: bool = False,
-    privacy: str = "private",
+    privacy: str | None = None,
     upload_retries: int = 3,
     retry_delay: float = 30.0,
     tags: list[str] | None = None,
@@ -111,7 +114,10 @@ def run_channel(
         oauth_port=config.google.oauth_port,
     )
     token_path = channel.token_path
-    effective_tags = tags if tags is not None else channel.default_tags
+    import os
+
+    config_path = Path(os.environ.get("UPLOADER_CONFIG", "config/channels.yaml")).expanduser().resolve()
+    base = config_base_from_path(config_path)
 
     labels = [entry.id for entry, _ in plan]
     results: dict[int, tuple[str, str]] = {}
@@ -127,8 +133,27 @@ def run_channel(
                     raise FileNotFoundError("No video_uri or video path on entry")
 
                 video_path = resolve_to_local_path(video_uri, temp_dir=tmp_root)
-                description = load_description(entry.description)
-                title = entry.title or entry.id
+                job_meta = load_job_metadata(
+                    entry, base=base, channel=channel, config_defaults=config.job_defaults
+                )
+                if job_meta:
+                    description = job_meta.description or load_description(entry.description)
+                    title = job_meta.title or entry.title or entry.id
+                    effective_privacy = privacy if privacy is not None else job_meta.privacy
+                    effective_category = job_meta.category_id or channel.category_id
+                    effective_made_for_kids = job_meta.made_for_kids
+                    effective_tags = (
+                        tags
+                        if tags is not None
+                        else (job_meta.effective_tags() or channel.default_tags)
+                    )
+                else:
+                    description = load_description(entry.description)
+                    title = entry.title or entry.id
+                    effective_privacy = privacy or "private"
+                    effective_category = channel.category_id
+                    effective_made_for_kids = channel.made_for_kids
+                    effective_tags = tags if tags is not None else channel.default_tags
 
                 thumb_path = None
                 thumb_uri = entry.resolved_thumbnail_uri()
@@ -158,10 +183,10 @@ def run_channel(
                     client_secret=oauth.client_secret_path,
                     client_config=oauth.client_config,
                     token_path=token_path,
-                    privacy=privacy,
-                    category_id=channel.category_id,
+                    privacy=effective_privacy,
+                    category_id=effective_category,
                     tags=effective_tags or None,
-                    made_for_kids=channel.made_for_kids,
+                    made_for_kids=effective_made_for_kids,
                     thumbnail_path=thumb_path,
                     publish_at=publish_at or None,
                     oauth_port=oauth.oauth_port,
@@ -170,6 +195,13 @@ def run_channel(
 
                 youtube_id = response.get("id", "")
                 registry.mark_uploaded(entry.id, youtube_id=youtube_id, publish_at=publish_at)
+                try:
+                    archive_job_from_entry(entry, base=base)
+                except Exception as archive_err:
+                    print(
+                        f"  warning: could not archive {entry.id} to uploaded/: {archive_err}",
+                        file=sys.stderr,
+                    )
                 result.uploaded += 1
                 url = f"https://youtu.be/{youtube_id}"
                 result.urls.append(url)
@@ -206,7 +238,7 @@ def run_all_channels(
     interval_hours: float | None = None,
     limit: int | None = None,
     no_schedule: bool = False,
-    privacy: str = "private",
+    privacy: str | None = None,
     upload_retries: int = 3,
     retry_delay: float = 30.0,
     tags: list[str] | None = None,

@@ -103,12 +103,12 @@ Each finished video becomes one registry entry or API job:
 ```json
 {
   "id": "mv_20260617_180732_01",
-  "channel_id": "channel-a",
+  "channel_id": "justcavefire",
   "status": "pending",
   "title": "Final YouTube title (from assembler metadata step)",
   "description": "Full description text with chapters",
-  "video_uri": "s3://bucket/videos/channel-a/mv_…/video.mp4",
-  "thumbnail_uri": "s3://bucket/videos/channel-a/mv_…/thumbnail.png"
+  "video_uri": "s3://bucket/queue/justcavefire/job-001/video.mp4",
+  "thumbnail_uri": "s3://bucket/queue/justcavefire/job-001/thumbnail.png"
 }
 ```
 
@@ -118,27 +118,32 @@ The uploader downloads from `video_uri`, uploads to YouTube, sets schedule, mark
 
 ## Multi-channel setup
 
+Channels are registered dynamically — no hardcoded `channel-a` / `channel-b`:
+
+```bash
+uploader channel add    # OAuth in browser; id = @handle or channel name
+uploader channel list
+```
+
 ```yaml
-# config/channels.yaml (in uploader repo)
+# config/channels.yaml (auto-populated by channel add)
 channels:
-  - id: channel-a
-    token_secret: secrets/channel-a/youtube_token.json
+  - id: justcavefire
+    name: Cavefire
+    youtube_channel_id: UC...
+    custom_url: '@justcavefire'
+    token_path: s3://bucket/secrets/justcavefire/youtube_token.json   # or local path
+    registry_path: s3://bucket/state/justcavefire/upload_registry.txt
     publish:
       timezone: America/New_York
       hour: 9
       interval_hours: 24
 
-  - id: channel-b
-    token_secret: secrets/channel-b/youtube_token.json
-    publish:
-      hour: 12
-      interval_hours: 24
-
 google:
-  client_secret: secrets/shared/google_oauth_client.json
+  oauth_port: 8765
 ```
 
-Authorize each channel once (`uploader auth --channel X`), store token in secrets manager in production.
+Google OAuth credentials go in `.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). Authorize each channel once; tokens persist in R2 when `CLOUDFLARE_R2_BUCKET` is set.
 
 ---
 
@@ -160,27 +165,77 @@ flowchart TB
 
 ---
 
-## CLI commands (new repo)
+## Cloudflare R2 bucket layout
+
+When `CLOUDFLARE_R2_BUCKET` is configured, durable state lives in R2:
+
+```
+{bucket}/config/channels.yaml
+{bucket}/secrets/{channel_id}/youtube_token.json
+{bucket}/state/{channel_id}/channel.meta.json
+{bucket}/state/{channel_id}/upload_registry.txt
+{bucket}/queue/{channel_id}/{job_id}/
+  video.mp4, thumbnail.png, title.txt, description.txt
+  metadata.json, privacy.txt, is_short.txt, manifest.json
+{bucket}/uploaded/{channel_id}/{job_id}/   # archived after YouTube upload
+```
+
+Initialize with `uploader storage init`. Stage with `uploader queue add`. Defaults: `.env` `UPLOADER_DEFAULT_*` → `channels.yaml` `defaults:` → per-channel → CLI flags.
+
+## CLI commands (youtube-uploader repo)
+
+Activate `.venv` then use `uploader …` (entry point: `pyproject.toml` → `cli.main:main`).
+
+### Channels & auth
+
+| Command | Description |
+|---------|-------------|
+| `uploader channel add` | OAuth in browser; save channel by @handle or name |
+| `uploader channel list` | List configured channels |
+| `uploader channel reauth <ref>` | Re-authenticate one channel |
+| `uploader channels` | Alias for `channel list` |
+
+### Storage
+
+| Command | Description |
+|---------|-------------|
+| `uploader storage init` | Create R2/local layout; migrate existing data |
+
+### Queue & scheduler
+
+| Command | Description |
+|---------|-------------|
+| `uploader queue add --channel X --video PATH --title "…"` | Stage job folder to `queue/` + `pending` registry row |
+| `uploader plan --channel X` | Preview publish schedule (dry run) |
+| `uploader run --channel X` | Upload all pending jobs for one channel |
+| `uploader run-all` | Upload pending jobs for every channel |
+| `uploader list --channel X [--scheduled-only]` | List videos on YouTube |
+
+### Direct upload & testing
+
+| Command | Description |
+|---------|-------------|
+| `uploader test --channel X --video PATH` | Quick private test upload |
+| `uploader upload --channel X --video PATH` | Single direct upload |
+| `uploader enqueue …` | Append registry row (when URIs already exist) |
+
+**Example — stage then run:**
 
 ```bash
-# One-time per channel (browser OAuth)
-uploader auth --channel channel-a
+uploader queue add --channel justcavefire \
+  --video ./my-video.mp4 --title "My Title" --description "…"
 
-# Preview publish schedule
-uploader plan --channel channel-a --start "2026-06-21 09:00" --interval-hours 24
-
-# Upload all pending
-uploader run --channel channel-a --upload-retries 5
-
-# Verify on YouTube
-uploader list --channel channel-a --scheduled-only
+uploader plan --channel justcavefire --start "2026-06-21 09:00" --interval-hours 24
+uploader run --channel justcavefire --upload-retries 5
+uploader list --channel justcavefire --scheduled-only
 ```
 
 **Daily cron example:**
 
 ```cron
-0 3 * * * uploader run --channel channel-a --upload-retries 5
-0 4 * * * uploader run --channel channel-b --upload-retries 5
+0 3 * * * /path/to/scripts/run-channel.sh justcavefire
+0 4 * * * /path/to/scripts/run-channel.sh mmmactually
+# or: scripts/run-all-channels.sh
 ```
 
 ---
@@ -189,7 +244,7 @@ uploader list --channel channel-a --scheduled-only
 
 | Phase | Deliverable |
 |-------|-------------|
-| **1** | Copy modules, CLI (`auth`, `run`, `plan`, `list`), file-based registry |
+| **1** | CLI worker: `queue add`, `run`, R2 storage, job metadata + defaults |
 | **2** | Assembler writes S3 URIs + pending jobs; cron on one VM |
 | **3** | HTTP API (`POST /v1/jobs`), Postgres registry, secrets manager |
 | **4** | Idempotency, quota tracking, alerts on failure |
@@ -223,8 +278,9 @@ generate-music-videos -n 1 --thumbnail-text "OMYO" --workers 2
 # → sync to S3 + write pending registry row
 
 # youtube-uploader (new repo)
-uploader run --channel channel-a --upload-retries 5
-uploader list --channel channel-a --scheduled-only
+uploader run --channel justcavefire --upload-retries 5
+uploader run-all
+uploader list --channel justcavefire --scheduled-only
 ```
 
 ---

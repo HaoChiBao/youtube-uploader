@@ -159,3 +159,13 @@ class UploadRegistry:
             e.error = error
 
         self._update_entry(entry_id, _upd)
+
+    def remove(self, entry_id: str) -> UploadEntry:
+        """Remove a registry row by job id. Returns the removed entry."""
+        entries = self.load()
+        for i, e in enumerate(entries):
+            if e.id == entry_id:
+                removed = entries.pop(i)
+                self._write_all(entries)
+                return removed
+        raise ValueError(f"Job not found in registry: {entry_id}")

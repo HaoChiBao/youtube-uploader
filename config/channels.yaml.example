@@ -1,7 +1,30 @@
 # Channels are added via: uploader channel add
 # Each entry is created automatically from the YouTube channel name / @handle.
+#
+# When CLOUDFLARE_R2_BUCKET is set in .env, paths resolve to s3:// URIs automatically.
+# Run `uploader storage init` once to create the bucket layout and migrate local data.
+
+# Global defaults for queued video jobs (overridden by .env UPLOADER_DEFAULT_*)
+defaults:
+  privacy: private
+  is_short: false
+  category_id: "10"
+  made_for_kids: false
+  language: en
+  tags: []   # empty = no YouTube tags (recommended default for any channel)
+
+# Example entry after channel add (R2):
+#   id: justcavefire
+#   token_path: s3://your-bucket/secrets/justcavefire/youtube_token.json
+#   registry_path: s3://your-bucket/state/justcavefire/upload_registry.txt
+#
+# Per-channel upload overrides (optional):
+#   upload_defaults:
+#     privacy: public
+#     is_short: true
+#     tags: [lofi, chill]
 
 channels: []
 
 google:
-  oauth_port: 8080
+  oauth_port: 8765

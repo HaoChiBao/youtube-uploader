@@ -6,9 +6,10 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
-
-from uploader.object_storage import is_s3_uri, storage_bucket
+from uploader import bucket_layout
+from uploader.object_storage import is_s3_uri
+from uploader.job_defaults import JobDefaults, global_job_defaults
+from uploader.state_store import read_raw_config
 
 
 @dataclass
@@ -22,11 +23,14 @@ class PublishConfig:
 class ChannelConfig:
     id: str
     name: str = ""
-    token_path: Path = field(default_factory=lambda: Path("youtube_token.json"))
+    token_path: str = "youtube_token.json"
     registry_path: str = "state/channel-a/upload_registry.txt"
     category_id: str = "10"
     default_tags: list[str] = field(default_factory=list)
     made_for_kids: bool = False
+    default_privacy: str = ""
+    default_is_short: bool | None = None
+    default_language: str = ""
     publish: PublishConfig = field(default_factory=PublishConfig)
     youtube_channel_id: str = ""
     custom_url: str = ""
@@ -44,21 +48,24 @@ class GoogleConfig:
 class AppConfig:
     channels: list[ChannelConfig]
     google: GoogleConfig
+    job_defaults: JobDefaults = field(default_factory=JobDefaults)
 
 
 def _resolve_registry_path(value: str | Path, base: Path, channel_id: str) -> str:
-    bucket = storage_bucket()
     text = str(value).strip() if value else ""
-    if not text:
-        if bucket:
-            return f"s3://{bucket}/state/{channel_id}/upload_registry.txt"
-        text = f"state/{channel_id}/upload_registry.txt"
+    if not text or bucket_layout.is_default_registry_ref(text, channel_id):
+        return bucket_layout.registry_location(channel_id, base)
     if is_s3_uri(text):
         return text
-    normalized = text.replace("\\", "/").lstrip("./")
-    default_local = f"state/{channel_id}/upload_registry.txt"
-    if bucket and normalized == default_local:
-        return f"s3://{bucket}/state/{channel_id}/upload_registry.txt"
+    return str(_resolve_path(text, base))
+
+
+def _resolve_token_path(value: str | Path, base: Path, channel_id: str) -> str:
+    text = str(value).strip() if value else ""
+    if not text or bucket_layout.is_default_token_ref(text, channel_id):
+        return bucket_layout.token_location(channel_id, base)
+    if is_s3_uri(text):
+        return text
     return str(_resolve_path(text, base))
 
 
@@ -79,12 +86,8 @@ def load_config(path: Path | None = None) -> AppConfig:
             path = Path("config/channels.yaml")
 
     path = path.expanduser().resolve()
-    if not path.is_file():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("channels: []\n\ngoogle:\n  oauth_port: 8080\n", encoding="utf-8")
-
     base = path.parent.parent if path.parent.name == "config" else path.parent
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = read_raw_config(path)
 
     google_raw = data.get("google") or {}
     client_secret = google_raw.get("client_secret_path") or google_raw.get("client_secret")
@@ -99,22 +102,49 @@ def load_config(path: Path | None = None) -> AppConfig:
         oauth_port=oauth_port,
     )
 
+    job_defaults = JobDefaults.overlay_from_dict(
+        global_job_defaults(),
+        data.get("defaults"),
+    )
+
     channels: list[ChannelConfig] = []
     for raw in data.get("channels") or []:
         channel_id = raw["id"]
-        token = raw.get("token_path") or raw.get("token_secret") or f"secrets/{channel_id}/youtube_token.json"
+        token = raw.get("token_path") or raw.get("token_secret") or ""
         registry = raw.get("registry_path") or ""
         publish_raw = raw.get("publish") or {}
+        upload_raw = raw.get("upload_defaults") or raw.get("upload") or {}
+
+        default_privacy = str(
+            upload_raw.get("privacy") or raw.get("default_privacy") or ""
+        ).strip()
+        default_language = str(
+            upload_raw.get("language") or raw.get("default_language") or ""
+        ).strip()
+        default_is_short: bool | None = None
+        if "is_short" in upload_raw:
+            default_is_short = bool(upload_raw["is_short"])
+        elif "default_is_short" in raw:
+            default_is_short = bool(raw["default_is_short"])
 
         channels.append(
             ChannelConfig(
                 id=channel_id,
                 name=raw.get("name", channel_id),
-                token_path=_resolve_path(token, base),
+                token_path=_resolve_token_path(token, base, channel_id),
                 registry_path=_resolve_registry_path(registry, base, channel_id),
-                category_id=str(raw.get("category_id", "10")),
-                default_tags=list(raw.get("default_tags") or []),
-                made_for_kids=bool(raw.get("made_for_kids", False)),
+                category_id=str(
+                    upload_raw.get("category_id") or raw.get("category_id", "10")
+                ),
+                default_tags=list(upload_raw.get("tags") or raw.get("default_tags") or []),
+                made_for_kids=bool(
+                    upload_raw.get("made_for_kids")
+                    if "made_for_kids" in upload_raw
+                    else raw.get("made_for_kids", False)
+                ),
+                default_privacy=default_privacy,
+                default_is_short=default_is_short,
+                default_language=default_language,
                 publish=PublishConfig(
                     timezone=publish_raw.get("timezone", "America/New_York"),
                     hour=int(publish_raw.get("hour", 9)),
@@ -125,11 +155,7 @@ def load_config(path: Path | None = None) -> AppConfig:
             )
         )
 
-    if not channels:
-        # Empty config is valid until the user runs `uploader channel add`.
-        pass
-
-    return AppConfig(channels=channels, google=google)
+    return AppConfig(channels=channels, google=google, job_defaults=job_defaults)
 
 
 def resolve_channel(config: AppConfig, ref: str) -> ChannelConfig:
