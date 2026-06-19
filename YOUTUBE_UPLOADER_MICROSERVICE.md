@@ -389,8 +389,11 @@ def to_rfc3339_utc(dt: datetime) -> str:
 
 ```bash
 GOOGLE_CLIENT_SECRET_PATH=/secrets/shared/google_oauth_client.json
-UPLOADER_REGISTRY_URI=s3://bucket/state/
-AWS_REGION=us-east-1
+CLOUDFLARE_R2_BUCKET=your-bucket
+CLOUDFLARE_R2_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com
+CLOUDFLARE_R2_REGION=auto
+CLOUDFLARE_R2_ACCESS_KEY_ID=...
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=...
 UPLOADER_API_KEY=...                    # if HTTP API
 ```
 

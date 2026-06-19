@@ -196,3 +196,36 @@ def run_channel(
             print(f"  {entry.id}: https://youtu.be/{youtube_id}  ({when})", file=sys.stderr)
 
     return result
+
+
+def run_all_channels(
+    config: AppConfig,
+    *,
+    dry_run: bool = False,
+    start: str | None = None,
+    interval_hours: float | None = None,
+    limit: int | None = None,
+    no_schedule: bool = False,
+    privacy: str = "private",
+    upload_retries: int = 3,
+    retry_delay: float = 30.0,
+    tags: list[str] | None = None,
+) -> list[RunResult]:
+    """Process pending uploads for every configured channel."""
+    results: list[RunResult] = []
+    for channel in config.channels:
+        result = run_channel(
+            channel.id,
+            config,
+            dry_run=dry_run,
+            start=start,
+            interval_hours=interval_hours,
+            limit=limit,
+            no_schedule=no_schedule,
+            privacy=privacy,
+            upload_retries=upload_retries,
+            retry_delay=retry_delay,
+            tags=tags,
+        )
+        results.append(result)
+    return results

@@ -12,7 +12,7 @@ from uploader.channel_store import (
     _read_raw_config,
     find_channel_index,
 )
-from uploader.channels import resolve_channel, ChannelConfig, AppConfig, PublishConfig, GoogleConfig
+from uploader.channels import resolve_channel, ChannelConfig, AppConfig, PublishConfig, GoogleConfig, _resolve_registry_path
 
 
 def test_slugify_handle():
@@ -77,3 +77,24 @@ def test_read_raw_config_creates_file(tmp_path: Path):
     data = _read_raw_config(path)
     assert data["channels"] == []
     assert path.is_file()
+
+
+def test_resolve_registry_path_uses_bucket(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("CLOUDFLARE_R2_BUCKET", "my-bucket")
+    monkeypatch.delenv("UPLOADER_STORAGE_BUCKET", raising=False)
+    base = tmp_path
+    assert _resolve_registry_path("", base, "justcavefire") == (
+        "s3://my-bucket/state/justcavefire/upload_registry.txt"
+    )
+    assert _resolve_registry_path("state/justcavefire/upload_registry.txt", base, "justcavefire") == (
+        "s3://my-bucket/state/justcavefire/upload_registry.txt"
+    )
+
+
+def test_resolve_registry_path_local_without_bucket(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    monkeypatch.delenv("UPLOADER_STORAGE_BUCKET", raising=False)
+    base = tmp_path
+    path = _resolve_registry_path("state/foo/upload_registry.txt", base, "foo")
+    assert path.replace("\\", "/").endswith("state/foo/upload_registry.txt")
+    assert not path.startswith("s3://")

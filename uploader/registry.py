@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from uploader.object_storage import append_line, is_s3_uri, read_text, write_text
+
 STATUS_PENDING = "pending"
 STATUS_UPLOADING = "uploading"
 STATUS_UPLOADED = "uploaded"
@@ -63,38 +65,52 @@ class UploadEntry:
         return self.thumbnail_uri or self.thumbnail
 
 
-class UploadRegistry:
-    """Read/append/update the JSON-lines registry file (keyed by entry id)."""
+def _parse_lines(text: str) -> list[UploadEntry]:
+    entries: list[UploadEntry] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entries.append(UploadEntry.from_dict(json.loads(line)))
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return entries
 
-    def __init__(self, path: Path) -> None:
-        self.path = Path(path)
+
+class UploadRegistry:
+    """Read/append/update JSON-lines registry (local file or s3:// URI)."""
+
+    def __init__(self, path: str | Path) -> None:
+        self.location = str(path)
+        self._remote = is_s3_uri(self.location)
+        self.path = Path(path) if not self._remote else None
 
     def load(self) -> list[UploadEntry]:
+        if self._remote:
+            return _parse_lines(read_text(self.location))
         if not self.path.is_file():
             return []
-        entries: list[UploadEntry] = []
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entries.append(UploadEntry.from_dict(json.loads(line)))
-            except (json.JSONDecodeError, TypeError):
-                continue
-        return entries
+        return _parse_lines(self.path.read_text(encoding="utf-8"))
 
     def _write_all(self, entries: list[UploadEntry]) -> None:
+        body = "".join(e.to_json() + "\n" for e in entries)
+        if self._remote:
+            write_text(self.location, body)
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            "".join(e.to_json() + "\n" for e in entries), encoding="utf-8"
-        )
+        self.path.write_text(body, encoding="utf-8")
 
     def append(self, entry: UploadEntry) -> None:
         if not entry.created_at:
             entry.created_at = _utc_now_iso()
+        line = entry.to_json() + "\n"
+        if self._remote:
+            append_line(self.location, line)
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as f:
-            f.write(entry.to_json() + "\n")
+            f.write(line)
 
     def pending(self, channel_id: str | None = None) -> list[UploadEntry]:
         entries = [e for e in self.load() if e.status == STATUS_PENDING]

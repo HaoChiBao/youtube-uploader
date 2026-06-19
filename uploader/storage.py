@@ -6,20 +6,11 @@ import shutil
 from pathlib import Path
 from urllib.parse import urlparse
 
+from uploader.object_storage import is_s3_uri, parse_s3_uri, _s3_client
+
 
 def _is_uri(value: str) -> bool:
     return "://" in value
-
-
-def _parse_s3_uri(uri: str) -> tuple[str, str]:
-    parsed = urlparse(uri)
-    if parsed.scheme != "s3":
-        raise ValueError(f"Not an s3:// URI: {uri}")
-    bucket = parsed.netloc
-    key = parsed.path.lstrip("/")
-    if not bucket or not key:
-        raise ValueError(f"Invalid s3:// URI: {uri}")
-    return bucket, key
 
 
 def resolve_to_local_path(uri: str, *, temp_dir: Path) -> Path:
@@ -42,16 +33,10 @@ def resolve_to_local_path(uri: str, *, temp_dir: Path) -> Path:
         return path
 
     if scheme == "s3":
-        bucket, key = _parse_s3_uri(uri)
+        bucket, key = parse_s3_uri(uri)
         filename = Path(key).name or "download"
         dest = temp_dir / filename
-        try:
-            import boto3
-        except ImportError as e:
-            raise RuntimeError(
-                "S3 support requires boto3. Install with: pip install '.[s3]'"
-            ) from e
-        client = boto3.client("s3")
+        client = _s3_client()
         client.download_file(bucket, key, str(dest))
         return dest
 

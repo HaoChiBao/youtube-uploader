@@ -16,7 +16,7 @@ from uploader.channel_list import list_channel_videos
 from uploader.metadata import default_test_description, default_test_title
 from uploader.oauth import oauth_is_configured, resolve_oauth_settings
 from uploader.registry import UploadEntry, UploadRegistry
-from uploader.scheduler import compute_publish_schedule, parse_start, run_channel
+from uploader.scheduler import compute_publish_schedule, parse_start, run_all_channels, run_channel
 from uploader.storage import resolve_to_local_path
 from uploader.youtube_client import get_credentials, upload_video
 
@@ -71,6 +71,16 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--upload-retries", type=int, default=3, metavar="N")
     run.add_argument("--retry-delay", type=float, default=30.0, metavar="SEC")
     run.add_argument("--tags", default=None, help="Comma-separated tags (overrides channel default).")
+
+    run_all = sub.add_parser("run-all", help="Process pending uploads for every configured channel.")
+    run_all.add_argument("--start", default=None, metavar="'YYYY-MM-DD HH:MM'")
+    run_all.add_argument("--interval-hours", type=float, default=None)
+    run_all.add_argument("--limit", type=int, default=None)
+    run_all.add_argument("--no-schedule", action="store_true")
+    run_all.add_argument("--privacy", choices=("private", "unlisted", "public"), default="private")
+    run_all.add_argument("--upload-retries", type=int, default=3, metavar="N")
+    run_all.add_argument("--retry-delay", type=float, default=30.0, metavar="SEC")
+    run_all.add_argument("--tags", default=None, help="Comma-separated tags (overrides channel default).")
 
     lst = sub.add_parser("list", help="List videos on the YouTube channel.")
     lst.add_argument("--channel", required=True, help=_CHANNEL_HELP)
@@ -323,6 +333,43 @@ def _cmd_run(args, config) -> int:
     return 0 if result.uploaded > 0 or result.failed == 0 else 1
 
 
+def _cmd_run_all(args, config) -> int:
+    if not config.channels:
+        print("No channels configured. Run: uploader channel add")
+        return 0
+
+    tags = [t.strip() for t in args.tags.split(",")] if args.tags else None
+    print(f"uploader run-all: {len(config.channels)} channel(s)", file=sys.stderr, flush=True)
+    results = run_all_channels(
+        config,
+        start=args.start,
+        interval_hours=args.interval_hours,
+        limit=args.limit,
+        no_schedule=args.no_schedule,
+        privacy=args.privacy,
+        upload_retries=args.upload_retries,
+        retry_delay=args.retry_delay,
+        tags=tags,
+    )
+
+    total_jobs = sum(r.total for r in results)
+    uploaded = sum(r.uploaded for r in results)
+    failed = sum(r.failed for r in results)
+
+    if total_jobs == 0:
+        print("No pending jobs in any channel registry. Nothing to do.")
+        return 0
+
+    print(f"\nUploaded {uploaded}/{total_jobs} across {len(results)} channel(s) ({failed} failed).")
+    for result in results:
+        if result.total == 0:
+            continue
+        print(f"  {result.channel_id}: {result.uploaded}/{result.total} uploaded")
+        for job_id, err in result.errors:
+            print(f"    FAILED {job_id}: {err}", file=sys.stderr)
+    return 0 if uploaded > 0 or failed == 0 else 1
+
+
 def _cmd_list(args, config) -> int:
     print("uploader list: loading Google client…", file=sys.stderr, flush=True)
     channel = get_channel(config, args.channel)
@@ -466,6 +513,7 @@ def main(argv: list[str] | None = None) -> int:
         "channels": _cmd_channels,
         "plan": _cmd_plan,
         "run": _cmd_run,
+        "run-all": _cmd_run_all,
         "list": _cmd_list,
         "enqueue": _cmd_enqueue,
         "upload": _cmd_upload,

@@ -10,6 +10,7 @@ import yaml
 
 from uploader.channel_info import AuthorizedChannelInfo, get_authorized_channel_info
 from uploader.channels import ChannelConfig, PublishConfig, _resolve_path
+from uploader.object_storage import is_s3_uri, registry_uri, storage_bucket
 from uploader.oauth import OAuthSettings
 from uploader.youtube_client import get_credentials
 
@@ -87,12 +88,14 @@ def _channel_entry_dict(
     publish: PublishConfig | None = None,
 ) -> dict:
     pub = publish or PublishConfig()
+    bucket = storage_bucket()
+    reg_path = registry_uri(channel_id) if bucket else f"state/{channel_id}/upload_registry.txt"
     entry: dict = {
         "id": channel_id,
         "name": name,
         "youtube_channel_id": youtube_channel_id,
         "token_path": f"secrets/{channel_id}/youtube_token.json",
-        "registry_path": f"state/{channel_id}/upload_registry.txt",
+        "registry_path": reg_path,
         "category_id": "10",
         "default_tags": [],
         "made_for_kids": False,
@@ -183,8 +186,12 @@ def add_and_authenticate_channel(
 
     _write_raw_config(config_path, data)
 
-    registry_path = _resolve_path(entry["registry_path"], base)
-    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    reg = entry["registry_path"]
+    if not is_s3_uri(reg):
+        registry_path = _resolve_path(reg, base)
+        registry_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        registry_path = reg
 
     return ChannelConfig(
         id=channel_id,

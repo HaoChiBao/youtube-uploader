@@ -8,6 +8,8 @@ from pathlib import Path
 
 import yaml
 
+from uploader.object_storage import is_s3_uri, storage_bucket
+
 
 @dataclass
 class PublishConfig:
@@ -21,9 +23,7 @@ class ChannelConfig:
     id: str
     name: str = ""
     token_path: Path = field(default_factory=lambda: Path("youtube_token.json"))
-    registry_path: Path = field(
-        default_factory=lambda: Path("state/channel-a/upload_registry.txt")
-    )
+    registry_path: str = "state/channel-a/upload_registry.txt"
     category_id: str = "10"
     default_tags: list[str] = field(default_factory=list)
     made_for_kids: bool = False
@@ -44,6 +44,22 @@ class GoogleConfig:
 class AppConfig:
     channels: list[ChannelConfig]
     google: GoogleConfig
+
+
+def _resolve_registry_path(value: str | Path, base: Path, channel_id: str) -> str:
+    bucket = storage_bucket()
+    text = str(value).strip() if value else ""
+    if not text:
+        if bucket:
+            return f"s3://{bucket}/state/{channel_id}/upload_registry.txt"
+        text = f"state/{channel_id}/upload_registry.txt"
+    if is_s3_uri(text):
+        return text
+    normalized = text.replace("\\", "/").lstrip("./")
+    default_local = f"state/{channel_id}/upload_registry.txt"
+    if bucket and normalized == default_local:
+        return f"s3://{bucket}/state/{channel_id}/upload_registry.txt"
+    return str(_resolve_path(text, base))
 
 
 def _resolve_path(value: str | Path, base: Path) -> Path:
@@ -87,7 +103,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     for raw in data.get("channels") or []:
         channel_id = raw["id"]
         token = raw.get("token_path") or raw.get("token_secret") or f"secrets/{channel_id}/youtube_token.json"
-        registry = raw.get("registry_path") or f"state/{channel_id}/upload_registry.txt"
+        registry = raw.get("registry_path") or ""
         publish_raw = raw.get("publish") or {}
 
         channels.append(
@@ -95,7 +111,7 @@ def load_config(path: Path | None = None) -> AppConfig:
                 id=channel_id,
                 name=raw.get("name", channel_id),
                 token_path=_resolve_path(token, base),
-                registry_path=_resolve_path(registry, base),
+                registry_path=_resolve_registry_path(registry, base, channel_id),
                 category_id=str(raw.get("category_id", "10")),
                 default_tags=list(raw.get("default_tags") or []),
                 made_for_kids=bool(raw.get("made_for_kids", False)),

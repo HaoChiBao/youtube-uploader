@@ -143,13 +143,20 @@ JSON-lines file at `state/{channel_id}/upload_registry.txt`:
 
 Upstream (ai-music-assembler) appends `pending` rows; this service owns the lifecycle through `uploaded` or `failed`.
 
-## S3 support
+## Cloudflare R2 storage
 
-Install the optional extra and set AWS credentials:
+Install the optional extra and set R2 credentials in `.env`:
 
 ```bash
 pip install '.[s3]'
-export AWS_REGION=us-east-1
+```
+
+```env
+CLOUDFLARE_R2_BUCKET=your-bucket
+CLOUDFLARE_R2_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com
+CLOUDFLARE_R2_REGION=auto
+CLOUDFLARE_R2_ACCESS_KEY_ID=...
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=...
 ```
 
 URIs like `s3://bucket/videos/.../video.mp4` are downloaded to a temp directory before upload.
