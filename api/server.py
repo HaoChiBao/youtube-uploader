@@ -9,7 +9,7 @@ def main() -> None:
     import uvicorn
 
     host = os.environ.get("UPLOADER_API_HOST", "127.0.0.1")
-    port = int(os.environ.get("UPLOADER_API_PORT", "8000"))
+    port = int(os.environ.get("PORT") or os.environ.get("UPLOADER_API_PORT", "8000"))
     uvicorn.run("api.app:app", host=host, port=port, reload=os.environ.get("UPLOADER_API_RELOAD") == "1")
 
 

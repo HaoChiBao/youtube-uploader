@@ -128,6 +128,8 @@ Interactive API docs: http://127.0.0.1:8000/docs
 
 Set `UPLOADER_API_PUBLIC_URL=http://127.0.0.1:8000` in `.env` if using a different host/port.
 
+**Cloud Run:** see [deploy/cloud-run.md](deploy/cloud-run.md) for Dockerfile, `gcloud` deploy, and production env vars.
+
 The dashboard uses **`GET /v1/dashboard`** (one request for channels + queue). In-memory caching keeps repeat loads fast (~100ms vs ~20s before optimization).
 
 **Cache invalidation** (automatic — no manual flush needed):
@@ -141,17 +143,87 @@ The dashboard uses **`GET /v1/dashboard`** (one request for channels + queue). I
 
 Use **Refresh** in the UI (calls `?refresh=true`) to force reload from R2. Routine API reads skip expensive R2 sync/migrate; use `uploader storage init` for full sync.
 
+### Quick reference
+
 | Endpoint | Description |
 |----------|-------------|
-| `GET /v1/dashboard` | **Preferred** — channels + pending jobs in one cached request (`?refresh=true` to bypass cache) |
-| `GET /v1/capabilities` | All CLI commands + YouTube features + API routes |
-| `GET /v1/channels` | `{ config_uri, storage, channels[] }` — auth status + pending counts |
-| `GET /v1/jobs?status=pending` | Upload queue |
-| `POST /v1/channels/{id}/jobs` | **Stage a video into queue/** (multipart — for AI pipelines) |
-| `POST /v1/channels/{id}/jobs/register` | Register a job when video files already exist in R2/local storage |
-| `POST /v1/oauth/start` | Connect a new YouTube channel (browser OAuth) |
-| `POST /v1/channels/{id}/runs` | Start background upload (`{"count": 1}` or omit count for all) |
-| `GET /v1/runs/{run_id}` | Poll upload progress |
+| `POST /v1/channels/{id}/jobs` | **Add video to queue** — multipart upload (AI pipelines) |
+| `GET /v1/jobs?status=pending` | List pending upload queue |
+| `POST /v1/channels/{id}/runs` | Upload queued videos to YouTube |
+| `GET /v1/dashboard` | Channels + queue + history (cached) |
+
+Full endpoint catalog: [`api/endpoint_docs.py`](api/endpoint_docs.py) (also returned by `GET /v1/capabilities`).
+
+### HTTP API reference
+
+Canonical descriptions live in `api/endpoint_docs.py` and appear in OpenAPI at `/docs`.
+
+#### Health & discovery
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/health` | Liveness check — returns `{ status, version }` |
+| GET | `/v1/capabilities` | CLI commands, YouTube features, and all API routes with summaries |
+
+#### Dashboard & channels
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/dashboard` | All channels + `queue_jobs` + `uploaded_jobs` in one cached request (`?refresh=true` to bypass) |
+| GET | `/v1/channels` | List channels with OAuth status and pending/uploaded/failed counts |
+| GET | `/v1/channels/{ref}` | Single channel (ref = id, name, `@handle`, or YouTube channel id) |
+
+#### Jobs — queue ingest & management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/jobs` | List jobs — `?channel=`, `?status=pending\|uploaded\|failed`, `?location=queue\|uploaded\|all` |
+| **POST** | **`/v1/channels/{ref}/jobs`** | **Stage video into queue/** — multipart: `video`, `title`, optional metadata (see below) |
+| POST | `/v1/jobs` | Same as above; pass `channel_id` in form body |
+| POST | `/v1/channels/{ref}/jobs/register` | Register when video already on R2 — JSON with `video_uri`, `title`, metadata |
+| GET | `/v1/channels/{ref}/jobs/{job_id}` | Job detail + `metadata.json` (`?media=true` for preview URLs) |
+| GET | `/v1/channels/{ref}/jobs/{job_id}/media/{video\|thumbnail}` | Stream or redirect to queued media file |
+| DELETE | `/v1/channels/{ref}/jobs/{job_id}` | Remove from queue (deletes `queue/` folder + registry row) |
+
+#### Upload runs & YouTube
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/channels/{ref}/plan` | Preview publish schedule for pending jobs |
+| POST | `/v1/channels/{ref}/runs` | Start background YouTube upload — body: `{ "count": 1 }` or omit for all |
+| GET | `/v1/runs/{run_id}` | Poll run progress (uploaded count, URLs, errors) |
+| POST | `/v1/runs/all` | Upload pending jobs for every channel |
+| GET | `/v1/channels/{ref}/youtube/videos` | List videos on YouTube (`?scheduled_only=true`) |
+
+#### OAuth & storage
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/oauth/start` | Start browser OAuth to add a channel |
+| POST | `/v1/channels/{ref}/oauth/start` | Re-authenticate an existing channel |
+| POST | `/v1/storage/init` | Create R2 bucket layout (`uploader storage init`) |
+
+#### Auth for hosted deployments
+
+Set **both** for production:
+
+```env
+UPLOADER_API_KEY=your-long-random-api-token
+UPLOADER_DASHBOARD_PASSWORD=your-dashboard-password
+UPLOADER_SESSION_SECURE=1
+```
+
+| Who | How to authenticate |
+|-----|---------------------|
+| **You (browser)** | Visit `/login` → enter dashboard password → session cookie |
+| **AI pipeline / assembler** | `X-API-Key: your-long-random-api-token` or `Authorization: Bearer ...` |
+| **Load balancer** | `GET /v1/health` (always public) |
+
+When either env var is set, all routes except `/v1/health`, `/login`, and `/v1/oauth/callback` require authentication.
+
+Sign out from the dashboard with the **Sign out** button, or `POST /logout`.
+
+Leave both unset for local dev (no auth).
 
 ### AI video pipeline integration
 

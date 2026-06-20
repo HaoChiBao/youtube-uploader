@@ -225,35 +225,52 @@ class UploadRegistry:
 
 ## Job payload (assembler → uploader contract)
 
-When the assembler finishes a video, it sends:
+When the assembler finishes a video, use one of two HTTP ingest paths (documented in `api/endpoint_docs.py` and README):
+
+### Option A — multipart upload (simplest)
+
+```bash
+POST /v1/channels/justcavefire/jobs
+Content-Type: multipart/form-data
+
+video=@output.mp4
+title=My Generated Video
+description=...
+privacy=private
+is_short=false
+tags=ai,generated
+```
+
+Returns `201` with `job_id`, `video_uri`, `queue_prefix`. No YouTube OAuth required.
+
+### Option B — register when files already on R2
 
 ```json
-POST /v1/jobs
+POST /v1/channels/justcavefire/jobs/register
 {
-  "id": "mv_20260617_180732_01",
-  "channel_id": "justcavefire",
+  "job_id": "mv_20260617_180732_01",
   "title": "...",
   "description": "...",
   "video_uri": "s3://my-bucket/queue/justcavefire/mv_20260617_180732_01/video.mp4",
   "thumbnail_uri": "s3://my-bucket/queue/justcavefire/mv_20260617_180732_01/thumbnail.png",
-  "schedule": {
-    "mode": "next_slot",
-    "timezone": "America/New_York",
-    "hour": 9,
-    "interval_hours": 24
-  },
+  "privacy": "private",
+  "is_short": false,
   "tags": ["lofi", "chill"],
   "category_id": "10",
   "made_for_kids": false
 }
 ```
 
-Or assembler appends to shared registry file; uploader cron polls `pending`.
+The service validates files exist, writes metadata sidecars, and appends a `pending` registry row.
+
+### Option C — direct R2 + cron (no HTTP)
+
+Assembler writes to `queue/{channel_id}/{job_id}/` and appends to `upload_registry.txt`; uploader cron runs `uploader run`.
 
 **Assembler changes (minimal):**
 
-- After `generate-music-videos`, write `video_uri` as S3 path instead of local path (or uploader resolves local mount).
-- Stop calling `schedule-music-videos` locally; call uploader API or drop row in shared registry.
+- After `generate-music-videos`, call **Option A or B** (or write directly per Option C).
+- Stop calling `schedule-music-videos` locally; use `POST /v1/channels/{id}/runs` or cron `uploader run`.
 
 ---
 
@@ -532,7 +549,7 @@ youtube-uploader/
 
 - [x] Assembler contract documented: `queue/{channel_id}/{job_id}/` + `metadata.json`
 - [ ] Assembler writes video jobs to `queue/{channel_id}/{job_id}/` + pending registry rows
-- [x] Document contract in youtube-uploader README (assembler cross-link pending — YAN-14)
+- [x] Document contract in youtube-uploader README + `api/endpoint_docs.py` (assembler cross-link pending — YAN-14)
 - [ ] Cron on one VM: assembler builds overnight → uploader runs at 06:00
 - [ ] Remove `schedule-music-videos` from assembler default workflow
 
@@ -546,10 +563,13 @@ youtube-uploader/
 - [x] `GET /v1/channels`, `/v1/jobs`, job detail, DELETE remove, plan, runs
 - [x] `GET /v1/health`, `GET /v1/capabilities`
 - [x] `GET /v1/channels/{id}/youtube/videos`
-- [ ] FastAPI `POST /v1/jobs` (multipart stage from assembler)
+- [x] FastAPI `POST /v1/channels/{id}/jobs` + `POST /v1/jobs` (multipart stage from assembler)
+- [x] `POST /v1/channels/{id}/jobs/register` (R2 URI register)
+- [x] Optional `UPLOADER_API_KEY` on ingest routes (`X-API-Key` header)
+- [x] API endpoint catalog — `api/endpoint_docs.py`, README reference, OpenAPI tags
 - [ ] Postgres registry option
 - [ ] Secrets manager for tokens
-- [ ] Hosted deploy + API key auth
+- [ ] Hosted deploy
 - [ ] Alerting on failures
 
 ### Phase 4 — Hardening

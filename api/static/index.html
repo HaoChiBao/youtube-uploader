@@ -62,11 +62,48 @@
     .detail-preview .placeholder { color: #888; font-size: 0.85rem; font-style: italic; }
     .expand-hint { color: #888; font-size: 0.75rem; }
     .click-title { text-decoration: underline dotted; text-underline-offset: 2px; }
+    #login-gate {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    #login-gate[hidden], #app[hidden] { display: none !important; }
+    #login-gate h1 {
+      font-size: 1.25rem;
+      font-weight: 400;
+      margin: 0 0 1.25rem;
+      letter-spacing: 0.02em;
+    }
+    #login-password {
+      background: #000;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 0.65rem 0.75rem;
+      border-radius: 4px;
+      width: min(300px, 80vw);
+      font-size: 1rem;
+      outline: none;
+    }
+    #login-password:focus { border-color: #888; }
+    #login-error { color: #f55; margin: 0.75rem 0 0; font-size: 0.9rem; }
   </style>
 </head>
 <body>
+  <div id="login-gate" hidden>
+    <h1>Enter password</h1>
+    <input type="password" id="login-password" autocomplete="current-password" spellcheck="false" />
+    <p id="login-error" hidden></p>
+  </div>
+
+  <div id="app" hidden>
   <h1>YouTube Uploader</h1>
-  <p class="sub">Local dashboard — channels, queue, and uploads. API docs at <a href="/docs">/docs</a></p>
+  <p class="sub">Dashboard — channels, queue, and uploads. <a href="/docs">API docs</a> · <button class="secondary" id="btn-logout" style="padding:0.2rem 0.5rem;font-size:0.8rem">Sign out</button></p>
   <div id="toast"></div>
 
   <section>
@@ -109,9 +146,50 @@
     <h2>YouTube upload features</h2>
     <ul class="features" id="features-list"></ul>
   </section>
+  </div>
 
   <script>
     const API = '';
+
+    function showLoginGate() {
+      document.getElementById('app').hidden = true;
+      document.getElementById('login-gate').hidden = false;
+      const input = document.getElementById('login-password');
+      input.value = '';
+      document.getElementById('login-error').hidden = true;
+      input.focus();
+    }
+
+    function showApp() {
+      document.getElementById('login-gate').hidden = true;
+      document.getElementById('app').hidden = false;
+    }
+
+    async function checkSession() {
+      const res = await fetch(API + '/v1/auth/session', { credentials: 'include' });
+      if (!res.ok) throw new Error('Could not check session');
+      return res.json();
+    }
+
+    async function attemptLogin() {
+      const password = document.getElementById('login-password').value;
+      const errEl = document.getElementById('login-error');
+      errEl.hidden = true;
+      const res = await fetch('/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        errEl.textContent = err.detail || 'Invalid password';
+        errEl.hidden = false;
+        return false;
+      }
+      showApp();
+      return true;
+    }
 
     function toast(msg, isError) {
       const el = document.getElementById('toast');
@@ -136,7 +214,11 @@
     }
 
     async function api(path, opts) {
-      const res = await fetch(API + path, opts);
+      const res = await fetch(API + path, { credentials: 'include', ...(opts || {}) });
+      if (res.status === 401) {
+        showLoginGate();
+        throw new Error('Sign in required');
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || res.statusText);
@@ -333,7 +415,7 @@
       });
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="7">No jobs in queue/ — stage with <code>uploader queue add</code></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">No jobs in queue/ — stage via <code>POST /v1/channels/{id}/jobs</code> or <code>uploader queue add</code></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => {
@@ -450,6 +532,18 @@
 
     document.getElementById('btn-refresh').onclick = refresh;
 
+    document.getElementById('btn-logout').onclick = async () => {
+      await fetch('/logout', { method: 'POST', credentials: 'include' });
+      showLoginGate();
+    };
+
+    document.getElementById('login-password').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const ok = await attemptLogin();
+      if (ok) await refresh();
+    });
+
     document.getElementById('btn-connect').onclick = async () => {
       const res = await api('/v1/oauth/start', { method: 'POST' });
       window.location.href = res.auth_url;
@@ -506,8 +600,20 @@
       sec.hidden = false;
     };
 
-    (function init() {
+    (async function init() {
       const params = new URLSearchParams(window.location.search);
+      let session;
+      try {
+        session = await checkSession();
+      } catch {
+        showLoginGate();
+        return;
+      }
+      if (!session.authenticated && session.auth_enabled) {
+        showLoginGate();
+        return;
+      }
+      showApp();
       const action = params.get('oauth_action');
       const id = params.get('oauth_success');
       if (id && action === 'added_different_account') {

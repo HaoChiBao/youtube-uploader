@@ -10,6 +10,10 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class LoginRequest(BaseModel):
+    password: str = ""
+
+
 class TokenStatus(BaseModel):
     has_token: bool
     valid: bool
@@ -173,3 +177,4 @@ class CapabilitiesOut(BaseModel):
     cli_commands: list[dict]
     youtube_features: list[dict]
     api_endpoints: list[dict]
+    auth_note: str = ""

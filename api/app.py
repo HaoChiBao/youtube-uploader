@@ -6,12 +6,22 @@ import secrets
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.auth import require_api_key
+from api.auth import (
+    auth_enabled,
+    auth_status,
+    clear_session_cookie,
+    create_session,
+    request_is_authenticated,
+    set_session_cookie,
+    verify_login_secret,
+)
+from api.endpoint_docs import API_ENDPOINTS, API_TAGS, AUTH_NOTE
+from api.middleware import AuthMiddleware
 from api.cache import build_dashboard, get_token_status, job_view_to_out
 from api.capabilities import CLI_COMMANDS, YOUTUBE_FEATURES
 from api.job_ingest import (
@@ -42,6 +52,7 @@ from api.schemas import (
     JobMediaOut,
     JobOut,
     JobRegisterRequest,
+    LoginRequest,
     OAuthStartResponse,
     PlanItemOut,
     RunRequest,
@@ -83,18 +94,54 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 def create_app() -> FastAPI:
     app = FastAPI(
         title="YouTube Uploader API",
-        description="HTTP API for multi-channel YouTube upload queue management",
+        description=(
+            "HTTP API for multi-channel YouTube upload queue management. "
+            "Stage AI-generated videos into `queue/` on Cloudflare R2, then upload to YouTube on a schedule.\n\n"
+            f"{AUTH_NOTE}"
+        ),
         version=__version__,
+        openapi_tags=API_TAGS,
     )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_methods=["*"],
         allow_headers=["*"],
+        allow_credentials=True,
     )
+    app.add_middleware(AuthMiddleware)
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
+    def login_page():
+        login_path = STATIC_DIR / "login.html"
+        if login_path.is_file():
+            return FileResponse(login_path)
+        return HTMLResponse("<h1>Login</h1><p>login.html missing</p>")
+
+    @app.post("/login", include_in_schema=False)
+    def login(body: LoginRequest, request: Request, response: Response):
+        if not auth_enabled():
+            return {"status": "ok", "auth": False}
+        if not verify_login_secret(body.password):
+            raise HTTPException(401, "Invalid password or API token")
+        set_session_cookie(response, create_session(), request=request)
+        return {"status": "ok", "auth": True}
+
+    @app.get("/v1/auth/session", include_in_schema=False)
+    def auth_session(request: Request):
+        """Whether the current browser/API client is authenticated (public)."""
+        return {
+            "auth_enabled": auth_enabled(),
+            "authenticated": request_is_authenticated(request),
+        }
+
+    @app.post("/logout", include_in_schema=False)
+    def logout(response: Response):
+        clear_session_cookie(response)
+        return {"status": "ok"}
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def index():
@@ -103,39 +150,33 @@ def create_app() -> FastAPI:
             return FileResponse(index_path)
         return HTMLResponse("<h1>YouTube Uploader API</h1><p>See <a href='/docs'>/docs</a></p>")
 
-    @app.get("/health", response_model=HealthResponse)
-    @app.get("/v1/health", response_model=HealthResponse)
+    @app.get("/health", response_model=HealthResponse, tags=["health"])
+    @app.get("/v1/health", response_model=HealthResponse, tags=["health"])
     def health():
         return HealthResponse(version=__version__)
 
-    @app.get("/v1/capabilities", response_model=CapabilitiesOut)
+    @app.get("/v1/auth/status", tags=["health"])
+    def auth_status_route():
+        """Whether API/dashboard auth is enabled (no secret values returned)."""
+        return auth_status()
+
+    @app.get("/v1/capabilities", response_model=CapabilitiesOut, tags=["health"])
     def capabilities():
         endpoints = [
-            {"method": "GET", "path": "/v1/health", "description": "Health check"},
-            {"method": "GET", "path": "/v1/capabilities", "description": "CLI inventory + YouTube features"},
-            {"method": "GET", "path": "/v1/dashboard", "description": "Channels + queue_jobs + uploaded_jobs (cached, ?refresh=true to bypass)"},
-            {"method": "GET", "path": "/v1/channels", "description": "List channels + auth status + queue/uploaded counts"},
-            {"method": "GET", "path": "/v1/channels/{id}", "description": "Single channel detail"},
-            {"method": "GET", "path": "/v1/jobs", "description": "List jobs (?channel= &status= &location=queue|uploaded|all)"},
-            {"method": "POST", "path": "/v1/channels/{id}/jobs", "description": "Stage video into queue/ (multipart upload)"},
-            {"method": "POST", "path": "/v1/channels/{id}/jobs/register", "description": "Register job when video already in storage (JSON)"},
-            {"method": "GET", "path": "/v1/channels/{id}/jobs/{job_id}", "description": "Job detail + metadata (?media=true for preview URLs)"},
-            {"method": "GET", "path": "/v1/channels/{id}/jobs/{job_id}/media/{asset}", "description": "Stream thumbnail or video (lazy preview)"},
-            {"method": "DELETE", "path": "/v1/channels/{id}/jobs/{job_id}", "description": "Remove from queue"},
-            {"method": "GET", "path": "/v1/channels/{id}/plan", "description": "Preview publish schedule"},
-            {"method": "POST", "path": "/v1/channels/{id}/runs", "description": "Start upload run (background)"},
-            {"method": "GET", "path": "/v1/runs/{run_id}", "description": "Poll run status"},
-            {"method": "POST", "path": "/v1/runs/all", "description": "Run all channels (background)"},
-            {"method": "GET", "path": "/v1/channels/{id}/youtube/videos", "description": "List YouTube videos"},
-            {"method": "POST", "path": "/v1/oauth/start", "description": "Start OAuth (add channel)"},
-            {"method": "POST", "path": "/v1/channels/{id}/oauth/start", "description": "Start OAuth (reauth)"},
-            {"method": "GET", "path": "/v1/oauth/callback", "description": "OAuth callback (browser redirect)"},
-            {"method": "POST", "path": "/v1/storage/init", "description": "Initialize R2 bucket layout"},
+            {
+                "method": ep["method"],
+                "path": ep["path"],
+                "summary": ep["summary"],
+                "description": ep["description"],
+                "auth": ep.get("auth", False),
+            }
+            for ep in API_ENDPOINTS
         ]
         return CapabilitiesOut(
             cli_commands=CLI_COMMANDS,
             youtube_features=YOUTUBE_FEATURES,
             api_endpoints=endpoints,
+            auth_note=AUTH_NOTE,
         )
 
     def _token_status(channel) -> TokenStatus:
@@ -161,12 +202,14 @@ def create_app() -> FastAPI:
             failed_count=bundle.failed_count,
         )
 
-    @app.get("/v1/dashboard", response_model=DashboardResponse)
+    @app.get("/v1/dashboard", response_model=DashboardResponse, tags=["dashboard"])
     def dashboard(refresh: bool = Query(default=False, description="Bypass cache and reload from storage")):
+        """Cached snapshot of all channels plus queue and uploaded jobs."""
         return build_dashboard(config_path(), force=refresh)
 
-    @app.get("/v1/channels", response_model=ChannelListResponse)
+    @app.get("/v1/channels", response_model=ChannelListResponse, tags=["channels"])
     def list_channels():
+        """List configured channels with OAuth status and queue counts."""
         config = get_app_config()
         return ChannelListResponse(
             config_uri=get_config_uri(),
@@ -174,8 +217,9 @@ def create_app() -> FastAPI:
             channels=[_channel_out(ch) for ch in config.channels],
         )
 
-    @app.get("/v1/channels/{channel_ref}", response_model=ChannelOut)
+    @app.get("/v1/channels/{channel_ref}", response_model=ChannelOut, tags=["channels"])
     def get_channel(channel_ref: str):
+        """Get one channel by id, name, @handle, or YouTube channel id."""
         try:
             ch = resolve_channel_ref(channel_ref)
         except KeyError as e:
@@ -201,7 +245,7 @@ def create_app() -> FastAPI:
             video_available=avail["video"],
         )
 
-    @app.get("/v1/jobs", response_model=list[JobOut])
+    @app.get("/v1/jobs", response_model=list[JobOut], tags=["jobs"])
     def list_jobs(
         channel: str | None = Query(default=None),
         status: str | None = Query(default="pending"),
@@ -210,6 +254,7 @@ def create_app() -> FastAPI:
             description="queue | uploaded | all — filter by R2 folder (queue/ vs uploaded/)",
         ),
     ):
+        """List jobs across channels; filter by channel, status, and storage folder."""
         config = get_app_config()
         channels = config.channels
         if channel:
@@ -281,7 +326,7 @@ def create_app() -> FastAPI:
         "/v1/channels/{channel_ref}/jobs",
         response_model=StagedJobOut,
         status_code=201,
-        dependencies=[Depends(require_api_key)],
+        tags=["jobs"],
     )
     async def create_job(
         channel_ref: str,
@@ -298,7 +343,7 @@ def create_app() -> FastAPI:
         language: str | None = Form(default=None),
         metadata: str | None = Form(default=None, description="JSON metadata object"),
     ):
-        """Stage a generated video into queue/ for later YouTube upload."""
+        """Stage a video into queue/ via multipart upload (primary AI pipeline ingest endpoint)."""
         return await _stage_job_multipart(
             channel_ref,
             video=video,
@@ -319,7 +364,7 @@ def create_app() -> FastAPI:
         "/v1/jobs",
         response_model=StagedJobOut,
         status_code=201,
-        dependencies=[Depends(require_api_key)],
+        tags=["jobs"],
     )
     async def create_job_alias(
         channel_id: str = Form(..., description="Channel id or handle"),
@@ -357,10 +402,10 @@ def create_app() -> FastAPI:
         "/v1/channels/{channel_ref}/jobs/register",
         response_model=StagedJobOut,
         status_code=201,
-        dependencies=[Depends(require_api_key)],
+        tags=["jobs"],
     )
     def register_job(channel_ref: str, body: JobRegisterRequest):
-        """Register a pending job when the pipeline already uploaded files to storage."""
+        """Register a pending job when video files already exist in R2 or local storage."""
         try:
             ch = resolve_channel_ref(channel_ref)
         except KeyError as e:

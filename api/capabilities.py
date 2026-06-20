@@ -104,7 +104,7 @@ CLI_COMMANDS: list[dict] = [
     {
         "group": "registry",
         "command": "uploader enqueue",
-        "description": "Append registry row only",
+        "description": "Register pending job when video URIs already exist in storage",
         "api": "POST /v1/channels/{id}/jobs/register",
         "implemented": True,
     },

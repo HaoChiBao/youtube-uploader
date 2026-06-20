@@ -19,6 +19,8 @@ def isolated_api_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
     monkeypatch.delenv("UPLOADER_STORAGE_BUCKET", raising=False)
     monkeypatch.delenv("UPLOADER_API_KEY", raising=False)
+    monkeypatch.delenv("UPLOADER_DASHBOARD_PASSWORD", raising=False)
+    monkeypatch.delenv("UPLOADER_SESSION_SECRET", raising=False)
     config_path = tmp_path / "config" / "channels.yaml"
     config_path.parent.mkdir(parents=True)
     config_path.write_text(
@@ -187,3 +189,73 @@ def test_api_key_required_when_configured(client, tmp_path: Path, monkeypatch: p
         headers={"X-API-Key": "secret-key"},
     )
     assert r2.status_code == 201
+
+
+def test_dashboard_login_session(client, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("UPLOADER_DASHBOARD_PASSWORD", "dashboard-secret")
+    c = TestClient(create_app())
+    assert c.get("/v1/dashboard").status_code == 401
+    login = c.post("/login", json={"password": "dashboard-secret"})
+    assert login.status_code == 200
+    assert c.get("/v1/dashboard").status_code == 200
+
+
+def test_dashboard_shell_public_when_auth_enabled(client, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("UPLOADER_DASHBOARD_PASSWORD", "dashboard-secret")
+    c = TestClient(create_app())
+    r = c.get("/", follow_redirects=False)
+    assert r.status_code == 200
+    assert "Enter password" in r.text
+
+    session = c.get("/v1/auth/session")
+    assert session.status_code == 200
+    body = session.json()
+    assert body["auth_enabled"] is True
+    assert body["authenticated"] is False
+
+
+def test_auth_session_after_login(client, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("UPLOADER_DASHBOARD_PASSWORD", "dashboard-secret")
+    c = TestClient(create_app())
+    c.post("/login", json={"password": "dashboard-secret"})
+    body = c.get("/v1/auth/session").json()
+    assert body["authenticated"] is True
+
+
+def test_cataloged_api_routes_require_auth(client, monkeypatch: pytest.MonkeyPatch):
+    from api.endpoint_docs import API_ENDPOINTS
+
+    monkeypatch.setenv("UPLOADER_API_KEY", "secret-key")
+    c = TestClient(create_app())
+    sample = {
+        "channel_ref": "testchan",
+        "job_id": "job-1",
+        "run_id": "run-1",
+        "asset": "video",
+    }
+    for ep in API_ENDPOINTS:
+        if not ep.get("auth", True):
+            continue
+        path = ep["path"]
+        for key, val in sample.items():
+            path = path.replace("{" + key + "}", val)
+        method = ep["method"].lower()
+        req = getattr(c, method, None)
+        if req is None:
+            continue
+        r = req(path)
+        assert r.status_code == 401, f"{ep['method']} {ep['path']} should require auth, got {r.status_code}"
+
+
+def test_bearer_token_auth(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("UPLOADER_API_KEY", "bearer-token")
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    c = TestClient(create_app())
+    r = c.post(
+        "/v1/channels/testchan/jobs",
+        data={"title": "Via Bearer"},
+        files={"video": ("clip.mp4", video.read_bytes(), "video/mp4")},
+        headers={"Authorization": "Bearer bearer-token"},
+    )
+    assert r.status_code == 201
