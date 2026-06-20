@@ -8,19 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from uploader.channel_info import get_authorized_channel_info
 from uploader.channel_store import (
-    _PENDING_TOKEN,
-    _channel_entry_dict,
-    _config_base,
-    _existing_youtube_ids,
-    derive_channel_id,
-    find_channel_index,
-    make_unique_channel_id,
+    OAuthRegistrationResult,
+    register_oauth_channel,
 )
-from uploader.channels import ChannelConfig, PublishConfig
+from uploader.channels import PublishConfig
 from uploader.oauth import OAuthSettings
-from uploader.state_store import init_channel_storage, read_raw_config, save_token, write_raw_config
 from uploader.youtube_client import SCOPES, _credentials_need_reauth, _oauth_prompt
 
 
@@ -124,95 +117,14 @@ def register_channel_from_credentials(
     config_path: Path,
     publish: PublishConfig | None = None,
     channel_id_override: str | None = None,
-) -> ChannelConfig:
+) -> OAuthRegistrationResult:
     """Save OAuth token and create or update a channel entry (after web callback)."""
-    config_path = config_path.expanduser().resolve()
-    base = _config_base(config_path)
-    data = read_raw_config(config_path)
-
-    _PENDING_TOKEN.parent.mkdir(parents=True, exist_ok=True)
-    _PENDING_TOKEN.write_text(creds_json, encoding="utf-8")
-
-    info = get_authorized_channel_info(
-        _PENDING_TOKEN,
-        client_secret=oauth.client_secret_path,
-        client_config=oauth.client_config,
-        oauth_port=oauth.oauth_port,
-    )
-
-    if channel_id_override:
-        channel_id = channel_id_override
-        idx = next(
-            (i for i, raw in enumerate(data.get("channels") or []) if raw.get("id") == channel_id),
-            None,
-        )
-        if idx is None:
-            raise KeyError(f"Channel not found: {channel_id}")
-        token_loc = save_token(channel_id, creds_json, base=base)
-        entry = data["channels"][idx]
-        entry["name"] = info.title
-        entry["youtube_channel_id"] = info.youtube_channel_id
-        if info.custom_url:
-            entry["custom_url"] = info.custom_url
-        entry["token_path"] = token_loc
-        write_raw_config(config_path, data)
-        _PENDING_TOKEN.unlink(missing_ok=True)
-        init_channel_storage(
-            channel_id,
-            base=base,
-            name=info.title,
-            youtube_channel_id=info.youtube_channel_id,
-            custom_url=info.custom_url or entry.get("custom_url", ""),
-        )
-        return ChannelConfig(
-            id=channel_id,
-            name=info.title,
-            token_path=token_loc,
-            registry_path=entry.get("registry_path", ""),
-            youtube_channel_id=info.youtube_channel_id,
-            custom_url=info.custom_url,
-            publish=publish or PublishConfig(),
-        )
-
-    base_id = derive_channel_id(info)
-    existing = _existing_youtube_ids(data)
-    channel_id = make_unique_channel_id(base_id, info.youtube_channel_id, existing)
-    token_loc = save_token(channel_id, creds_json, base=base)
-    _PENDING_TOKEN.unlink(missing_ok=True)
-
-    init_channel_storage(
-        channel_id,
-        base=base,
-        name=info.title,
-        youtube_channel_id=info.youtube_channel_id,
-        custom_url=info.custom_url,
-    )
-
-    entry = _channel_entry_dict(
-        channel_id=channel_id,
-        name=info.title,
-        youtube_channel_id=info.youtube_channel_id,
-        base=base,
-        custom_url=info.custom_url,
+    return register_oauth_channel(
+        creds_json,
+        config_path=config_path,
+        reauth_channel_id=channel_id_override,
         publish=publish,
-    )
-
-    idx = find_channel_index(data, info.youtube_channel_id)
-    if idx is not None:
-        data["channels"][idx] = entry
-    else:
-        data["channels"].append(entry)
-
-    write_raw_config(config_path, data)
-
-    return ChannelConfig(
-        id=channel_id,
-        name=info.title,
-        token_path=token_loc,
-        registry_path=entry["registry_path"],
-        youtube_channel_id=info.youtube_channel_id,
-        custom_url=info.custom_url,
-        publish=publish or PublishConfig(),
+        oauth=oauth,
     )
 
 
@@ -221,11 +133,12 @@ def credentials_to_json(creds) -> str:
 
 
 def inspect_token_file(token_path: str | Path, *, client_secret, client_config) -> dict:
-    """Check token without opening a browser."""
+    """Check token without opening a browser; refresh and persist when possible."""
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
 
-    from uploader.object_storage import exists, read_text
+    from uploader.cache_signals import bump as bump_cache
+    from uploader.object_storage import exists, read_text, write_text
 
     loc = str(token_path)
     if not exists(loc):
@@ -248,7 +161,9 @@ def inspect_token_file(token_path: str | Path, *, client_secret, client_config) 
     if creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
-            return {"has_token": True, "valid": True, "status": "refreshed"}
+            write_text(loc, creds.to_json())
+            bump_cache("tokens")
+            return {"has_token": True, "valid": True, "status": "ok"}
         except Exception:
             return {"has_token": True, "valid": False, "status": "refresh_failed"}
 

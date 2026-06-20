@@ -6,13 +6,19 @@ import secrets
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.cache import build_dashboard, get_token_status
+from api.auth import require_api_key
+from api.cache import build_dashboard, get_token_status, job_view_to_out
 from api.capabilities import CLI_COMMANDS, YOUTUBE_FEATURES
+from api.job_ingest import (
+    parse_stage_form_fields,
+    register_job_from_request,
+    stage_job_from_upload,
+)
 from api.deps import (
     api_public_base,
     config_path,
@@ -32,12 +38,16 @@ from api.schemas import (
     ChannelOut,
     DashboardResponse,
     HealthResponse,
+    JobDetailResponse,
+    JobMediaOut,
     JobOut,
+    JobRegisterRequest,
     OAuthStartResponse,
     PlanItemOut,
     RunRequest,
     RunResponse,
     RunStatusOut,
+    StagedJobOut,
     TokenStatus,
     YouTubeVideoOut,
 )
@@ -54,6 +64,14 @@ from uploader.oauth_web import (
     new_oauth_state,
     register_channel_from_credentials,
 )
+from uploader.job_views import (
+    entry_to_job_view,
+    job_media_availability,
+    list_jobs as list_jobs_unified,
+    load_channel_jobs,
+    resolve_job_asset_uri,
+)
+from uploader.object_storage import exists, guess_media_type, is_s3_uri, presigned_get_url
 from uploader.registry import UploadRegistry
 from uploader.cache_signals import bump
 from uploader.scheduler import compute_publish_schedule, parse_start, run_all_channels, run_channel
@@ -95,11 +113,14 @@ def create_app() -> FastAPI:
         endpoints = [
             {"method": "GET", "path": "/v1/health", "description": "Health check"},
             {"method": "GET", "path": "/v1/capabilities", "description": "CLI inventory + YouTube features"},
-            {"method": "GET", "path": "/v1/dashboard", "description": "Channels + pending jobs (cached, ?refresh=true to bypass)"},
-            {"method": "GET", "path": "/v1/channels", "description": "List channels + auth status + pending counts"},
+            {"method": "GET", "path": "/v1/dashboard", "description": "Channels + queue_jobs + uploaded_jobs (cached, ?refresh=true to bypass)"},
+            {"method": "GET", "path": "/v1/channels", "description": "List channels + auth status + queue/uploaded counts"},
             {"method": "GET", "path": "/v1/channels/{id}", "description": "Single channel detail"},
-            {"method": "GET", "path": "/v1/jobs", "description": "List queue jobs (?channel= &status=)"},
-            {"method": "GET", "path": "/v1/channels/{id}/jobs/{job_id}", "description": "Job detail + metadata"},
+            {"method": "GET", "path": "/v1/jobs", "description": "List jobs (?channel= &status= &location=queue|uploaded|all)"},
+            {"method": "POST", "path": "/v1/channels/{id}/jobs", "description": "Stage video into queue/ (multipart upload)"},
+            {"method": "POST", "path": "/v1/channels/{id}/jobs/register", "description": "Register job when video already in storage (JSON)"},
+            {"method": "GET", "path": "/v1/channels/{id}/jobs/{job_id}", "description": "Job detail + metadata (?media=true for preview URLs)"},
+            {"method": "GET", "path": "/v1/channels/{id}/jobs/{job_id}/media/{asset}", "description": "Stream thumbnail or video (lazy preview)"},
             {"method": "DELETE", "path": "/v1/channels/{id}/jobs/{job_id}", "description": "Remove from queue"},
             {"method": "GET", "path": "/v1/channels/{id}/plan", "description": "Preview publish schedule"},
             {"method": "POST", "path": "/v1/channels/{id}/runs", "description": "Start upload run (background)"},
@@ -126,8 +147,7 @@ def create_app() -> FastAPI:
         )
 
     def _channel_out(ch) -> ChannelOut:
-        reg = UploadRegistry(ch.registry_path)
-        pending = len(reg.pending(channel_id=ch.id))
+        bundle = load_channel_jobs(ch, base=get_storage_base())
         return ChannelOut(
             id=ch.id,
             name=ch.name,
@@ -136,7 +156,9 @@ def create_app() -> FastAPI:
             token_path=ch.token_path,
             registry_path=ch.registry_path,
             auth=_token_status(ch),
-            pending_count=pending,
+            pending_count=bundle.pending_count,
+            uploaded_count=bundle.uploaded_count,
+            failed_count=bundle.failed_count,
         )
 
     @app.get("/v1/dashboard", response_model=DashboardResponse)
@@ -161,25 +183,32 @@ def create_app() -> FastAPI:
         return _channel_out(ch)
 
     def _entry_to_job(entry) -> JobOut:
-        return JobOut(
-            id=entry.id,
-            channel_id=entry.channel_id,
-            status=entry.status,
-            title=entry.title,
-            description=entry.description,
-            video_uri=entry.resolved_video_uri(),
-            thumbnail_uri=entry.resolved_thumbnail_uri(),
-            youtube_id=entry.youtube_id,
-            youtube_url=entry.youtube_url,
-            publish_at=entry.publish_at,
-            created_at=entry.created_at,
-            error=entry.error,
+        return job_view_to_out(entry_to_job_view(entry, base=get_storage_base()))
+
+    def _media_urls(channel_ref: str, job_id: str) -> JobMediaOut:
+        ch = resolve_channel_ref(channel_ref)
+        reg = UploadRegistry(ch.registry_path)
+        entry = reg.get(job_id)
+        if entry is None:
+            raise HTTPException(404, f"Job not found: {job_id}")
+        base = get_storage_base()
+        avail = job_media_availability(entry, base=base)
+        root = f"/v1/channels/{ch.id}/jobs/{job_id}/media"
+        return JobMediaOut(
+            thumbnail=f"{root}/thumbnail" if avail["thumbnail"] else "",
+            video=f"{root}/video" if avail["video"] else "",
+            thumbnail_available=avail["thumbnail"],
+            video_available=avail["video"],
         )
 
     @app.get("/v1/jobs", response_model=list[JobOut])
     def list_jobs(
         channel: str | None = Query(default=None),
         status: str | None = Query(default="pending"),
+        location: str | None = Query(
+            default=None,
+            description="queue | uploaded | all — filter by R2 folder (queue/ vs uploaded/)",
+        ),
     ):
         config = get_app_config()
         channels = config.channels
@@ -189,20 +218,167 @@ def create_app() -> FastAPI:
             except KeyError as e:
                 raise HTTPException(404, str(e)) from e
 
-        jobs: list[JobOut] = []
-        for ch in channels:
-            reg = UploadRegistry(ch.registry_path)
-            if status == "pending":
-                entries = reg.pending(channel_id=ch.id)
-            elif status:
-                entries = [e for e in reg.load() if e.status == status and e.channel_id == ch.id]
-            else:
-                entries = [e for e in reg.load() if e.channel_id == ch.id]
-            jobs.extend(_entry_to_job(e) for e in entries)
-        return jobs
+        loc = location or ("uploaded" if status == "uploaded" else "queue" if status == "pending" else "all")
+        if loc not in ("queue", "uploaded", "all"):
+            raise HTTPException(400, "location must be queue, uploaded, or all")
 
-    @app.get("/v1/channels/{channel_ref}/jobs/{job_id}")
-    def get_job(channel_ref: str, job_id: str):
+        status_filter = status if status else None
+        views = list_jobs_unified(
+            channels,
+            base=get_storage_base(),
+            location=loc,  # type: ignore[arg-type]
+            status=status_filter,
+        )
+        return [job_view_to_out(v) for v in views]
+
+    async def _stage_job_multipart(
+        channel_ref: str,
+        *,
+        video: UploadFile,
+        title: str,
+        description: str = "",
+        thumbnail: UploadFile | None = None,
+        job_id: str | None = None,
+        privacy: str | None = None,
+        category_id: str | None = None,
+        tags: str | None = None,
+        language: str | None = None,
+        metadata_json: str | None = None,
+        is_short: str | None = None,
+        made_for_kids: str | None = None,
+    ) -> StagedJobOut:
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+
+        metadata, parsed_tags, parsed_short, parsed_mfk = parse_stage_form_fields(
+            metadata_json=metadata_json,
+            tags=tags,
+            is_short=is_short,
+            made_for_kids=made_for_kids,
+        )
+        config = get_app_config()
+        return await stage_job_from_upload(
+            ch,
+            video=video,
+            title=title,
+            description=description,
+            thumbnail=thumbnail,
+            job_id=job_id,
+            base=get_storage_base(),
+            config_defaults=config.job_defaults,
+            privacy=privacy,
+            is_short=parsed_short,
+            category_id=category_id,
+            tags=parsed_tags,
+            made_for_kids=parsed_mfk,
+            language=language,
+            metadata=metadata,
+        )
+
+    @app.post(
+        "/v1/channels/{channel_ref}/jobs",
+        response_model=StagedJobOut,
+        status_code=201,
+        dependencies=[Depends(require_api_key)],
+    )
+    async def create_job(
+        channel_ref: str,
+        video: UploadFile = File(..., description="Video file (.mp4)"),
+        title: str = Form(...),
+        description: str = Form(default=""),
+        thumbnail: UploadFile | None = File(default=None),
+        job_id: str | None = Form(default=None),
+        privacy: str | None = Form(default=None),
+        is_short: str | None = Form(default=None, description="true|false"),
+        category_id: str | None = Form(default=None),
+        tags: str | None = Form(default=None, description="Comma-separated tags"),
+        made_for_kids: str | None = Form(default=None, description="true|false"),
+        language: str | None = Form(default=None),
+        metadata: str | None = Form(default=None, description="JSON metadata object"),
+    ):
+        """Stage a generated video into queue/ for later YouTube upload."""
+        return await _stage_job_multipart(
+            channel_ref,
+            video=video,
+            title=title,
+            description=description,
+            thumbnail=thumbnail,
+            job_id=job_id,
+            privacy=privacy,
+            category_id=category_id,
+            tags=tags,
+            language=language,
+            metadata_json=metadata,
+            is_short=is_short,
+            made_for_kids=made_for_kids,
+        )
+
+    @app.post(
+        "/v1/jobs",
+        response_model=StagedJobOut,
+        status_code=201,
+        dependencies=[Depends(require_api_key)],
+    )
+    async def create_job_alias(
+        channel_id: str = Form(..., description="Channel id or handle"),
+        video: UploadFile = File(...),
+        title: str = Form(...),
+        description: str = Form(default=""),
+        thumbnail: UploadFile | None = File(default=None),
+        job_id: str | None = Form(default=None),
+        privacy: str | None = Form(default=None),
+        is_short: str | None = Form(default=None),
+        category_id: str | None = Form(default=None),
+        tags: str | None = Form(default=None),
+        made_for_kids: str | None = Form(default=None),
+        language: str | None = Form(default=None),
+        metadata: str | None = Form(default=None),
+    ):
+        """Alias for POST /v1/channels/{id}/jobs with channel_id in form body."""
+        return await _stage_job_multipart(
+            channel_id,
+            video=video,
+            title=title,
+            description=description,
+            thumbnail=thumbnail,
+            job_id=job_id,
+            privacy=privacy,
+            category_id=category_id,
+            tags=tags,
+            language=language,
+            metadata_json=metadata,
+            is_short=is_short,
+            made_for_kids=made_for_kids,
+        )
+
+    @app.post(
+        "/v1/channels/{channel_ref}/jobs/register",
+        response_model=StagedJobOut,
+        status_code=201,
+        dependencies=[Depends(require_api_key)],
+    )
+    def register_job(channel_ref: str, body: JobRegisterRequest):
+        """Register a pending job when the pipeline already uploaded files to storage."""
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        config = get_app_config()
+        return register_job_from_request(
+            ch,
+            body,
+            base=get_storage_base(),
+            config_defaults=config.job_defaults,
+        )
+
+    @app.get("/v1/channels/{channel_ref}/jobs/{job_id}", response_model=JobDetailResponse)
+    def get_job(
+        channel_ref: str,
+        job_id: str,
+        media: bool = Query(default=False, description="Include lazy-load media preview URLs"),
+    ):
         try:
             ch = resolve_channel_ref(channel_ref)
         except KeyError as e:
@@ -212,8 +388,43 @@ def create_app() -> FastAPI:
         if entry is None:
             raise HTTPException(404, f"Job not found: {job_id}")
         base = get_storage_base()
+        job_out = job_view_to_out(entry_to_job_view(entry, base=base))
         meta = load_job_metadata(entry, base=base, channel=ch, config_defaults=get_app_config().job_defaults)
-        return {"job": _entry_to_job(entry), "metadata": meta.to_dict() if meta else None}
+        media_out = _media_urls(ch.id, job_id) if media else None
+        return JobDetailResponse(
+            job=job_out,
+            metadata=meta.to_dict() if meta else None,
+            media=media_out,
+        )
+
+    @app.get("/v1/channels/{channel_ref}/jobs/{job_id}/media/{asset}")
+    def job_media(channel_ref: str, job_id: str, asset: str):
+        if asset not in ("thumbnail", "video"):
+            raise HTTPException(400, "asset must be thumbnail or video")
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        reg = UploadRegistry(ch.registry_path)
+        entry = reg.get(job_id)
+        if entry is None:
+            raise HTTPException(404, f"Job not found: {job_id}")
+        from uploader import bucket_layout
+
+        filename = bucket_layout.JOB_THUMBNAIL if asset == "thumbnail" else bucket_layout.JOB_VIDEO
+        base = get_storage_base()
+        uri = resolve_job_asset_uri(entry, filename, base=base)
+        if not uri or not exists(uri):
+            raise HTTPException(404, f"{asset} not available for this job")
+        if is_s3_uri(uri):
+            try:
+                return RedirectResponse(presigned_get_url(uri), status_code=307)
+            except Exception as e:
+                raise HTTPException(502, str(e)) from e
+        path = Path(uri)
+        if not path.is_file():
+            raise HTTPException(404, f"{asset} file not found")
+        return FileResponse(path, media_type=guess_media_type(path.name))
 
     @app.delete("/v1/channels/{channel_ref}/jobs/{job_id}")
     def delete_job(channel_ref: str, job_id: str):
@@ -446,7 +657,7 @@ def create_app() -> FastAPI:
                 expected_state=state,
                 code_verifier=session.code_verifier,
             )
-            channel = register_channel_from_credentials(
+            result = register_channel_from_credentials(
                 oauth,
                 credentials_to_json(creds),
                 config_path=config_path(),
@@ -454,7 +665,14 @@ def create_app() -> FastAPI:
             )
         except Exception as e:
             return RedirectResponse(url=f"/?oauth_error={e}")
-        return RedirectResponse(url=f"/?oauth_success={channel.id}")
+        channel = result.channel
+        if session.mode == "reauth" and result.action == "added":
+            return RedirectResponse(
+                url=f"/?oauth_success={channel.id}&oauth_action=added_different_account"
+            )
+        if result.action == "updated":
+            return RedirectResponse(url=f"/?oauth_success={channel.id}&oauth_action=updated")
+        return RedirectResponse(url=f"/?oauth_success={channel.id}&oauth_action=added")
 
     @app.post("/v1/storage/init")
     def storage_init():

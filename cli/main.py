@@ -16,6 +16,7 @@ from uploader.channel_list import list_channel_videos
 from uploader.metadata import default_test_description, default_test_title
 from uploader.oauth import oauth_is_configured, resolve_oauth_settings
 from uploader.job_store import remove_job, stage_job
+from uploader.job_views import load_channel_jobs
 from uploader.registry import UploadEntry, UploadRegistry
 from uploader.scheduler import compute_publish_schedule, parse_start, run_all_channels, run_channel
 from uploader.state_store import config_base_from_path, ensure_bucket_structure, token_is_authorized
@@ -178,12 +179,22 @@ def _build_parser() -> argparse.ArgumentParser:
 
     q_list = queue_sub.add_parser(
         "list",
-        help="Show pending jobs in the queue (count + job ids).",
+        help="Show jobs in queue/ (pending) or uploaded/ (history).",
     )
     q_list.add_argument(
         "--channel",
         default=None,
         help=f"Channel ref (default: all configured channels). {_CHANNEL_HELP}",
+    )
+    q_list.add_argument(
+        "--uploaded",
+        action="store_true",
+        help="List uploaded jobs (uploaded/ folder) instead of queue.",
+    )
+    q_list.add_argument(
+        "--failed",
+        action="store_true",
+        help="Include failed jobs when listing queue.",
     )
 
     q_upload = queue_sub.add_parser(
@@ -372,7 +383,7 @@ def _cmd_channel_reauth(args, config) -> int:
         return 2
     print(f"Re-authenticating {channel.name} ({channel.id})…", file=sys.stderr)
     try:
-        channel = reauthenticate_channel(
+        result = reauthenticate_channel(
             channel,
             oauth,
             config_path=_config_path_from_args(args),
@@ -380,6 +391,13 @@ def _cmd_channel_reauth(args, config) -> int:
     except Exception as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    if result.action == "added":
+        print(
+            f"Signed in with a different YouTube channel — added {result.channel.name} "
+            f"({result.channel.id}); left {channel.id} unchanged.",
+            file=sys.stderr,
+        )
+    channel = result.channel
     _print_channel_saved(channel)
     return 0
 
@@ -475,26 +493,48 @@ def _cmd_queue_list(args, config) -> int:
         print("No channels configured. Run: uploader channel add")
         return 0
 
+    base = config_base_from_path(_config_path_from_args(args))
     grand_total = 0
+
     for channel in channels:
-        registry = UploadRegistry(channel.registry_path)
-        pending = registry.pending(channel_id=channel.id)
-        grand_total += len(pending)
-
-        if len(channels) > 1:
-            print(f"{channel.id}: {len(pending)} pending in {registry.path}")
+        bundle = load_channel_jobs(channel, base=base)
+        if args.uploaded:
+            jobs = bundle.uploaded_jobs
+            label = "uploaded"
         else:
-            print(f"{len(pending)} pending job(s) in {registry.path}:")
+            jobs = bundle.queue_jobs
+            if not args.failed:
+                jobs = [j for j in jobs if j.status == "pending"]
+            label = "queue"
 
-        for i, entry in enumerate(pending, 1):
-            title = entry.title or "(no title)"
-            print(f"  {i}. {entry.id}  {title}")
+        grand_total += len(jobs)
+        if len(channels) > 1:
+            print(f"{channel.id}: {len(jobs)} in {label}/ ({channel.registry_path})")
+        else:
+            print(f"{len(jobs)} job(s) in {label}/ ({channel.registry_path}):")
 
-        if len(channels) > 1 and pending:
+        for job in jobs:
+            pos = f"{job.queue_position}. " if job.queue_position else "   "
+            title = job.title or "(no title)"
+            folder = job.storage_folder
+            extra = ""
+            if job.status != "pending":
+                extra = f"  [{job.status}]"
+            if folder == "missing":
+                extra += "  (files missing)"
+            elif folder == "uploaded" and label == "queue":
+                extra += "  (in uploaded/)"
+            if args.uploaded and job.youtube_url:
+                print(f"  {pos}{job.id}  {title}{extra}  {job.youtube_url}")
+            else:
+                print(f"  {pos}{job.id}  {title}{extra}")
+
+        if len(channels) > 1 and jobs:
             print()
 
     if len(channels) > 1:
-        print(f"{grand_total} pending job(s) across {len(channels)} channel(s).")
+        section = "uploaded" if args.uploaded else "queue"
+        print(f"{grand_total} job(s) in {section}/ across {len(channels)} channel(s).")
     return 0
 
 

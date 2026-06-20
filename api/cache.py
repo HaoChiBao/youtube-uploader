@@ -7,13 +7,14 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from uploader.cache_signals import bump as bump_cache, generation
 from uploader.channels import AppConfig, load_config
+from uploader.job_views import JobView, load_channel_jobs
 from uploader.oauth import OAuthSettings, resolve_oauth_settings
 from uploader.oauth_web import inspect_token_file
-from uploader.registry import UploadRegistry
 from uploader.state_store import config_storage_uri, remote_storage_enabled
 
 from api.schemas import ChannelOut, DashboardResponse, JobOut, TokenStatus
@@ -137,26 +138,14 @@ def get_token_status(
     return status
 
 
-def _entry_to_job(entry) -> JobOut:
-    return JobOut(
-        id=entry.id,
-        channel_id=entry.channel_id,
-        status=entry.status,
-        title=entry.title,
-        description=entry.description,
-        video_uri=entry.resolved_video_uri(),
-        thumbnail_uri=entry.resolved_thumbnail_uri(),
-        youtube_id=entry.youtube_id,
-        youtube_url=entry.youtube_url,
-        publish_at=entry.publish_at,
-        created_at=entry.created_at,
-        error=entry.error,
-    )
+def job_view_to_out(view: JobView) -> JobOut:
+    return JobOut(**view.to_dict())
 
 
-def _load_channel_bundle(ch, oauth: OAuthSettings) -> tuple[ChannelOut, list[JobOut]]:
-    reg = UploadRegistry(ch.registry_path)
-    pending = reg.pending(channel_id=ch.id)
+def _load_channel_bundle(
+    ch, oauth: OAuthSettings, *, base: Path
+) -> tuple[ChannelOut, list[JobOut], list[JobOut]]:
+    bundle = load_channel_jobs(ch, base=base)
     auth = get_token_status(ch.id, ch.token_path, oauth)
     channel_out = ChannelOut(
         id=ch.id,
@@ -166,10 +155,13 @@ def _load_channel_bundle(ch, oauth: OAuthSettings) -> tuple[ChannelOut, list[Job
         token_path=ch.token_path,
         registry_path=ch.registry_path,
         auth=auth,
-        pending_count=len(pending),
+        pending_count=bundle.pending_count,
+        uploaded_count=bundle.uploaded_count,
+        failed_count=bundle.failed_count,
     )
-    jobs = [_entry_to_job(e) for e in pending]
-    return channel_out, jobs
+    queue_jobs = [job_view_to_out(j) for j in bundle.queue_jobs]
+    uploaded_jobs = [job_view_to_out(j) for j in bundle.uploaded_jobs]
+    return channel_out, queue_jobs, uploaded_jobs
 
 
 def build_dashboard(config_path, *, force: bool = False) -> DashboardResponse:
@@ -190,26 +182,31 @@ def build_dashboard(config_path, *, force: bool = False) -> DashboardResponse:
     base = base.parent.parent if base.parent.name == "config" else base.parent
 
     channels: list[ChannelOut] = []
-    jobs: list[JobOut] = []
+    queue_jobs: list[JobOut] = []
+    uploaded_jobs: list[JobOut] = []
     if config.channels:
         with ThreadPoolExecutor(max_workers=min(8, len(config.channels))) as pool:
             futures = {
-                pool.submit(_load_channel_bundle, ch, oauth): ch.id for ch in config.channels
+                pool.submit(_load_channel_bundle, ch, oauth, base=base): ch.id
+                for ch in config.channels
             }
-            by_id: dict[str, tuple[ChannelOut, list[JobOut]]] = {}
+            by_id: dict[str, tuple[ChannelOut, list[JobOut], list[JobOut]]] = {}
             for fut in as_completed(futures):
                 ch_id = futures[fut]
                 by_id[ch_id] = fut.result()
         for ch in config.channels:
-            channel_out, ch_jobs = by_id[ch.id]
+            channel_out, ch_queue, ch_uploaded = by_id[ch.id]
             channels.append(channel_out)
-            jobs.extend(ch_jobs)
+            queue_jobs.extend(ch_queue)
+            uploaded_jobs.extend(ch_uploaded)
 
     response = DashboardResponse(
         config_uri=config_storage_uri(base),
         storage="r2" if remote_storage_enabled() else "local",
         channels=channels,
-        jobs=jobs,
+        queue_jobs=queue_jobs,
+        uploaded_jobs=uploaded_jobs,
+        jobs=queue_jobs,
         cached=False,
     )
 

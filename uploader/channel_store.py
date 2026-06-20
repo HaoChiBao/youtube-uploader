@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from uploader.channel_info import AuthorizedChannelInfo, get_authorized_channel_info
 from uploader import bucket_layout
@@ -13,6 +15,23 @@ from uploader.state_store import init_channel_storage, read_raw_config, save_tok
 from uploader.youtube_client import get_credentials
 
 _PENDING_TOKEN = Path("secrets/.oauth_pending/youtube_token.json")
+
+_PRESERVE_ON_MERGE = (
+    "publish",
+    "category_id",
+    "default_tags",
+    "made_for_kids",
+    "default_privacy",
+    "default_is_short",
+    "default_language",
+    "registry_path",
+)
+
+
+@dataclass
+class OAuthRegistrationResult:
+    channel: ChannelConfig
+    action: Literal["updated", "added"]
 
 
 def slugify(value: str) -> str:
@@ -114,6 +133,150 @@ def find_channel_index(data: dict, youtube_channel_id: str) -> int | None:
     return None
 
 
+def find_channel_index_by_id(data: dict, channel_id: str) -> int | None:
+    for i, raw in enumerate(data.get("channels") or []):
+        if raw.get("id") == channel_id:
+            return i
+    return None
+
+
+def _publish_from_entry(raw: dict) -> PublishConfig:
+    pub = raw.get("publish") or {}
+    return PublishConfig(
+        timezone=pub.get("timezone", "America/New_York"),
+        hour=int(pub.get("hour", 9)),
+        interval_hours=float(pub.get("interval_hours", 24.0)),
+    )
+
+
+def _channel_config_from_entry(entry: dict) -> ChannelConfig:
+    return ChannelConfig(
+        id=entry["id"],
+        name=entry.get("name", ""),
+        token_path=entry.get("token_path", ""),
+        registry_path=entry.get("registry_path", ""),
+        category_id=str(entry.get("category_id", "10")),
+        default_tags=list(entry.get("default_tags") or []),
+        made_for_kids=bool(entry.get("made_for_kids", False)),
+        default_privacy=str(entry.get("default_privacy", "")),
+        default_is_short=entry.get("default_is_short"),
+        default_language=str(entry.get("default_language", "")),
+        publish=_publish_from_entry(entry),
+        youtube_channel_id=entry.get("youtube_channel_id", ""),
+        custom_url=entry.get("custom_url", ""),
+    )
+
+
+def _merge_preserved_settings(new_entry: dict, old_entry: dict) -> None:
+    for key in _PRESERVE_ON_MERGE:
+        if key in old_entry:
+            new_entry[key] = old_entry[key]
+
+
+def register_oauth_channel(
+    creds_json: str,
+    *,
+    config_path: Path,
+    reauth_channel_id: str | None = None,
+    publish: PublishConfig | None = None,
+    oauth: OAuthSettings | None = None,
+    info: AuthorizedChannelInfo | None = None,
+) -> OAuthRegistrationResult:
+    """Save OAuth credentials and update channels.yaml.
+
+    When ``reauth_channel_id`` is set and the signed-in YouTube channel matches the
+    existing entry, refresh the token in place (id / registry / publish unchanged).
+
+    When reauth picks a *different* YouTube account, add a new channel entry and
+    leave the original channel untouched.
+    """
+    config_path = config_path.expanduser().resolve()
+    base = _config_base(config_path)
+    data = _read_raw_config(config_path)
+
+    _PENDING_TOKEN.parent.mkdir(parents=True, exist_ok=True)
+    _PENDING_TOKEN.write_text(creds_json, encoding="utf-8")
+    try:
+        if info is None:
+            if oauth is None:
+                raise ValueError("Provide oauth settings or pre-resolved channel info")
+            info = get_authorized_channel_info(
+                _PENDING_TOKEN,
+                client_secret=oauth.client_secret_path,
+                client_config=oauth.client_config,
+                oauth_port=oauth.oauth_port,
+            )
+
+        if reauth_channel_id:
+            idx = find_channel_index_by_id(data, reauth_channel_id)
+            if idx is None:
+                raise KeyError(f"Channel not found: {reauth_channel_id}")
+            entry = data["channels"][idx]
+            old_yt_id = (entry.get("youtube_channel_id") or "").strip()
+            if old_yt_id and old_yt_id != info.youtube_channel_id:
+                reauth_channel_id = None
+            else:
+                channel_id = reauth_channel_id
+                token_loc = save_token(channel_id, creds_json, base=base)
+                entry["name"] = info.title
+                entry["youtube_channel_id"] = info.youtube_channel_id
+                if info.custom_url:
+                    entry["custom_url"] = info.custom_url
+                entry["token_path"] = token_loc
+                write_raw_config(config_path, data)
+                init_channel_storage(
+                    channel_id,
+                    base=base,
+                    name=info.title,
+                    youtube_channel_id=info.youtube_channel_id,
+                    custom_url=info.custom_url or entry.get("custom_url", ""),
+                )
+                return OAuthRegistrationResult(
+                    channel=_channel_config_from_entry(entry),
+                    action="updated",
+                )
+
+        base_id = derive_channel_id(info)
+        existing = _existing_youtube_ids(data)
+        channel_id = make_unique_channel_id(base_id, info.youtube_channel_id, existing)
+        token_loc = save_token(channel_id, creds_json, base=base)
+
+        init_channel_storage(
+            channel_id,
+            base=base,
+            name=info.title,
+            youtube_channel_id=info.youtube_channel_id,
+            custom_url=info.custom_url,
+        )
+
+        entry = _channel_entry_dict(
+            channel_id=channel_id,
+            name=info.title,
+            youtube_channel_id=info.youtube_channel_id,
+            base=base,
+            custom_url=info.custom_url,
+            publish=publish,
+        )
+
+        idx = find_channel_index(data, info.youtube_channel_id)
+        action: Literal["updated", "added"] = "added"
+        if idx is not None:
+            _merge_preserved_settings(entry, data["channels"][idx])
+            data["channels"][idx] = entry
+            action = "updated"
+        else:
+            data["channels"].append(entry)
+
+        write_raw_config(config_path, data)
+
+        return OAuthRegistrationResult(
+            channel=_channel_config_from_entry(entry),
+            action=action,
+        )
+    finally:
+        _PENDING_TOKEN.unlink(missing_ok=True)
+
+
 def add_and_authenticate_channel(
     oauth: OAuthSettings,
     *,
@@ -125,14 +288,12 @@ def add_and_authenticate_channel(
     if config_path is None:
         config_path = Path("config/channels.yaml")
     config_path = config_path.expanduser().resolve()
-    base = _config_base(config_path)
 
-    data = _read_raw_config(config_path)
     _PENDING_TOKEN.parent.mkdir(parents=True, exist_ok=True)
     if _PENDING_TOKEN.is_file():
         _PENDING_TOKEN.unlink()
 
-    creds = get_credentials(
+    get_credentials(
         _PENDING_TOKEN,
         client_secret=oauth.client_secret_path,
         client_config=oauth.client_config,
@@ -140,59 +301,13 @@ def add_and_authenticate_channel(
         force_reauth=force_reauth,
     )
 
-    info = get_authorized_channel_info(
-        _PENDING_TOKEN,
-        client_secret=oauth.client_secret_path,
-        client_config=oauth.client_config,
-        oauth_port=oauth.oauth_port,
-        creds=creds,
-    )
-
-    base_id = derive_channel_id(info)
-    existing = _existing_youtube_ids(data)
-    channel_id = make_unique_channel_id(base_id, info.youtube_channel_id, existing)
-
-    token_loc = save_token(
-        channel_id,
+    result = register_oauth_channel(
         _PENDING_TOKEN.read_text(encoding="utf-8"),
-        base=base,
-    )
-    _PENDING_TOKEN.unlink(missing_ok=True)
-
-    init_channel_storage(
-        channel_id,
-        base=base,
-        name=info.title,
-        youtube_channel_id=info.youtube_channel_id,
-        custom_url=info.custom_url,
-    )
-
-    entry = _channel_entry_dict(
-        channel_id=channel_id,
-        name=info.title,
-        youtube_channel_id=info.youtube_channel_id,
-        base=base,
-        custom_url=info.custom_url,
+        config_path=config_path,
         publish=publish,
+        oauth=oauth,
     )
-
-    idx = find_channel_index(data, info.youtube_channel_id)
-    if idx is not None:
-        data["channels"][idx] = entry
-    else:
-        data["channels"].append(entry)
-
-    _write_raw_config(config_path, data)
-
-    return ChannelConfig(
-        id=channel_id,
-        name=info.title,
-        token_path=token_loc,
-        registry_path=entry["registry_path"],
-        youtube_channel_id=info.youtube_channel_id,
-        custom_url=info.custom_url,
-        publish=publish or PublishConfig(),
-    )
+    return result.channel
 
 
 def reauthenticate_channel(
@@ -200,59 +315,24 @@ def reauthenticate_channel(
     oauth: OAuthSettings,
     *,
     config_path: Path,
-) -> ChannelConfig:
-    """Re-run OAuth for an existing config entry and refresh saved metadata."""
+) -> OAuthRegistrationResult:
+    """Re-run OAuth; same YouTube account updates in place, different account adds new."""
     config_path = config_path.expanduser().resolve()
-    data = _read_raw_config(config_path)
+    _PENDING_TOKEN.parent.mkdir(parents=True, exist_ok=True)
+    if _PENDING_TOKEN.is_file():
+        _PENDING_TOKEN.unlink()
 
     get_credentials(
-        channel.token_path,
+        _PENDING_TOKEN,
         client_secret=oauth.client_secret_path,
         client_config=oauth.client_config,
         oauth_port=oauth.oauth_port,
         force_reauth=True,
     )
 
-    info = get_authorized_channel_info(
-        channel.token_path,
-        client_secret=oauth.client_secret_path,
-        client_config=oauth.client_config,
-        oauth_port=oauth.oauth_port,
-    )
-
-    idx = find_channel_index(data, info.youtube_channel_id)
-    if idx is None:
-        idx = next(
-            (i for i, raw in enumerate(data.get("channels") or []) if raw.get("id") == channel.id),
-            None,
-        )
-
-    if idx is not None:
-        entry = data["channels"][idx]
-        entry["name"] = info.title
-        entry["youtube_channel_id"] = info.youtube_channel_id
-        if info.custom_url:
-            entry["custom_url"] = info.custom_url
-        _write_raw_config(config_path, data)
-
-    base = _config_base(config_path)
-    init_channel_storage(
-        channel.id,
-        base=base,
-        name=info.title,
-        youtube_channel_id=info.youtube_channel_id,
-        custom_url=info.custom_url or channel.custom_url,
-    )
-
-    return ChannelConfig(
-        id=channel.id,
-        name=info.title,
-        token_path=channel.token_path,
-        registry_path=channel.registry_path,
-        youtube_channel_id=info.youtube_channel_id,
-        custom_url=info.custom_url,
-        category_id=channel.category_id,
-        default_tags=channel.default_tags,
-        made_for_kids=channel.made_for_kids,
-        publish=channel.publish,
+    return register_oauth_channel(
+        _PENDING_TOKEN.read_text(encoding="utf-8"),
+        config_path=config_path,
+        reauth_channel_id=channel.id,
+        oauth=oauth,
     )

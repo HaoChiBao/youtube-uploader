@@ -196,7 +196,7 @@ def run_channel(
                 youtube_id = response.get("id", "")
                 registry.mark_uploaded(entry.id, youtube_id=youtube_id, publish_at=publish_at)
                 try:
-                    archive_job_from_entry(entry, base=base)
+                    archive_job_from_entry(entry, base=base, registry=registry)
                 except Exception as archive_err:
                     print(
                         f"  warning: could not archive {entry.id} to uploaded/: {archive_err}",

@@ -16,6 +16,12 @@
     .ok { color: #0a7; font-weight: 600; }
     .bad { color: #c33; font-weight: 600; }
     .warn { color: #a60; }
+    .muted { color: #888; font-size: 0.8rem; }
+    .folder-tag { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: #eee; margin-left: 0.25rem; }
+    .folder-tag.queue { background: #e8f0fe; color: #174ea6; }
+    .folder-tag.uploaded { background: #e6f4ea; color: #137333; }
+    .folder-tag.missing { background: #fce8e6; color: #c5221f; }
+    .status-failed { color: #c33; }
     button, .btn { background: #111; color: #fff; border: none; padding: 0.45rem 0.85rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-right: 0.4rem; }
     button.secondary { background: #666; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -41,6 +47,21 @@
     .features { font-size: 0.85rem; columns: 2; gap: 1rem; }
     .features li { margin-bottom: 0.25rem; }
     #run-status { font-size: 0.85rem; color: #444; margin-top: 0.5rem; white-space: pre-wrap; }
+    tr.job-row { cursor: pointer; }
+    tr.job-row:hover { background: #f9f9fb; }
+    tr.job-row.expanded { background: #f3f6ff; }
+    tr.job-detail td { background: #fafbff; padding: 0.75rem 1rem; vertical-align: top; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-meta dl { margin: 0; font-size: 0.85rem; }
+    .detail-meta dt { font-weight: 600; margin-top: 0.5rem; color: #444; }
+    .detail-meta dd { margin: 0.15rem 0 0; word-break: break-word; }
+    .detail-path { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #555; }
+    .detail-preview img { max-width: 240px; max-height: 135px; border-radius: 6px; border: 1px solid #ddd; display: block; }
+    .detail-preview video { max-width: 100%; max-height: 280px; border-radius: 6px; border: 1px solid #ddd; background: #000; }
+    .detail-preview .placeholder { color: #888; font-size: 0.85rem; font-style: italic; }
+    .expand-hint { color: #888; font-size: 0.75rem; }
+    .click-title { text-decoration: underline dotted; text-underline-offset: 2px; }
   </style>
 </head>
 <body>
@@ -68,11 +89,19 @@
   </section>
 
   <section id="jobs-section">
-    <h2>Upload queue (pending)</h2>
+    <h2>Queue <span class="muted">(queue/ — upload in order)</span></h2>
     <label>Filter: <select id="channel-filter"><option value="">All channels</option></select></label>
     <table>
-      <thead><tr><th>#</th><th>Channel</th><th>Job ID</th><th>Title</th><th>Actions</th></tr></thead>
-      <tbody id="jobs-body"><tr><td colspan="5">Loading…</td></tr></tbody>
+      <thead><tr><th>#</th><th>Channel</th><th>Job ID</th><th>Title</th><th>Status</th><th>Folder</th><th>Actions</th></tr></thead>
+      <tbody id="queue-body"><tr><td colspan="7">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section id="uploaded-section">
+    <h2>Uploaded <span class="muted">(uploaded/ — archive after YouTube upload)</span></h2>
+    <table>
+      <thead><tr><th></th><th>Channel</th><th>Job ID</th><th>Title</th><th>YouTube</th><th>Uploaded</th><th>Folder</th></tr></thead>
+      <tbody id="uploaded-body"><tr><td colspan="6">Loading…</td></tr></tbody>
     </table>
   </section>
 
@@ -94,8 +123,16 @@
 
     function authBadge(auth) {
       if (auth.valid) return '<span class="ok">authenticated</span>';
-      if (auth.has_token) return '<span class="warn">' + auth.status + '</span>';
-      return '<span class="bad">not connected</span>';
+      if (!auth.has_token) return '<span class="bad">not connected</span>';
+      const labels = {
+        missing: 'not connected',
+        empty: 'not connected',
+        needs_reauth: 'reconnect required',
+        refresh_failed: 'refresh failed — reconnect',
+        invalid: 'invalid token',
+      };
+      const label = labels[auth.status] || auth.status.replace(/_/g, ' ');
+      return '<span class="warn">' + label + '</span>';
     }
 
     async function api(path, opts) {
@@ -105,6 +142,55 @@
         throw new Error(err.detail || res.statusText);
       }
       return res.json();
+    }
+
+    function esc(s) {
+      if (s == null || s === undefined) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function storageFolder(job) {
+      if (job && typeof job === 'object') {
+        const folder = job.storage_folder;
+        if (folder && String(folder) !== 'undefined') return folder;
+        const uri = String(job.video_uri || '').replace(/\\/g, '/');
+        if (/\/uploaded\//.test(uri) || /\/archive\//.test(uri)) return 'uploaded';
+        if (/\/queue\//.test(uri) || /\/videos\//.test(uri)) return 'queue';
+        if (job.status === 'uploaded') return 'uploaded';
+        if (job.status === 'pending' || job.status === 'uploading' || job.status === 'failed') return 'queue';
+        return 'missing';
+      }
+      const f = (job && String(job) !== 'undefined') ? job : 'missing';
+      return f;
+    }
+
+    function jobStoragePrefix(job) {
+      if (!job) return '';
+      if (job.queue_prefix) return job.queue_prefix;
+      if (job.status === 'uploaded' && job.uploaded_prefix) return job.uploaded_prefix;
+      const uri = String(job.video_uri || '');
+      if (uri && /\/[^/]+\.(mp4|mov|webm|mkv)$/i.test(uri)) {
+        return uri.replace(/\/[^/]+$/, '/');
+      }
+      return job.uploaded_prefix || job.queue_prefix || '';
+    }
+
+    function storageBadge(job) {
+      const f = storageFolder(job);
+      const cls = f === 'queue' ? 'queue' : f === 'uploaded' ? 'uploaded' : 'missing';
+      return '<span class="folder-tag ' + cls + '" title="' + esc(f) + '/">' + esc(f) + '/</span>';
+    }
+
+    function shortPath(prefix) {
+      if (!prefix) return '—';
+      return esc(String(prefix).replace(/^s3:\/\/[^/]+\//, ''));
+    }
+
+    function statusLabel(status) {
+      if (status === 'pending') return 'pending';
+      if (status === 'failed') return '<span class="status-failed">failed</span>';
+      if (status === 'uploading') return '<span class="warn">uploading</span>';
+      return status;
     }
 
     async function loadDashboard(force) {
@@ -125,14 +211,15 @@
       filter.innerHTML = '<option value="">All channels</option>';
       if (!channels.length) {
         tbody.innerHTML = '<tr><td colspan="4">No channels — click Connect YouTube channel</td></tr>';
-        renderJobs([]);
+        renderQueueJobs([]);
+        renderUploadedJobs([]);
         return channels;
       }
       tbody.innerHTML = channels.map(ch => `
         <tr>
           <td><strong>${ch.name}</strong><br><small>${ch.id}${ch.custom_url ? ' ' + ch.custom_url : ''}</small></td>
           <td>${authBadge(ch.auth)}</td>
-          <td>${ch.pending_count}</td>
+          <td>${ch.pending_count} queue · ${ch.uploaded_count || 0} uploaded${ch.failed_count ? ' · ' + ch.failed_count + ' failed' : ''}</td>
           <td>
             <button data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload 1</button>
             <button class="secondary" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload all</button>
@@ -142,33 +229,151 @@
       channels.forEach(ch => {
         const opt = document.createElement('option');
         opt.value = ch.id;
-        opt.textContent = ch.id + ' (' + ch.pending_count + ' pending)';
+        opt.textContent = ch.id + ' (' + ch.pending_count + ' queue, ' + (ch.uploaded_count || 0) + ' uploaded)';
         filter.appendChild(opt);
       });
       if (prev) filter.value = prev;
-      renderJobs(data.jobs || []);
+      renderQueueJobs(data.queue_jobs || data.jobs || []);
+      renderUploadedJobs(data.uploaded_jobs || []);
       return channels;
     }
 
     let dashboardData = null;
+    const expandedJobKeys = new Set();
+    const jobDetailCache = new Map();
 
-    function renderJobs(jobs) {
-      const channel = document.getElementById('channel-filter').value;
-      const filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs;
-      const tbody = document.getElementById('jobs-body');
-      if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="5">No pending jobs</td></tr>';
+    function jobKey(channelId, jobId) {
+      return channelId + ':' + jobId;
+    }
+
+    function renderMetaList(meta, job) {
+      if (!meta && !job) return '<p class="placeholder">No metadata</p>';
+      const m = meta || {};
+      const rows = [
+        ['Privacy', m.privacy || '—'],
+        ['Short', m.is_short != null ? (m.is_short ? 'yes' : 'no') : '—'],
+        ['Category', m.category_id || '—'],
+        ['Made for kids', m.made_for_kids != null ? (m.made_for_kids ? 'yes' : 'no') : '—'],
+        ['Language', m.language || '—'],
+        ['Tags', (m.tags && m.tags.length) ? m.tags.join(', ') : '—'],
+        ['Staged', m.staged_at || job.created_at || '—'],
+        ['Registry status', job.status || '—'],
+      ];
+      if (job.error) rows.push(['Error', job.error]);
+      return '<dl>' + rows.map(([k,v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
+    }
+
+    function renderDetailPanel(detail) {
+      const job = detail.job;
+      const meta = detail.metadata;
+      const media = detail.media || {};
+      const desc = (meta && meta.description) || job.description || '';
+      const thumbHtml = media.thumbnail_available
+        ? '<img src="' + esc(media.thumbnail) + '" alt="Thumbnail" loading="lazy" />'
+        : '<p class="placeholder">No thumbnail</p>';
+      const videoHtml = media.video_available
+        ? '<video controls preload="none" src="' + esc(media.video) + '"></video>'
+        : '<p class="placeholder">No video file in storage</p>';
+      return '<div class="detail-grid">'
+        + '<div class="detail-meta"><h3>Metadata</h3>' + renderMetaList(meta, job)
+        + '<dl><dt>Description</dt><dd>' + (desc ? esc(desc) : '—') + '</dd>'
+        + '<dt>Folder</dt><dd>' + storageBadge(job) + ' <span class="detail-path">' + shortPath(jobStoragePrefix(job)) + '</span></dd>'
+        + (job.video_uri ? '<dt>Video URI</dt><dd class="detail-path">' + esc(job.video_uri) + '</dd>' : '')
+        + '</dl></div>'
+        + '<div class="detail-preview"><h3>Preview</h3>' + thumbHtml
+        + '<p style="margin:0.5rem 0 0.25rem;font-size:0.85rem;">Video</p>' + videoHtml + '</div>'
+        + '</div>';
+    }
+
+    async function loadJobDetail(channelId, jobId) {
+      const key = jobKey(channelId, jobId);
+      if (jobDetailCache.has(key)) return jobDetailCache.get(key);
+      const detail = await api('/v1/channels/' + encodeURIComponent(channelId) + '/jobs/' + encodeURIComponent(jobId) + '?media=true');
+      jobDetailCache.set(key, detail);
+      return detail;
+    }
+
+    async function toggleJobRow(channelId, jobId, rowEl) {
+      const key = jobKey(channelId, jobId);
+      const tbody = rowEl.parentElement;
+      const existing = tbody.querySelector('tr.job-detail[data-key="' + key + '"]');
+      if (existing) {
+        existing.remove();
+        expandedJobKeys.delete(key);
+        rowEl.classList.remove('expanded');
         return;
       }
-      tbody.innerHTML = filtered.map((j, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${j.channel_id}</td>
-          <td><code>${j.id}</code></td>
-          <td>${j.title || '(no title)'}</td>
-          <td>
-            <button data-remove="${j.channel_id}" data-job="${j.id}">Remove</button>
-          </td>
+      tbody.querySelectorAll('tr.job-detail').forEach(r => r.remove());
+      tbody.querySelectorAll('tr.job-row.expanded').forEach(r => r.classList.remove('expanded'));
+      expandedJobKeys.add(key);
+      rowEl.classList.add('expanded');
+      const detailRow = document.createElement('tr');
+      detailRow.className = 'job-detail';
+      detailRow.dataset.key = key;
+      detailRow.innerHTML = '<td colspan="7">Loading details…</td>';
+      rowEl.after(detailRow);
+      try {
+        const detail = await loadJobDetail(channelId, jobId);
+        detailRow.innerHTML = '<td colspan="7">' + renderDetailPanel(detail) + '</td>';
+      } catch (err) {
+        detailRow.innerHTML = '<td colspan="7"><span class="bad">' + esc(err.message) + '</span></td>';
+      }
+    }
+
+    function renderQueueJobs(jobs) {
+      const channel = document.getElementById('channel-filter').value;
+      let filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs.slice();
+      // Assign queue numbers client-side for pending if API omitted them
+      let pos = 1;
+      filtered = filtered.map(j => {
+        if (j.status === 'pending' && (j.queue_position == null || j.queue_position === undefined)) {
+          return Object.assign({}, j, { queue_position: pos++ });
+        }
+        return j;
+      });
+      const tbody = document.getElementById('queue-body');
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7">No jobs in queue/ — stage with <code>uploader queue add</code></td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map((j) => {
+        const pos = (j.queue_position != null && j.queue_position !== undefined) ? j.queue_position : '—';
+        const key = jobKey(j.channel_id, j.id);
+        const expanded = expandedJobKeys.has(key) ? ' expanded' : '';
+        return `<tr class="job-row${expanded}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td>${pos}</td>
+          <td>${esc(j.channel_id)}</td>
+          <td><code>${esc(j.id)}</code></td>
+          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint">▸ details</span></td>
+          <td>${statusLabel(j.status)}</td>
+          <td title="${esc(jobStoragePrefix(j))}">${storageBadge(j)}<br><small class="detail-path">${shortPath(jobStoragePrefix(j))}</small></td>
+          <td>${j.status === 'pending' ? '<button data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
+        </tr>`;
+      }).join('');
+      // Re-open expanded rows after refresh
+      filtered.filter(j => expandedJobKeys.has(jobKey(j.channel_id, j.id))).forEach(j => {
+        const row = tbody.querySelector('tr.job-row[data-job="' + j.id + '"][data-channel="' + j.channel_id + '"]');
+        if (row) toggleJobRow(j.channel_id, j.id, row);
+      });
+    }
+
+    function renderUploadedJobs(jobs) {
+      const channel = document.getElementById('channel-filter').value;
+      const filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs;
+      const tbody = document.getElementById('uploaded-body');
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7">No jobs in uploaded/</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map((j) => `
+        <tr class="job-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td><span class="expand-hint">▸</span></td>
+          <td>${esc(j.channel_id)}</td>
+          <td><code>${esc(j.id)}</code></td>
+          <td><span class="click-title">${esc(j.title || '(no title)')}</span></td>
+          <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(j.youtube_id) + '</a>' : '—'}</td>
+          <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', ' UTC')) : '—'}</td>
+          <td title="${esc(jobStoragePrefix(j))}">${storageBadge(j)}<br><small class="detail-path">${shortPath(jobStoragePrefix(j))}</small></td>
         </tr>`).join('');
     }
 
@@ -178,14 +383,19 @@
     }
 
     async function loadJobs() {
-      if (dashboardData && dashboardData.jobs) {
-        renderJobs(dashboardData.jobs);
+      if (dashboardData) {
+        renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+        renderUploadedJobs(dashboardData.uploaded_jobs || []);
         return;
       }
       const channel = document.getElementById('channel-filter').value;
-      const qs = channel ? '?channel=' + encodeURIComponent(channel) + '&status=pending' : '?status=pending';
-      const jobs = await api('/v1/jobs' + qs);
-      renderJobs(jobs);
+      const chQs = channel ? '&channel=' + encodeURIComponent(channel) : '';
+      const [queue, uploaded] = await Promise.all([
+        api('/v1/jobs?status=pending&location=queue' + chQs),
+        api('/v1/jobs?status=uploaded&location=uploaded' + chQs),
+      ]);
+      renderQueueJobs(queue);
+      renderUploadedJobs(uploaded);
     }
 
     async function pollRun(runId) {
@@ -219,11 +429,13 @@
       const btn = document.getElementById('btn-refresh');
       const channelsSection = document.getElementById('channels-section');
       const jobsSection = document.getElementById('jobs-section');
+      const uploadedSection = document.getElementById('uploaded-section');
       btn.disabled = true;
       btn.classList.add('refreshing');
       btn.textContent = 'Refreshing…';
       channelsSection.classList.add('loading-overlay');
       jobsSection.classList.add('loading-overlay');
+      uploadedSection.classList.add('loading-overlay');
       try {
         await loadDashboard(true);
       } finally {
@@ -232,6 +444,7 @@
         btn.textContent = 'Refresh';
         channelsSection.classList.remove('loading-overlay');
         jobsSection.classList.remove('loading-overlay');
+        uploadedSection.classList.remove('loading-overlay');
       }
     }
 
@@ -243,8 +456,10 @@
     };
 
     document.getElementById('channel-filter').onchange = () => {
-      if (dashboardData && dashboardData.jobs) renderJobs(dashboardData.jobs);
-      else loadJobs();
+      if (dashboardData) {
+        renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+        renderUploadedJobs(dashboardData.uploaded_jobs || []);
+      } else loadJobs();
     };
 
     document.getElementById('channels-body').onclick = async (e) => {
@@ -257,13 +472,28 @@
       }
     };
 
-    document.getElementById('jobs-body').onclick = async (e) => {
+    document.getElementById('queue-body').onclick = async (e) => {
       const t = e.target;
       if (t.dataset.remove) {
+        e.stopPropagation();
         if (!confirm('Remove job ' + t.dataset.job + '?')) return;
         await api('/v1/channels/' + encodeURIComponent(t.dataset.remove) + '/jobs/' + encodeURIComponent(t.dataset.job), { method: 'DELETE' });
+        jobDetailCache.delete(jobKey(t.dataset.remove, t.dataset.job));
+        expandedJobKeys.delete(jobKey(t.dataset.remove, t.dataset.job));
         toast('Removed');
         refresh();
+        return;
+      }
+      const row = t.closest('tr.job-row');
+      if (row && row.dataset.channel && row.dataset.job) {
+        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
+      }
+    };
+
+    document.getElementById('uploaded-body').onclick = async (e) => {
+      const row = e.target.closest('tr.job-row');
+      if (row && row.dataset.channel && row.dataset.job) {
+        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
       }
     };
 
@@ -278,7 +508,15 @@
 
     (function init() {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('oauth_success')) toast('Connected channel: ' + params.get('oauth_success'));
+      const action = params.get('oauth_action');
+      const id = params.get('oauth_success');
+      if (id && action === 'added_different_account') {
+        toast('Different Google account — added new channel: ' + id);
+      } else if (id && action === 'updated') {
+        toast('Reconnected channel: ' + id);
+      } else if (id) {
+        toast('Connected channel: ' + id);
+      }
       if (params.get('oauth_error')) toast('OAuth error: ' + params.get('oauth_error'), true);
       if (params.has('oauth_success') || params.has('oauth_error')) {
         history.replaceState({}, '', '/');

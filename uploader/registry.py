@@ -166,6 +166,20 @@ class UploadRegistry:
 
         self._update_entry(entry_id, _upd)
 
+    def update_storage_uris(
+        self,
+        entry_id: str,
+        *,
+        video_uri: str,
+        thumbnail_uri: str = "",
+    ) -> None:
+        def _upd(e: UploadEntry) -> None:
+            e.video_uri = video_uri
+            if thumbnail_uri:
+                e.thumbnail_uri = thumbnail_uri
+
+        self._update_entry(entry_id, _upd)
+
     def remove(self, entry_id: str) -> UploadEntry:
         """Remove a registry row by job id. Returns the removed entry."""
         entries = self.load()

@@ -208,7 +208,13 @@ def read_raw_config(
 
     if remote_storage_enabled():
         loc = bucket_layout.config_location(base)
-        text = read_text(loc)
+        try:
+            text = read_text(loc)
+        except PermissionError:
+            if local_path.is_file():
+                text = local_path.read_text(encoding="utf-8")
+            else:
+                raise
         if not text.strip():
             if local_path.is_file():
                 text = local_path.read_text(encoding="utf-8")

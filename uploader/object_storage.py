@@ -124,6 +124,12 @@ def exists(uri: str) -> bool:
             "NotFound",
         ):
             return False
+        if isinstance(e, ClientError) and e.response.get("Error", {}).get("Code") in (
+            "403",
+            "AccessDenied",
+            "Forbidden",
+        ):
+            return False
         raise
 
 
@@ -148,6 +154,16 @@ def read_text(uri: str) -> str:
             "NotFound",
         ):
             return ""
+        if isinstance(e, ClientError) and e.response.get("Error", {}).get("Code") in (
+            "403",
+            "AccessDenied",
+            "Forbidden",
+        ):
+            raise PermissionError(
+                f"R2 access denied for {uri}. Check CLOUDFLARE_R2_ACCESS_KEY_ID / "
+                "CLOUDFLARE_R2_SECRET_ACCESS_KEY and that the API token has "
+                "Object Read & Write on the bucket."
+            ) from e
         raise
     body = response["Body"].read()
     return body.decode("utf-8")
@@ -358,3 +374,29 @@ def move_prefix(src_prefix: str, dest_prefix: str) -> list[str]:
         delete_object(src_uri)
         moved_uris.append(dest_uri)
     return moved_uris
+
+
+def presigned_get_url(uri: str, *, expires: int = 900) -> str:
+    """Temporary HTTPS URL for browser media preview (R2/S3 only)."""
+    if not is_s3_uri(uri):
+        raise ValueError(f"Not an s3:// URI: {uri}")
+    bucket, key = parse_s3_uri(uri)
+    client = _s3_client()
+    return client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": key},
+        ExpiresIn=expires,
+    )
+
+
+def guess_media_type(path_or_key: str) -> str:
+    name = path_or_key.lower()
+    if name.endswith(".mp4"):
+        return "video/mp4"
+    if name.endswith(".png"):
+        return "image/png"
+    if name.endswith((".jpg", ".jpeg")):
+        return "image/jpeg"
+    if name.endswith(".webp"):
+        return "image/webp"
+    return "application/octet-stream"

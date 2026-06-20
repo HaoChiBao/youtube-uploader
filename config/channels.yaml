@@ -38,5 +38,18 @@ channels:
     hour: 9
     interval_hours: 24.0
   custom_url: '@yourdopaminerat'
+- id: nappabeats
+  name: "NappaBeats \uBC30\uCD94"
+  youtube_channel_id: UC1OtKf3lvaMMJAMikp3cHOA
+  token_path: s3://youtuber-uploader/secrets/nappabeats/youtube_token.json
+  registry_path: s3://youtuber-uploader/state/nappabeats/upload_registry.txt
+  category_id: '10'
+  default_tags: []
+  made_for_kids: false
+  publish:
+    timezone: America/New_York
+    hour: 9
+    interval_hours: 24.0
+  custom_url: '@nappabeats'
 google:
   oauth_port: 8080

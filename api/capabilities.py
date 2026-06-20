@@ -43,7 +43,7 @@ CLI_COMMANDS: list[dict] = [
         "command": "uploader queue add",
         "description": "Stage video + metadata to queue/",
         "api": "POST /v1/channels/{id}/jobs (multipart)",
-        "implemented": False,
+        "implemented": True,
     },
     {
         "group": "queue",
@@ -105,8 +105,8 @@ CLI_COMMANDS: list[dict] = [
         "group": "registry",
         "command": "uploader enqueue",
         "description": "Append registry row only",
-        "api": "POST /v1/channels/{id}/jobs/enqueue",
-        "implemented": False,
+        "api": "POST /v1/channels/{id}/jobs/register",
+        "implemented": True,
     },
 ]
 

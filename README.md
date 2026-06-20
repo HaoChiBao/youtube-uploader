@@ -147,9 +147,62 @@ Use **Refresh** in the UI (calls `?refresh=true`) to force reload from R2. Routi
 | `GET /v1/capabilities` | All CLI commands + YouTube features + API routes |
 | `GET /v1/channels` | `{ config_uri, storage, channels[] }` — auth status + pending counts |
 | `GET /v1/jobs?status=pending` | Upload queue |
+| `POST /v1/channels/{id}/jobs` | **Stage a video into queue/** (multipart — for AI pipelines) |
+| `POST /v1/channels/{id}/jobs/register` | Register a job when video files already exist in R2/local storage |
 | `POST /v1/oauth/start` | Connect a new YouTube channel (browser OAuth) |
 | `POST /v1/channels/{id}/runs` | Start background upload (`{"count": 1}` or omit count for all) |
 | `GET /v1/runs/{run_id}` | Poll upload progress |
+
+### AI video pipeline integration
+
+Use the API at the end of your generator pipeline to push finished videos into the upload queue. No YouTube OAuth is required for staging — only for `POST .../runs`.
+
+**Option A — upload the file directly (simplest)**
+
+```bash
+curl -X POST "http://127.0.0.1:8000/v1/channels/justcavefire/jobs" \
+  -F "video=@./output.mp4" \
+  -F "title=My Generated Video" \
+  -F "description=Created by my AI pipeline" \
+  -F "privacy=private" \
+  -F "is_short=false" \
+  -F "tags=ai,generated"
+```
+
+Returns `201` with `job_id`, `video_uri`, `queue_prefix`, and registry path. Poll with `GET /v1/jobs?channel=justcavefire&status=pending` or trigger upload with `POST /v1/channels/justcavefire/runs`.
+
+**Option B — pipeline writes to R2 first, then registers**
+
+If your generator uploads directly to the same R2 bucket:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/v1/channels/justcavefire/jobs/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My Generated Video",
+    "description": "...",
+    "video_uri": "s3://youtuber-uploader/queue/justcavefire/my_job_id/video.mp4",
+    "job_id": "my_job_id",
+    "privacy": "private",
+    "is_short": true,
+    "tags": ["ai", "shorts"]
+  }'
+```
+
+The service validates the file exists, writes metadata sidecars (`metadata.json`, `title.txt`, …), and appends a `pending` registry row.
+
+**Error responses**
+
+| Status | Meaning |
+|--------|---------|
+| `201` | Job staged successfully |
+| `400` | Missing/empty video or file not found |
+| `404` | Unknown channel |
+| `409` | Duplicate `job_id` |
+| `422` | Invalid metadata (e.g. bad privacy value) |
+| `502` | Storage/R2 failure |
+
+Set `UPLOADER_API_KEY` in `.env` and pass `X-API-Key: ...` on ingest routes when exposing the API beyond localhost.
 
 The CLI remains available for scripting and debugging.
 

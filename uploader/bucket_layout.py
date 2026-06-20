@@ -123,9 +123,43 @@ def legacy_uploaded_prefix_key(channel_id: str, job_id: str) -> str:
     return f"{LEGACY_UPLOADED_PREFIX}/{channel_id}/{job_id}/"
 
 
+def misconfigured_bucket_queue_prefix_key(channel_id: str, job_id: str) -> str | None:
+    """Prefix when the bucket name was duplicated in the object key (bad endpoint URL)."""
+    b = _bucket()
+    if not b:
+        return None
+    return f"{b}/{QUEUE_PREFIX}/{channel_id}/{job_id}/"
+
+
+def misconfigured_bucket_uploaded_prefix_key(channel_id: str, job_id: str) -> str | None:
+    b = _bucket()
+    if not b:
+        return None
+    return f"{b}/{UPLOADED_PREFIX}/{channel_id}/{job_id}/"
+
+
 def queue_prefix_candidates(channel_id: str, job_id: str) -> tuple[str, ...]:
-    """Queue prefixes to search (new first, then legacy)."""
-    return (queue_prefix_key(channel_id, job_id), legacy_queue_prefix_key(channel_id, job_id))
+    """Queue prefixes to search (canonical first, then legacy / misconfigured)."""
+    keys: list[str] = [
+        queue_prefix_key(channel_id, job_id),
+        legacy_queue_prefix_key(channel_id, job_id),
+    ]
+    nested = misconfigured_bucket_queue_prefix_key(channel_id, job_id)
+    if nested:
+        keys.append(nested)
+    return tuple(keys)
+
+
+def uploaded_prefix_candidates(channel_id: str, job_id: str) -> tuple[str, ...]:
+    """Uploaded prefixes to search (canonical first, then legacy / misconfigured)."""
+    keys: list[str] = [
+        uploaded_prefix_key(channel_id, job_id),
+        legacy_uploaded_prefix_key(channel_id, job_id),
+    ]
+    nested = misconfigured_bucket_uploaded_prefix_key(channel_id, job_id)
+    if nested:
+        keys.append(nested)
+    return tuple(keys)
 
 
 def _bucket() -> str:
@@ -133,6 +167,13 @@ def _bucket() -> str:
         os.environ.get("CLOUDFLARE_R2_BUCKET", "").strip()
         or os.environ.get("UPLOADER_STORAGE_BUCKET", "").strip()
     )
+
+
+def prefix_location(key_prefix: str, base: Path) -> str:
+    """Resolve a trailing-slash prefix to s3:// or local path."""
+    if _bucket():
+        return s3_uri(key_prefix)
+    return str(local_path(base, key_prefix.rstrip("/")).resolve()) + "/"
 
 
 def s3_uri(key: str, *, bucket: str | None = None) -> str:

@@ -25,6 +25,8 @@ class ChannelOut(BaseModel):
     registry_path: str
     auth: TokenStatus
     pending_count: int = 0
+    uploaded_count: int = 0
+    failed_count: int = 0
 
 
 class JobOut(BaseModel):
@@ -39,7 +41,61 @@ class JobOut(BaseModel):
     youtube_url: str = ""
     publish_at: str = ""
     created_at: str = ""
+    uploaded_at: str = ""
     error: str = ""
+    storage_folder: str = "missing"
+    queue_position: int | None = None
+    queue_prefix: str = ""
+    uploaded_prefix: str = ""
+
+
+class JobMediaOut(BaseModel):
+    thumbnail: str = ""
+    video: str = ""
+    thumbnail_available: bool = False
+    video_available: bool = False
+
+
+class JobDetailResponse(BaseModel):
+    job: JobOut
+    metadata: dict | None = None
+    media: JobMediaOut | None = None
+
+
+class StagedJobOut(BaseModel):
+    """Response after staging a job into queue/."""
+
+    job_id: str
+    channel_id: str
+    status: str = "pending"
+    title: str = ""
+    description: str = ""
+    video_uri: str = ""
+    thumbnail_uri: str = ""
+    metadata_uri: str = ""
+    queue_prefix: str = ""
+    uploaded_prefix: str = ""
+    registry_path: str = ""
+    privacy: str = "private"
+    is_short: bool = False
+    tags: list[str] = Field(default_factory=list)
+
+
+class JobRegisterRequest(BaseModel):
+    """Register a job when video files already exist in storage."""
+
+    title: str
+    description: str = ""
+    video_uri: str
+    thumbnail_uri: str = ""
+    job_id: str | None = None
+    privacy: str | None = None
+    is_short: bool | None = None
+    category_id: str | None = None
+    tags: list[str] | None = None
+    made_for_kids: bool | None = None
+    language: str | None = None
+    metadata: dict | None = None
 
 
 class PlanItemOut(BaseModel):
@@ -107,7 +163,9 @@ class DashboardResponse(BaseModel):
     config_uri: str
     storage: str
     channels: list[ChannelOut]
-    jobs: list[JobOut]
+    queue_jobs: list[JobOut]
+    uploaded_jobs: list[JobOut]
+    jobs: list[JobOut] = Field(default_factory=list, description="Alias for queue_jobs (compat)")
     cached: bool = False
 
 
