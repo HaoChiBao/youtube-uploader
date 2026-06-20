@@ -29,7 +29,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             content={
                 "detail": (
                     "Authentication required. Send X-API-Key or Authorization: Bearer <UPLOADER_API_KEY>, "
-                    "or sign in at /login for dashboard access."
+                    "or sign in at / for dashboard access."
                 )
             },
         )

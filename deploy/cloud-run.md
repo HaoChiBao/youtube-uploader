@@ -171,6 +171,7 @@ gcloud run deploy "$SERVICE" --image="$IMAGE" --region="$REGION"
 
 | Issue | Fix |
 |-------|-----|
+| **login.html missing** or blank dashboard | Redeploy with the latest image. The container must set `UPLOADER_STATIC_DIR=/app/api/static` (default in `Dockerfile`) so `index.html` is found after `pip install`. |
 | OAuth redirect mismatch | `UPLOADER_API_PUBLIC_URL` must exactly match the Cloud Run URL (no trailing slash). Redirect URI in Google Console must match `{URL}/v1/oauth/callback`. |
 | Login works locally but not on Cloud Run | Set `UPLOADER_SESSION_SECURE=1` (HTTPS). |
 | Upload run disappears | Ensure `--min-instances=1`; check logs in Cloud Logging. |

@@ -214,7 +214,25 @@ def test_dashboard_shell_public_when_auth_enabled(client, monkeypatch: pytest.Mo
     assert body["authenticated"] is False
 
 
-def test_auth_session_after_login(client, monkeypatch: pytest.MonkeyPatch):
+def test_login_get_redirects_to_dashboard(client, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("UPLOADER_DASHBOARD_PASSWORD", "dashboard-secret")
+    c = TestClient(create_app())
+    r = c.get("/login", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers.get("location") == "/"
+
+
+def test_dashboard_served_via_static_dir_env(client, monkeypatch: pytest.MonkeyPatch):
+    src = Path(__file__).resolve().parents[1] / "api" / "static"
+    monkeypatch.setenv("UPLOADER_STATIC_DIR", str(src))
+    monkeypatch.setenv("UPLOADER_DASHBOARD_PASSWORD", "dashboard-secret")
+    c = TestClient(create_app())
+    r = c.get("/")
+    assert r.status_code == 200
+    assert "Enter password" in r.text
+
+
+def test_auth_session_after_login(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("UPLOADER_DASHBOARD_PASSWORD", "dashboard-secret")
     c = TestClient(create_app())
     c.post("/login", json={"password": "dashboard-secret"})

@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir ".[api,s3]"
 
 # Cloud Run injects PORT; bind all interfaces in the container.
 ENV UPLOADER_API_HOST=0.0.0.0
+ENV UPLOADER_STATIC_DIR=/app/api/static
 ENV PORT=8080
 
 EXPOSE 8080

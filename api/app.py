@@ -42,6 +42,7 @@ from api.deps import (
 )
 from api.oauth_sessions import OAuthSession, pop_session, save_session
 from api.run_tracker import create_run, get_run, set_complete, set_failed, set_running
+from api.static_dir import static_dir
 from api.schemas import (
     CapabilitiesOut,
     ChannelListResponse,
@@ -88,8 +89,6 @@ from uploader.cache_signals import bump
 from uploader.scheduler import compute_publish_schedule, parse_start, run_all_channels, run_channel
 from uploader.state_store import ensure_bucket_structure
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
-
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -111,15 +110,13 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(AuthMiddleware)
 
-    if STATIC_DIR.is_dir():
-        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    assets = static_dir()
+    if assets.is_dir():
+        app.mount("/static", StaticFiles(directory=str(assets)), name="static")
 
-    @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/login", include_in_schema=False)
     def login_page():
-        login_path = STATIC_DIR / "login.html"
-        if login_path.is_file():
-            return FileResponse(login_path)
-        return HTMLResponse("<h1>Login</h1><p>login.html missing</p>")
+        return RedirectResponse(url="/", status_code=302)
 
     @app.post("/login", include_in_schema=False)
     def login(body: LoginRequest, request: Request, response: Response):
@@ -139,16 +136,23 @@ def create_app() -> FastAPI:
         }
 
     @app.post("/logout", include_in_schema=False)
-    def logout(response: Response):
-        clear_session_cookie(response)
+    def logout(request: Request, response: Response):
+        clear_session_cookie(response, request=request)
         return {"status": "ok"}
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def index():
-        index_path = STATIC_DIR / "index.html"
+        index_path = static_dir() / "index.html"
         if index_path.is_file():
             return FileResponse(index_path)
-        return HTMLResponse("<h1>YouTube Uploader API</h1><p>See <a href='/docs'>/docs</a></p>")
+        root = static_dir()
+        return HTMLResponse(
+            "<h1>Dashboard unavailable</h1>"
+            f"<p>index.html not found at <code>{root}</code>.</p>"
+            "<p>Set <code>UPLOADER_STATIC_DIR</code> to the folder containing index.html "
+            "(Docker default: <code>/app/api/static</code>).</p>"
+            "<p>API docs: <a href='/docs'>/docs</a></p>"
+        )
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     @app.get("/v1/health", response_model=HealthResponse, tags=["health"])

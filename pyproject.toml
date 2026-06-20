@@ -31,5 +31,8 @@ uploader-api = "api.server:main"
 where = ["."]
 include = ["uploader*", "cli*", "api*"]
 
+[tool.setuptools.package-data]
+api = ["static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -101,8 +101,13 @@ def set_session_cookie(response: Response, token: str, *, request: Request | Non
     )
 
 
-def clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(SESSION_COOKIE, path="/")
+def clear_session_cookie(response: Response, *, request: Request | None = None) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE,
+        path="/",
+        secure=session_cookie_secure(request),
+        samesite="lax",
+    )
 
 
 def session_from_request(request: Request) -> dict[str, Any] | None:
