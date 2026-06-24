@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from uploader.channel_info import AuthorizedChannelInfo, get_authorized_channel_info
+from uploader.category_store import normalize_content_category, validate_channel_category
 from uploader import bucket_layout
 from uploader.channels import ChannelConfig, PublishConfig
 from uploader.oauth import OAuthSettings
@@ -18,6 +20,7 @@ _PENDING_TOKEN = Path("secrets/.oauth_pending/youtube_token.json")
 
 _PRESERVE_ON_MERGE = (
     "publish",
+    "category",
     "category_id",
     "default_tags",
     "made_for_kids",
@@ -93,6 +96,7 @@ def _channel_entry_dict(
     base: Path,
     custom_url: str = "",
     publish: PublishConfig | None = None,
+    category: str = "",
 ) -> dict:
     pub = publish or PublishConfig()
     entry: dict = {
@@ -104,14 +108,13 @@ def _channel_entry_dict(
         "category_id": "10",
         "default_tags": [],
         "made_for_kids": False,
-        "publish": {
-            "timezone": pub.timezone,
-            "hour": pub.hour,
-            "interval_hours": pub.interval_hours,
-        },
+        "publish": _publish_dict(pub),
     }
     if custom_url:
         entry["custom_url"] = custom_url
+    category = normalize_content_category(category)
+    if category:
+        entry["category"] = category
     return entry
 
 
@@ -140,12 +143,25 @@ def find_channel_index_by_id(data: dict, channel_id: str) -> int | None:
     return None
 
 
+def _publish_dict(pub: PublishConfig) -> dict:
+    out = {
+        "timezone": pub.timezone,
+        "hour": pub.hour,
+        "interval_hours": pub.interval_hours,
+    }
+    if pub.uploads_per_day is not None:
+        out["uploads_per_day"] = pub.uploads_per_day
+    return out
+
+
 def _publish_from_entry(raw: dict) -> PublishConfig:
     pub = raw.get("publish") or {}
+    uploads_raw = pub.get("uploads_per_day")
     return PublishConfig(
         timezone=pub.get("timezone", "America/New_York"),
         hour=int(pub.get("hour", 9)),
         interval_hours=float(pub.get("interval_hours", 24.0)),
+        uploads_per_day=int(uploads_raw) if uploads_raw is not None else None,
     )
 
 
@@ -164,6 +180,7 @@ def _channel_config_from_entry(entry: dict) -> ChannelConfig:
         publish=_publish_from_entry(entry),
         youtube_channel_id=entry.get("youtube_channel_id", ""),
         custom_url=entry.get("custom_url", ""),
+        category=str(entry.get("category") or "").strip(),
     )
 
 
@@ -179,6 +196,7 @@ def register_oauth_channel(
     config_path: Path,
     reauth_channel_id: str | None = None,
     publish: PublishConfig | None = None,
+    category: str = "",
     oauth: OAuthSettings | None = None,
     info: AuthorizedChannelInfo | None = None,
 ) -> OAuthRegistrationResult:
@@ -193,6 +211,9 @@ def register_oauth_channel(
     config_path = config_path.expanduser().resolve()
     base = _config_base(config_path)
     data = _read_raw_config(config_path)
+
+    if category:
+        validate_channel_category(category, data)
 
     _PENDING_TOKEN.parent.mkdir(parents=True, exist_ok=True)
     _PENDING_TOKEN.write_text(creds_json, encoding="utf-8")
@@ -223,6 +244,12 @@ def register_oauth_channel(
                 if info.custom_url:
                     entry["custom_url"] = info.custom_url
                 entry["token_path"] = token_loc
+                if category:
+                    normalized = normalize_content_category(category)
+                    if normalized:
+                        entry["category"] = normalized
+                    elif "category" in entry:
+                        del entry["category"]
                 write_raw_config(config_path, data)
                 init_channel_storage(
                     channel_id,
@@ -230,6 +257,7 @@ def register_oauth_channel(
                     name=info.title,
                     youtube_channel_id=info.youtube_channel_id,
                     custom_url=info.custom_url or entry.get("custom_url", ""),
+                    category=entry.get("category", ""),
                 )
                 return OAuthRegistrationResult(
                     channel=_channel_config_from_entry(entry),
@@ -247,6 +275,7 @@ def register_oauth_channel(
             name=info.title,
             youtube_channel_id=info.youtube_channel_id,
             custom_url=info.custom_url,
+            category=category,
         )
 
         entry = _channel_entry_dict(
@@ -256,6 +285,7 @@ def register_oauth_channel(
             base=base,
             custom_url=info.custom_url,
             publish=publish,
+            category=category,
         )
 
         idx = find_channel_index(data, info.youtube_channel_id)
@@ -277,12 +307,129 @@ def register_oauth_channel(
         _PENDING_TOKEN.unlink(missing_ok=True)
 
 
+def set_channel_category(
+    channel_id: str,
+    category: str,
+    *,
+    config_path: Path,
+) -> ChannelConfig:
+    """Assign or clear the assembly/content category for a channel."""
+    config_path = config_path.expanduser().resolve()
+    base = _config_base(config_path)
+    data = _read_raw_config(config_path)
+    idx = find_channel_index_by_id(data, channel_id)
+    if idx is None:
+        raise KeyError(f"Channel not found: {channel_id}")
+
+    category = normalize_content_category(category)
+    entry = data["channels"][idx]
+    validate_channel_category(category, data)
+    if category:
+        entry["category"] = category
+    elif "category" in entry:
+        del entry["category"]
+
+    _write_raw_config(config_path, data)
+
+    from uploader import bucket_layout
+    from uploader.object_storage import exists, read_text, write_text
+
+    meta_loc = bucket_layout.channel_meta_location(channel_id, base)
+    if exists(meta_loc):
+        try:
+            meta = json.loads(read_text(meta_loc))
+        except json.JSONDecodeError:
+            meta = {}
+        if category:
+            meta["category"] = category
+        else:
+            meta.pop("category", None)
+        write_text(meta_loc, json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
+
+    return _channel_config_from_entry(entry)
+
+
+def patch_channel_config(
+    channel_id: str,
+    *,
+    config_path: Path,
+    category: str | None = None,
+    update_category: bool = False,
+    publish_timezone: str | None = None,
+    publish_hour: int | None = None,
+    publish_interval_hours: float | None = None,
+    publish_uploads_per_day: int | None = None,
+    update_publish_timezone: bool = False,
+    update_publish_hour: bool = False,
+    update_publish_interval_hours: bool = False,
+    update_publish_uploads_per_day: bool = False,
+) -> ChannelConfig:
+    """Update category and/or publish scheduling for a channel."""
+    config_path = config_path.expanduser().resolve()
+    data = _read_raw_config(config_path)
+    idx = find_channel_index_by_id(data, channel_id)
+    if idx is None:
+        raise KeyError(f"Channel not found: {channel_id}")
+
+    entry = data["channels"][idx]
+
+    if update_category:
+        category = normalize_content_category(category or "")
+        validate_channel_category(category, data)
+        if category:
+            entry["category"] = category
+        elif "category" in entry:
+            del entry["category"]
+
+        base = _config_base(config_path)
+        from uploader import bucket_layout
+        from uploader.object_storage import exists, read_text, write_text
+
+        meta_loc = bucket_layout.channel_meta_location(channel_id, base)
+        if exists(meta_loc):
+            try:
+                meta = json.loads(read_text(meta_loc))
+            except json.JSONDecodeError:
+                meta = {}
+            if category:
+                meta["category"] = category
+            else:
+                meta.pop("category", None)
+            write_text(meta_loc, json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
+
+    if any(
+        (
+            update_publish_timezone,
+            update_publish_hour,
+            update_publish_interval_hours,
+            update_publish_uploads_per_day,
+        )
+    ):
+        pub = dict(entry.get("publish") or {})
+        if update_publish_timezone and publish_timezone:
+            pub["timezone"] = publish_timezone.strip()
+        if update_publish_hour and publish_hour is not None:
+            pub["hour"] = int(publish_hour)
+        if update_publish_interval_hours and publish_interval_hours is not None:
+            pub["interval_hours"] = float(publish_interval_hours)
+        if update_publish_uploads_per_day:
+            if publish_uploads_per_day is None:
+                pub.pop("uploads_per_day", None)
+            else:
+                pub["uploads_per_day"] = int(publish_uploads_per_day)
+        entry["publish"] = pub
+
+    _write_raw_config(config_path, data)
+    return _channel_config_from_entry(entry)
+
+
 def add_and_authenticate_channel(
     oauth: OAuthSettings,
     *,
     config_path: Path | None = None,
     force_reauth: bool = True,
     publish: PublishConfig | None = None,
+    category: str = "",
 ) -> ChannelConfig:
     """OAuth in browser, resolve YouTube channel identity, save token + channels.yaml entry."""
     if config_path is None:
@@ -305,9 +452,69 @@ def add_and_authenticate_channel(
         _PENDING_TOKEN.read_text(encoding="utf-8"),
         config_path=config_path,
         publish=publish,
+        category=category,
         oauth=oauth,
     )
     return result.channel
+
+
+@dataclass
+class ChannelRemovalResult:
+    channel_id: str
+    name: str
+    token_deleted: bool
+    pending_jobs: int
+
+
+def remove_channel_from_config(
+    channel_id: str,
+    *,
+    config_path: Path,
+) -> ChannelRemovalResult:
+    """Remove a channel from channels.yaml and delete its OAuth token.
+
+    Queue, uploaded, and registry data in storage are kept so jobs can be
+    recovered if the channel is connected again with the same id.
+    """
+    from uploader.cache_signals import bump
+    from uploader.object_storage import delete_object, exists
+    from uploader.registry import UploadRegistry
+
+    config_path = config_path.expanduser().resolve()
+    base = _config_base(config_path)
+    data = _read_raw_config(config_path)
+    idx = find_channel_index_by_id(data, channel_id)
+    if idx is None:
+        raise KeyError(f"Channel not found: {channel_id}")
+
+    entry = data["channels"].pop(idx)
+    name = entry.get("name") or channel_id
+    _write_raw_config(config_path, data)
+
+    token_ref = entry.get("token_path") or bucket_layout.token_location(channel_id, base)
+    token_deleted = False
+    if exists(str(token_ref)):
+        delete_object(str(token_ref))
+        token_deleted = True
+        bump("tokens")
+
+    meta_loc = bucket_layout.channel_meta_location(channel_id, base)
+    if exists(meta_loc):
+        delete_object(meta_loc)
+
+    registry_path = entry.get("registry_path") or bucket_layout.registry_location(channel_id, base)
+    pending = 0
+    try:
+        pending = len(UploadRegistry(registry_path).pending(channel_id=channel_id))
+    except Exception:
+        pending = 0
+
+    return ChannelRemovalResult(
+        channel_id=channel_id,
+        name=name,
+        token_deleted=token_deleted,
+        pending_jobs=pending,
+    )
 
 
 def reauthenticate_channel(

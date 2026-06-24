@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from urllib.parse import urlparse
 
-from uploader.object_storage import is_s3_uri, parse_s3_uri, _s3_client
+from uploader.object_storage import is_s3_uri, parse_s3_uri, _s3_client_for_uri
 
 
 def _is_uri(value: str) -> bool:
@@ -36,7 +36,7 @@ def resolve_to_local_path(uri: str, *, temp_dir: Path) -> Path:
         bucket, key = parse_s3_uri(uri)
         filename = Path(key).name or "download"
         dest = temp_dir / filename
-        client = _s3_client()
+        client = _s3_client_for_uri(uri)
         client.download_file(bucket, key, str(dest))
         return dest
 

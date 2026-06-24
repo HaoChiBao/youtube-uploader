@@ -98,21 +98,29 @@ It should **stop** calling `schedule-music-videos` once the uploader service is 
 
 ## Job handoff (assembler → uploader)
 
-Each finished video becomes one registry entry or API job:
+### Endpoints required
+
+1. **`POST /v1/channels/{channel_ref}/jobs/register`** — assembler queues the job (`pending`)
+2. **`POST /v1/channels/{channel_ref}/runs`** — uploads oldest pending job(s) to YouTube
+3. **`GET /v1/runs/{run_id}`** — poll run status (optional but recommended)
+
+One-time: **`POST /v1/oauth/start`** (browser) so `auth.valid` is true before step 2.
+
+Each finished video becomes one registry entry:
 
 ```json
 {
-  "id": "mv_20260617_180732_01",
-  "channel_id": "justcavefire",
+  "id": "mv_20260624_061500",
+  "channel_id": "nappabeats",
   "status": "pending",
   "title": "Final YouTube title (from assembler metadata step)",
   "description": "Full description text with chapters",
-  "video_uri": "s3://bucket/queue/justcavefire/job-001/video.mp4",
-  "thumbnail_uri": "s3://bucket/queue/justcavefire/job-001/thumbnail.png"
+  "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
+  "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png"
 }
 ```
 
-The uploader downloads from `video_uri`, uploads to YouTube, sets schedule, marks `uploaded`.
+On **`POST .../runs`**, the uploader downloads from `video_uri` (assembler bucket at run time), uploads to YouTube, sets schedule, marks `uploaded`.
 
 ---
 

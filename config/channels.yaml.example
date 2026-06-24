@@ -15,6 +15,7 @@ defaults:
 
 # Example entry after channel add (R2):
 #   id: justcavefire
+#   category: korean          # must exist in categories: list below
 #   token_path: s3://your-bucket/secrets/justcavefire/youtube_token.json
 #   registry_path: s3://your-bucket/state/justcavefire/upload_registry.txt
 #
@@ -24,13 +25,21 @@ defaults:
 #     is_short: true
 #     tags: [lofi, chill]
 #
+# Saved assembly/content categories (dashboard: Categories section):
+#   categories:
+#     - korean
+#     - japanese
+#
 # Publish scheduling (used by plan / run / queue upload unless --no-schedule):
 #   publish:
 #     timezone: America/New_York
 #     hour: 9              # first video publishes tomorrow at this hour (local)
 #     interval_hours: 24   # gap between videos in a batch
+#     uploads_per_day: 3   # optional cap on jobs per run (null = no cap)
 
 channels: []
+
+categories: []
 
 google:
   oauth_port: 8765

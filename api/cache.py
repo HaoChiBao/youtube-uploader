@@ -17,7 +17,7 @@ from uploader.oauth import OAuthSettings, resolve_oauth_settings
 from uploader.oauth_web import inspect_token_file
 from uploader.state_store import config_storage_uri, remote_storage_enabled
 
-from api.schemas import ChannelOut, DashboardResponse, JobOut, TokenStatus
+from api.schemas import ChannelOut, DashboardResponse, JobOut, PublishConfigOut, TokenStatus
 
 _lock = threading.Lock()
 _config_cache: _Entry | None = None
@@ -144,7 +144,7 @@ def job_view_to_out(view: JobView) -> JobOut:
 
 def _load_channel_bundle(
     ch, oauth: OAuthSettings, *, base: Path
-) -> tuple[ChannelOut, list[JobOut], list[JobOut]]:
+) -> tuple[ChannelOut, list[JobOut], list[JobOut], list[JobOut]]:
     bundle = load_channel_jobs(ch, base=base)
     auth = get_token_status(ch.id, ch.token_path, oauth)
     channel_out = ChannelOut(
@@ -152,16 +152,24 @@ def _load_channel_bundle(
         name=ch.name,
         youtube_channel_id=ch.youtube_channel_id,
         custom_url=ch.custom_url,
+        category=ch.category,
         token_path=ch.token_path,
         registry_path=ch.registry_path,
         auth=auth,
+        publish=PublishConfigOut(
+            timezone=ch.publish.timezone,
+            hour=ch.publish.hour,
+            interval_hours=ch.publish.interval_hours,
+            uploads_per_day=ch.publish.uploads_per_day,
+        ),
         pending_count=bundle.pending_count,
         uploaded_count=bundle.uploaded_count,
         failed_count=bundle.failed_count,
     )
     queue_jobs = [job_view_to_out(j) for j in bundle.queue_jobs]
+    uploading_jobs = [job_view_to_out(j) for j in bundle.uploading_jobs]
     uploaded_jobs = [job_view_to_out(j) for j in bundle.uploaded_jobs]
-    return channel_out, queue_jobs, uploaded_jobs
+    return channel_out, queue_jobs, uploading_jobs, uploaded_jobs
 
 
 def build_dashboard(config_path, *, force: bool = False) -> DashboardResponse:
@@ -183,6 +191,7 @@ def build_dashboard(config_path, *, force: bool = False) -> DashboardResponse:
 
     channels: list[ChannelOut] = []
     queue_jobs: list[JobOut] = []
+    uploading_jobs: list[JobOut] = []
     uploaded_jobs: list[JobOut] = []
     if config.channels:
         with ThreadPoolExecutor(max_workers=min(8, len(config.channels))) as pool:
@@ -190,21 +199,24 @@ def build_dashboard(config_path, *, force: bool = False) -> DashboardResponse:
                 pool.submit(_load_channel_bundle, ch, oauth, base=base): ch.id
                 for ch in config.channels
             }
-            by_id: dict[str, tuple[ChannelOut, list[JobOut], list[JobOut]]] = {}
+            by_id: dict[str, tuple[ChannelOut, list[JobOut], list[JobOut], list[JobOut]]] = {}
             for fut in as_completed(futures):
                 ch_id = futures[fut]
                 by_id[ch_id] = fut.result()
         for ch in config.channels:
-            channel_out, ch_queue, ch_uploaded = by_id[ch.id]
+            channel_out, ch_queue, ch_uploading, ch_uploaded = by_id[ch.id]
             channels.append(channel_out)
             queue_jobs.extend(ch_queue)
+            uploading_jobs.extend(ch_uploading)
             uploaded_jobs.extend(ch_uploaded)
 
     response = DashboardResponse(
         config_uri=config_storage_uri(base),
         storage="r2" if remote_storage_enabled() else "local",
+        categories=config.categories,
         channels=channels,
         queue_jobs=queue_jobs,
+        uploading_jobs=uploading_jobs,
         uploaded_jobs=uploaded_jobs,
         jobs=queue_jobs,
         cached=False,

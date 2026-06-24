@@ -116,6 +116,7 @@ def register_channel_from_credentials(
     *,
     config_path: Path,
     publish: PublishConfig | None = None,
+    category: str = "",
     channel_id_override: str | None = None,
 ) -> OAuthRegistrationResult:
     """Save OAuth token and create or update a channel entry (after web callback)."""
@@ -124,6 +125,7 @@ def register_channel_from_credentials(
         config_path=config_path,
         reauth_channel_id=channel_id_override,
         publish=publish,
+        category=category,
         oauth=oauth,
     )
 

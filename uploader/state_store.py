@@ -16,7 +16,7 @@ from uploader.object_storage import (
     write_text,
 )
 
-_EMPTY_CONFIG = "channels: []\n\ngoogle:\n  oauth_port: 8080\n"
+_EMPTY_CONFIG = "channels: []\n\ncategories: []\n\ngoogle:\n  oauth_port: 8080\n"
 
 
 def remote_storage_enabled() -> bool:
@@ -34,6 +34,8 @@ def _parse_yaml(text: str) -> dict:
     data = yaml.safe_load(text) or {}
     if "channels" not in data:
         data["channels"] = []
+    if "categories" not in data:
+        data["categories"] = []
     return data
 
 
@@ -154,6 +156,7 @@ def _entry_from_channel_meta(channel_id: str, base: Path) -> dict | None:
             "name": meta.get("name") or channel_id,
             "youtube_channel_id": meta.get("youtube_channel_id", ""),
             "custom_url": meta.get("custom_url", ""),
+            "category": meta.get("category", ""),
         }
         return normalize_channel_entry(raw, base)
     if exists(token_loc):
@@ -272,6 +275,7 @@ def init_channel_storage(
     name: str,
     youtube_channel_id: str,
     custom_url: str = "",
+    category: str = "",
 ) -> list[str]:
     """Create per-channel bucket structure. Returns list of paths created."""
     created: list[str] = []
@@ -282,6 +286,9 @@ def init_channel_storage(
         "custom_url": custom_url,
         "authenticated_at": _utc_now_iso(),
     }
+    category = category.strip()
+    if category:
+        meta["category"] = category
     meta_json = json.dumps(meta, ensure_ascii=False, indent=2) + "\n"
 
     meta_loc = bucket_layout.channel_meta_location(channel_id, base)

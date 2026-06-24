@@ -18,7 +18,13 @@ from uploader.oauth import oauth_is_configured, resolve_oauth_settings
 from uploader.job_store import remove_job, stage_job
 from uploader.job_views import load_channel_jobs
 from uploader.registry import UploadEntry, UploadRegistry
-from uploader.scheduler import compute_publish_schedule, parse_start, run_all_channels, run_channel
+from uploader.scheduler import (
+    build_channel_upload_plan,
+    run_all_channels,
+    run_channel,
+)
+from uploader.upload_worker import upload_single_job
+from uploader.worker_dispatch import dispatch_parallel_uploads
 from uploader.state_store import config_base_from_path, ensure_bucket_structure, token_is_authorized
 from uploader.storage import resolve_to_local_path
 from uploader.youtube_client import get_credentials, upload_video
@@ -49,6 +55,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "add",
         help="Sign in via browser and save channel (id = @handle or channel name).",
     )
+    ch_add.add_argument(
+        "--category",
+        default="",
+        help="Assembly/content category label (e.g. korean)",
+    )
 
     channel_sub.add_parser("list", help="List saved YouTube channels.")
 
@@ -75,6 +86,25 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--upload-retries", type=int, default=3, metavar="N")
     run.add_argument("--retry-delay", type=float, default=30.0, metavar="SEC")
     run.add_argument("--tags", default=None, help="Comma-separated tags (overrides channel default).")
+    run.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Dispatch one worker per job (Cloud Run Job or local thread) instead of sequential in-process upload.",
+    )
+
+    upload_job = sub.add_parser(
+        "upload-job",
+        help="Upload a single queued job (Cloud Run Job worker entrypoint).",
+    )
+    upload_job.add_argument("--channel", required=True, help=_CHANNEL_HELP)
+    upload_job.add_argument("--job-id", required=True, help="Registry job id to upload.")
+    upload_job.add_argument("--worker-id", default="", help="Worker id (default: env UPLOADER_WORKER_ID or auto).")
+    upload_job.add_argument("--publish-at", default="", help="RFC3339 publishAt (or UPLOADER_JOB_PUBLISH_AT).")
+    upload_job.add_argument("--no-schedule", action="store_true")
+    upload_job.add_argument("--privacy", choices=("private", "unlisted", "public"), default=None)
+    upload_job.add_argument("--upload-retries", type=int, default=None, metavar="N")
+    upload_job.add_argument("--retry-delay", type=float, default=None, metavar="SEC")
+    upload_job.add_argument("--tags", default=None, help="Comma-separated tags.")
 
     run_all = sub.add_parser("run-all", help="Process pending uploads for every configured channel.")
     run_all.add_argument("--start", default=None, metavar="'YYYY-MM-DD HH:MM'")
@@ -334,6 +364,8 @@ def _print_channel_saved(ch: ChannelConfig) -> None:
     print(f"  YouTube channel id: {ch.youtube_channel_id}")
     print(f"  Token:              {ch.token_path}")
     print(f"  Registry:           {ch.registry_path}")
+    if ch.category:
+        print(f"  Category:           {ch.category}")
     print(f"\nUse --channel {ch.id!r} (or the channel name) for uploads.")
 
 
@@ -348,6 +380,7 @@ def _cmd_channel_add(args, config) -> int:
             oauth,
             config_path=_config_path_from_args(args),
             force_reauth=True,
+            category=getattr(args, "category", "") or "",
         )
     except Exception as e:
         print(f"error: {e}", file=sys.stderr)
@@ -364,7 +397,8 @@ def _cmd_channel_list(args, config) -> int:
     for ch in config.channels:
         token_status = "authorized" if token_is_authorized(ch.token_path) else "not authorized"
         handle = f" @{ch.custom_url.lstrip('@')}" if ch.custom_url else ""
-        print(f"  {ch.id}  —  {ch.name}{handle}  [{token_status}]")
+        cat = f"  [{ch.category}]" if ch.category else ""
+        print(f"  {ch.id}  —  {ch.name}{handle}{cat}  [{token_status}]")
         if ch.youtube_channel_id:
             print(f"    youtube_id: {ch.youtube_channel_id}")
         print(f"    token:      {ch.token_path}")
@@ -420,19 +454,23 @@ def _cmd_plan(args, config) -> int:
         print(f"No pending jobs in {registry.path}.")
         return 0
 
-    ivl = args.interval_hours if args.interval_hours is not None else channel.publish.interval_hours
-    start_dt = parse_start(
-        args.start,
-        timezone_name=channel.publish.timezone,
-        default_hour=channel.publish.hour,
-    )
-    plan = compute_publish_schedule(
-        pending, start_dt, ivl, no_schedule=args.no_schedule
+    ivl = args.interval_hours  # None lets build_channel_upload_plan infer from YouTube schedule
+    oauth = _oauth_for_config(config)
+    upload_plan = build_channel_upload_plan(
+        channel,
+        config,
+        pending,
+        start=args.start,
+        interval_hours=ivl,
+        no_schedule=args.no_schedule,
+        oauth_client_secret=oauth.client_secret_path,
+        oauth_client_config=oauth.client_config,
+        oauth_port=oauth.oauth_port,
     )
 
-    print(f"{len(plan)} pending job(s) in {registry.path}:")
-    for entry, publish_at in plan:
-        if args.no_schedule:
+    print(f"{len(upload_plan.items)} pending job(s) in {registry.path}:")
+    for entry, publish_at in upload_plan.items:
+        if upload_plan.upload_immediately or not publish_at:
             when = "now (no schedule)"
         else:
             publish_dt = datetime.fromisoformat(publish_at.replace("Z", "+00:00"))
@@ -451,6 +489,7 @@ def _run_channel_and_report(args, config, *, limit: int | None = None) -> int:
         return 2
     tags = [t.strip() for t in args.tags.split(",") if t.strip()] if getattr(args, "tags", None) else None
     effective_limit = limit if limit is not None else getattr(args, "limit", None)
+    oauth = _oauth_for_config(config)
     result = run_channel(
         args.channel,
         config,
@@ -462,6 +501,9 @@ def _run_channel_and_report(args, config, *, limit: int | None = None) -> int:
         upload_retries=getattr(args, "upload_retries", 3),
         retry_delay=getattr(args, "retry_delay", 30.0),
         tags=tags,
+        oauth_client_secret=oauth.client_secret_path,
+        oauth_client_config=oauth.client_config,
+        oauth_port=oauth.oauth_port,
     )
     if result.total == 0:
         channel = get_channel(config, args.channel)
@@ -475,8 +517,76 @@ def _run_channel_and_report(args, config, *, limit: int | None = None) -> int:
     return 0 if result.uploaded > 0 or result.failed == 0 else 1
 
 
+def _cmd_upload_job(args, config) -> int:
+    import os
+    import uuid
+
+    worker_id = (
+        args.worker_id.strip()
+        or os.environ.get("UPLOADER_WORKER_ID", "").strip()
+        or f"wrk_{uuid.uuid4().hex[:12]}"
+    )
+    publish_at = args.publish_at.strip() or os.environ.get("UPLOADER_JOB_PUBLISH_AT", "").strip()
+    no_schedule = args.no_schedule or os.environ.get("UPLOADER_NO_SCHEDULE", "").strip() in ("1", "true", "yes")
+    privacy = args.privacy or os.environ.get("UPLOADER_JOB_PRIVACY", "").strip() or None
+    tags_raw = args.tags or os.environ.get("UPLOADER_JOB_TAGS", "")
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
+    upload_retries = args.upload_retries
+    if upload_retries is None:
+        upload_retries = int(os.environ.get("UPLOADER_UPLOAD_RETRIES", "3"))
+    retry_delay = args.retry_delay
+    if retry_delay is None:
+        retry_delay = float(os.environ.get("UPLOADER_RETRY_DELAY", "30"))
+
+    base = config_base_from_path(_config_path_from_args(args))
+    one = upload_single_job(
+        args.channel,
+        args.job_id,
+        config,
+        worker_id=worker_id,
+        base=base,
+        publish_at=publish_at or None,
+        no_schedule=no_schedule,
+        privacy=privacy,
+        upload_retries=upload_retries,
+        retry_delay=retry_delay,
+        tags=tags,
+    )
+    if one.success:
+        print(f"Uploaded {one.job_id}: {one.youtube_url}", file=sys.stderr)
+        return 0
+    print(f"Upload failed {one.job_id}: {one.error}", file=sys.stderr)
+    return 1
+
+
 def _cmd_run(args, config) -> int:
     print(f"uploader run: channel={args.channel}", file=sys.stderr, flush=True)
+    if getattr(args, "parallel", False):
+        base = config_base_from_path(_config_path_from_args(args))
+        tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else None
+        oauth = _oauth_for_config(config)
+        result = dispatch_parallel_uploads(
+            args.channel,
+            config,
+            base=base,
+            count=args.limit,
+            no_schedule=args.no_schedule,
+            privacy=args.privacy,
+            upload_retries=args.upload_retries,
+            retry_delay=args.retry_delay,
+            tags=tags,
+            start=args.start,
+            interval_hours=args.interval_hours,
+            oauth_client_secret=oauth.client_secret_path,
+            oauth_client_config=oauth.client_config,
+            oauth_port=oauth.oauth_port,
+        )
+        print(f"Dispatched {len(result.dispatched)} worker(s)", file=sys.stderr)
+        for d in result.dispatched:
+            print(f"  {d.job_id} -> {d.backend}", file=sys.stderr)
+        for s in result.skipped:
+            print(f"  skipped {s.get('job_id')}: {s.get('reason')}", file=sys.stderr)
+        return 0 if result.dispatched else 1
     return _run_channel_and_report(args, config)
 
 
@@ -871,6 +981,7 @@ def main(argv: list[str] | None = None) -> int:
         "plan": _cmd_plan,
         "run": _cmd_run,
         "run-all": _cmd_run_all,
+        "upload-job": _cmd_upload_job,
         "list": _cmd_list,
         "enqueue": _cmd_enqueue,
         "upload": _cmd_upload,

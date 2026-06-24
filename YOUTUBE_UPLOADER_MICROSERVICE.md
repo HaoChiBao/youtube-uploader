@@ -225,9 +225,27 @@ class UploadRegistry:
 
 ## Job payload (assembler → uploader contract)
 
-When the assembler finishes a video, use one of two HTTP ingest paths (documented in `api/endpoint_docs.py` and README):
+### Required endpoints to upload properly
 
-### Option A — multipart upload (simplest)
+Upload is a **two-step** API flow. Register alone does **not** publish to YouTube.
+
+| Order | Endpoint | Caller | What it does |
+|-------|----------|--------|--------------|
+| 0 (once) | `GET /v1/channels` | Assembler dashboard | List channel slugs for dropdown + register path |
+| 0 (once) | `POST /v1/oauth/start` | Human (browser) | Connect YouTube OAuth — **required before runs work** |
+| 1 | `POST /v1/channels/{channel_ref}/jobs/register` | Assembler (`ASSEMBLY_QUEUE_YOUTUBE`) | Queue job as `pending` in registry |
+| 2 | `POST /v1/channels/{channel_ref}/runs` | Cron, operator, or dashboard | Download MP4 from `video_uri`, upload to YouTube |
+| 3 | `GET /v1/runs/{run_id}` | Whoever started step 2 | Poll until `completed` |
+
+Optional: `GET /v1/jobs?channel={ref}&status=pending` · `GET /v1/capabilities` (assembler R2 reachability)
+
+Auth (hosted): `X-API-Key: $UPLOADER_API_KEY` on all steps except `GET /v1/health` and OAuth callback.
+
+---
+
+When the assembler finishes a video, use one of these HTTP ingest paths (documented in `api/endpoint_docs.py` and README):
+
+### Option A — multipart upload (simplest, small files only)
 
 ```bash
 POST /v1/channels/justcavefire/jobs
@@ -241,9 +259,45 @@ is_short=false
 tags=ai,generated
 ```
 
-Returns `201` with `job_id`, `video_uri`, `queue_prefix`. No YouTube OAuth required.
+Returns `201` with `job_id`, `video_uri`, `queue_prefix`. No YouTube OAuth required for this step. **Then call** `POST /v1/channels/{id}/runs` to upload.
 
-### Option B — register when files already on R2
+### Option B — register when files already on R2 (ai-music-assembler production path)
+
+Assembler writes to **`music-assembly-data`**; uploader registers by URI reference (no MP4 copy on register).
+
+```json
+POST /v1/channels/nappabeats/jobs/register
+X-API-Key: $UPLOADER_API_KEY
+
+{
+  "job_id": "mv_20260624_061500",
+  "title": "Generated title",
+  "description": "Chapter timestamps…",
+  "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
+  "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png"
+}
+```
+
+| Response | Meaning |
+|----------|---------|
+| `201` | New pending job |
+| `200` | Idempotent re-register (same `job_id` + `video_uri`) |
+| `404` | Unknown `channel_ref` |
+| `409` | Same `job_id`, different `video_uri` |
+| `400` / `502` | Video not found or assembler bucket not readable |
+
+**Uploader env:** `ASSEMBLY_R2_BUCKET=music-assembly-data` (+ optional `ASSEMBLY_R2_*` credentials). See `.env.example`.
+
+**Then upload to YouTube:**
+
+```json
+POST /v1/channels/nappabeats/runs
+{"count": 1, "upload_retries": 5}
+```
+
+Returns `202` + `run_id`. Poll `GET /v1/runs/{run_id}`. Channel must have valid OAuth (`auth.valid: true` on `GET /v1/channels`).
+
+### Option B (legacy) — register when files already in uploader bucket
 
 ```json
 POST /v1/channels/justcavefire/jobs/register
@@ -251,8 +305,8 @@ POST /v1/channels/justcavefire/jobs/register
   "job_id": "mv_20260617_180732_01",
   "title": "...",
   "description": "...",
-  "video_uri": "s3://my-bucket/queue/justcavefire/mv_20260617_180732_01/video.mp4",
-  "thumbnail_uri": "s3://my-bucket/queue/justcavefire/mv_20260617_180732_01/thumbnail.png",
+  "video_uri": "s3://youtuber-uploader/queue/justcavefire/mv_20260617_180732_01/video.mp4",
+  "thumbnail_uri": "s3://youtuber-uploader/queue/justcavefire/mv_20260617_180732_01/thumbnail.png",
   "privacy": "private",
   "is_short": false,
   "tags": ["lofi", "chill"],
@@ -261,7 +315,7 @@ POST /v1/channels/justcavefire/jobs/register
 }
 ```
 
-The service validates files exist, writes metadata sidecars, and appends a `pending` registry row.
+The service validates files exist, writes metadata sidecars, and appends a `pending` registry row. **Still requires** `POST .../runs` to upload.
 
 ### Option C — direct R2 + cron (no HTTP)
 
@@ -269,8 +323,9 @@ Assembler writes to `queue/{channel_id}/{job_id}/` and appends to `upload_regist
 
 **Assembler changes (minimal):**
 
-- After `generate-music-videos`, call **Option A or B** (or write directly per Option C).
-- Stop calling `schedule-music-videos` locally; use `POST /v1/channels/{id}/runs` or cron `uploader run`.
+- After `generate-music-videos`, call **`POST /v1/channels/{id}/jobs/register`** (Option B).
+- Schedule **`POST /v1/channels/{id}/runs`** via cron/Cloud Scheduler or dashboard — register does not upload.
+- Stop calling `schedule-music-videos` locally.
 
 ---
 

@@ -43,6 +43,10 @@ class JobView:
     queue_position: int | None = None
     queue_prefix: str = ""
     uploaded_prefix: str = ""
+    upload_worker_id: str = ""
+    upload_phase: str = ""
+    upload_progress: float = 0.0
+    upload_message: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -63,6 +67,10 @@ class JobView:
             "queue_position": self.queue_position,
             "queue_prefix": self.queue_prefix,
             "uploaded_prefix": self.uploaded_prefix,
+            "upload_worker_id": self.upload_worker_id,
+            "upload_phase": self.upload_phase,
+            "upload_progress": self.upload_progress,
+            "upload_message": self.upload_message,
         }
 
 
@@ -224,6 +232,7 @@ def entry_to_job_view(
         entry.channel_id, entry.id, base=base, status=entry.status, video_uri=entry.resolved_video_uri()
     )
     prefix = job_folder_prefix(entry, base=base, folder=folder)
+    prog = UploadRegistry.upload_progress_fields(entry)
     return JobView(
         id=entry.id,
         channel_id=entry.channel_id,
@@ -242,6 +251,10 @@ def entry_to_job_view(
         queue_position=queue_position,
         queue_prefix=prefix,
         uploaded_prefix=uploaded_prefix_for(entry.channel_id, entry.id, base),
+        upload_worker_id=prog["upload_worker_id"],
+        upload_phase=prog["upload_phase"],
+        upload_progress=prog["upload_progress"],
+        upload_message=prog["upload_message"],
     )
 
 
@@ -266,8 +279,10 @@ def job_media_availability(
 class ChannelJobsBundle:
     channel: ChannelConfig
     queue_jobs: list[JobView]
+    uploading_jobs: list[JobView]
     uploaded_jobs: list[JobView]
     pending_count: int
+    uploading_count: int
     uploaded_count: int
     failed_count: int
 
@@ -288,19 +303,17 @@ def load_channel_jobs(
 
     queue_entries: list[UploadEntry] = []
     queue_entries.extend(pending)
-    queue_entries.extend(uploading)
     queue_entries.extend(failed)
 
     queue_jobs: list[JobView] = []
     for i, entry in enumerate(pending, start=1):
         view = entry_to_job_view(entry, base=base, queue_position=i)
         queue_jobs.append(view)
-    for entry in uploading:
-        view = entry_to_job_view(entry, base=base, queue_position=None)
-        queue_jobs.append(view)
     for entry in failed:
         view = entry_to_job_view(entry, base=base, queue_position=None)
         queue_jobs.append(view)
+
+    uploading_jobs = [entry_to_job_view(e, base=base) for e in uploading]
 
     uploaded.sort(key=lambda e: e.uploaded_at or e.created_at, reverse=True)
     uploaded_jobs = [entry_to_job_view(e, base=base) for e in uploaded]
@@ -308,11 +321,51 @@ def load_channel_jobs(
     return ChannelJobsBundle(
         channel=channel,
         queue_jobs=queue_jobs,
+        uploading_jobs=uploading_jobs,
         uploaded_jobs=uploaded_jobs,
         pending_count=len(pending),
+        uploading_count=len(uploading),
         uploaded_count=len(uploaded),
         failed_count=len(failed),
     )
+
+
+def list_active_uploads(
+    channels: list[ChannelConfig],
+    *,
+    base: Path,
+    grace_seconds: float = 45.0,
+) -> list[JobView]:
+    """In-flight uploads plus jobs that finished within the grace window."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    jobs: list[JobView] = []
+    for channel in channels:
+        reg = UploadRegistry(channel.registry_path)
+        for entry in reg.load():
+            if entry.channel_id != channel.id:
+                continue
+            if entry.status == STATUS_UPLOADING:
+                jobs.append(entry_to_job_view(entry, base=base))
+                continue
+            if entry.status != STATUS_UPLOADED or not entry.uploaded_at:
+                continue
+            try:
+                uploaded_at = datetime.fromisoformat(
+                    entry.uploaded_at.replace("Z", "+00:00")
+                )
+            except ValueError:
+                continue
+            age = (now - uploaded_at).total_seconds()
+            if age > grace_seconds:
+                continue
+            extra = entry.extra or {}
+            phase = str(extra.get("upload_phase", "") or "")
+            progress = float(extra.get("upload_progress", 0) or 0)
+            if phase == "done" or progress >= 99.0:
+                jobs.append(entry_to_job_view(entry, base=base))
+    return jobs
 
 
 def list_jobs(
@@ -331,7 +384,7 @@ def list_jobs(
         elif location == "uploaded":
             candidates = bundle.uploaded_jobs
         else:
-            candidates = bundle.queue_jobs + bundle.uploaded_jobs
+            candidates = bundle.queue_jobs + bundle.uploading_jobs + bundle.uploaded_jobs
 
         if status:
             candidates = [j for j in candidates if j.status == status]

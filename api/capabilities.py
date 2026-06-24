@@ -123,4 +123,17 @@ YOUTUBE_FEATURES: list[dict] = [
     {"id": "job_metadata", "name": "Per-job metadata", "description": "metadata.json: privacy, is_short, tags, category, made_for_kids"},
     {"id": "layered_defaults", "name": "Layered defaults", "description": ".env → channels.yaml defaults → channel → CLI/API flags"},
     {"id": "shorts", "name": "YouTube Shorts flag", "description": "is_short in job metadata"},
+    {
+        "id": "assembler_register",
+        "name": "ai-music-assembler auto-queue",
+        "description": "POST .../jobs/register with s3://music-assembly-data/... URIs (reference-by-URI, idempotent job_id)",
+    },
+]
+
+ASSEMBLY_INTEGRATION_NOTES: list[str] = [
+    "Register is idempotent: re-posting the same channel_ref + job_id returns 200 without duplicating.",
+    "External assembler URIs are kept in place; MP4/thumbnail are downloaded at upload time (no copy on register).",
+    "YouTube Data API default quota is ~10,000 units/day (~6 uploads/day at ~1,600 units each).",
+    "Upload runs process one job at a time per channel (sequential) to respect quota and bandwidth.",
+    "Trigger uploads with POST /v1/channels/{ref}/runs {\"count\": 1} or schedule cron/Cloud Scheduler.",
 ]

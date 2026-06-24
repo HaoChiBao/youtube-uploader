@@ -24,9 +24,13 @@ def isolated_api_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     config_path = tmp_path / "config" / "channels.yaml"
     config_path.parent.mkdir(parents=True)
     config_path.write_text(
+        "categories:\n"
+        "  - korean\n"
+        "  - japanese\n"
         "channels:\n"
         "  - id: testchan\n"
         "    name: Test Channel\n"
+        "    category: korean\n"
         "    token_path: secrets/testchan/youtube_token.json\n"
         "    registry_path: state/testchan/upload_registry.txt\n"
         "\n"
@@ -88,6 +92,90 @@ def test_channels_list(client):
     assert "channels" in data
     assert isinstance(data["channels"], list)
     assert "config_uri" in data
+    assert data["channels"][0]["category"] == "korean"
+
+
+def test_patch_channel_category(client):
+    r = client.patch(
+        "/v1/channels/testchan",
+        json={"category": "japanese"},
+    )
+    assert r.status_code == 200
+    assert r.json()["category"] == "japanese"
+    assert client.get("/v1/channels/testchan").json()["category"] == "japanese"
+
+    r2 = client.patch("/v1/channels/testchan", json={"category": ""})
+    assert r2.status_code == 200
+    assert r2.json()["category"] == ""
+
+
+def test_categories_crud(client):
+    r = client.get("/v1/categories")
+    assert r.status_code == 200
+    assert "korean" in r.json()["categories"]
+
+    dup = client.post("/v1/categories", json={"name": "korean"})
+    assert dup.status_code == 400
+
+    created = client.post("/v1/categories", json={"name": "lofi"})
+    assert created.status_code == 200
+    assert "lofi" in created.json()["categories"]
+
+    bad_patch = client.patch("/v1/channels/testchan", json={"category": "unknown-cat"})
+    assert bad_patch.status_code == 400
+
+    deleted = client.delete("/v1/categories/lofi")
+    assert deleted.status_code == 200
+    assert "lofi" not in deleted.json()["categories"]
+
+    missing = client.delete("/v1/categories/nope")
+    assert missing.status_code == 404
+
+
+def test_channels_list_includes_categories(client):
+    r = client.get("/v1/channels")
+    assert r.status_code == 200
+    data = r.json()
+    assert "categories" in data
+    assert "korean" in data["categories"]
+
+
+def test_dashboard_includes_categories(client):
+    r = client.get("/v1/dashboard")
+    assert r.status_code == 200
+    assert "categories" in r.json()
+
+
+def test_delete_channel(client):
+    r = client.delete("/v1/channels/testchan")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["channel_id"] == "testchan"
+    assert body["removed"] is True
+    assert client.get("/v1/channels/testchan").status_code == 404
+    channels = client.get("/v1/channels").json()["channels"]
+    assert not any(c["id"] == "testchan" for c in channels)
+
+
+def test_authenticated_youtube_channels(client, monkeypatch: pytest.MonkeyPatch):
+    from api.schemas import TokenStatus
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda channel_id, token_path, oauth: TokenStatus(
+            has_token=True,
+            valid=channel_id == "testchan",
+            status="ok",
+        ),
+    )
+    r = client.get("/v1/youtube/channels")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["count"] == 1
+    assert len(data["channels"]) == 1
+    assert data["channels"][0]["id"] == "testchan"
+    assert data["channels"][0]["category"] == "korean"
+    assert "auth" not in data["channels"][0]
 
 
 def test_jobs_list(client):
@@ -99,6 +187,19 @@ def test_jobs_list(client):
 def test_index_html(client):
     r = client.get("/")
     assert r.status_code == 200
+
+
+def test_openapi_docs_include_examples(client):
+    r = client.get("/openapi.json")
+    assert r.status_code == 200
+    schema = r.json()
+    health_op = schema["paths"]["/v1/health"]["get"]
+    assert "Purpose" in health_op["description"]
+    assert "How to use" in health_op["description"]
+    example = health_op["responses"]["200"]["content"]["application/json"]["example"]
+    assert example["status"] == "ok"
+    yt_channels = schema["paths"]["/v1/youtube/channels"]["get"]
+    assert "Example response" in yt_channels["description"]
 
 
 def test_create_job_multipart(client, tmp_path: Path):
@@ -169,6 +270,33 @@ def test_register_job_from_local_uri(client, tmp_path: Path):
     assert body["job_id"] == job_id
     assert body["privacy"] == "unlisted"
     assert body["is_short"] is True
+
+
+def test_register_job_idempotent(client, tmp_path: Path) -> None:
+    job_id = "mv_api_test"
+    video = tmp_path / f"{job_id}.mp4"
+    video.write_bytes(b"v")
+
+    payload = {
+        "job_id": job_id,
+        "title": "Assembler test",
+        "video_uri": str(video),
+    }
+    r1 = client.post("/v1/channels/testchan/jobs/register", json=payload)
+    assert r1.status_code == 201, r1.text
+
+    r2 = client.post("/v1/channels/testchan/jobs/register", json=payload)
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["job_id"] == job_id
+
+
+def test_capabilities_assembly_integration(client) -> None:
+    r = client.get("/v1/capabilities")
+    assert r.status_code == 200
+    data = r.json()
+    assert "assembly_integration" in data
+    assert data["assembly_integration"]["register_endpoint"].endswith("/jobs/register")
+    assert "assembly_r2" in data["assembly_integration"]
 
 
 def test_api_key_required_when_configured(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

@@ -4,152 +4,1144 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YouTube Uploader</title>
+  <!-- Style tokens: see DESIGN.md at repo root -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    :root { font-family: system-ui, sans-serif; color: #111; background: #f6f6f8; }
-    body { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
-    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    .sub { color: #555; margin-bottom: 1.5rem; }
-    section { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
-    h2 { font-size: 1.1rem; margin: 0 0 0.75rem; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
-    .ok { color: #0a7; font-weight: 600; }
-    .bad { color: #c33; font-weight: 600; }
-    .warn { color: #a60; }
-    .muted { color: #888; font-size: 0.8rem; }
-    .folder-tag { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: #eee; margin-left: 0.25rem; }
-    .folder-tag.queue { background: #e8f0fe; color: #174ea6; }
-    .folder-tag.uploaded { background: #e6f4ea; color: #137333; }
-    .folder-tag.missing { background: #fce8e6; color: #c5221f; }
-    .status-failed { color: #c33; }
-    button, .btn { background: #111; color: #fff; border: none; padding: 0.45rem 0.85rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-right: 0.4rem; }
-    button.secondary { background: #666; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.refreshing { position: relative; padding-left: 1.75rem; }
+    :root {
+      --color-linen: #fafffa;
+      --color-obsidian-ink: #121613;
+      --color-pure-black: #000000;
+      --color-bark: #232924;
+      --color-sage: #516254;
+      --color-mist: #c8d2c8;
+      --color-voltage: #2bee4b;
+      --color-moss-glow: #93b799;
+      --color-pollen: #c4e4c9;
+      --font-ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      --font-editorial: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+      --font-caption: Georgia, 'Times New Roman', serif;
+      --text-caption: 11px;
+      --text-body-sm: 14px;
+      --text-body: 16px;
+      --text-subheading: 18px;
+      --page-max-width: 1440px;
+      --section-gap: 40px;
+      --section-gap-inner: 12px;
+      --card-padding: 14px;
+      --element-gap: 12px;
+      --radius-cards: 14px;
+      --radius-images: 14px;
+      --radius-buttons: 10px;
+      --radius-small: 5px;
+      --shadow-lg: rgba(16, 94, 29, 0.45) 1px 8px 20px 0px;
+      --shadow-lg-2: rgba(18, 146, 39, 0.25) 1px 8px 20px 0px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-sm);
+      font-weight: 400;
+      line-height: 1.4;
+      letter-spacing: -0.28px;
+      color: var(--color-obsidian-ink);
+      background: var(--color-linen);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--color-obsidian-ink);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    a:hover { color: var(--color-bark); }
+
+    code {
+      font-family: ui-monospace, monospace;
+      font-size: var(--text-caption);
+      letter-spacing: 0;
+    }
+
+    /* —— Nav header —— */
+    .site-header {
+      background: var(--color-linen);
+      padding: 12px 32px;
+      border-bottom: 1px solid var(--color-mist);
+    }
+    .site-header-inner {
+      max-width: var(--page-max-width);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: var(--element-gap);
+      flex-wrap: wrap;
+    }
+    .wordmark {
+      font-size: var(--text-body-sm);
+      font-weight: 600;
+      letter-spacing: -0.28px;
+      text-decoration: none;
+      color: var(--color-obsidian-ink);
+    }
+    .wordmark:hover { text-decoration: none; }
+    .wordmark-b { color: var(--color-voltage); }
+    .header-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .mark {
+      color: var(--color-voltage);
+      font-weight: 600;
+      font-size: var(--text-body-sm);
+      letter-spacing: -0.05em;
+      user-select: none;
+    }
+
+    /* —— Page —— */
+    .page {
+      max-width: var(--page-max-width);
+      margin: 0 auto;
+      padding: var(--section-gap) 32px 48px;
+    }
+    .hero {
+      margin-bottom: 0;
+      padding-bottom: var(--section-gap);
+      border-bottom: 1px solid var(--color-mist);
+      position: relative;
+    }
+    .tick {
+      display: block;
+      width: 40px;
+      height: 2px;
+      background: var(--color-voltage);
+      margin-bottom: 12px;
+    }
+    .display-headline {
+      font-family: var(--font-editorial);
+      font-weight: 300;
+      font-size: clamp(2.25rem, 6vw, 3.75rem);
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: var(--color-obsidian-ink);
+      margin: 0 0 10px;
+    }
+    .lede {
+      margin: 0;
+      max-width: 36rem;
+      font-weight: 400;
+      color: var(--color-obsidian-ink);
+    }
+
+    /* —— Sections —— */
+    .section {
+      margin: 0;
+      padding: var(--section-gap) 0 0;
+      border-top: 1px solid var(--color-mist);
+    }
+    .section-tag {
+      display: block;
+      font-size: var(--text-caption);
+      font-weight: 500;
+      letter-spacing: 0.11px;
+      text-transform: uppercase;
+      color: var(--color-sage);
+      margin-bottom: 4px;
+    }
+    .section-title {
+      font-family: var(--font-editorial);
+      font-weight: 300;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+      color: var(--color-obsidian-ink);
+    }
+    .section-lede {
+      margin: 0 0 var(--section-gap-inner);
+      color: var(--color-sage);
+      font-family: var(--font-caption);
+      font-size: var(--text-body-sm);
+      font-style: italic;
+      max-width: 40rem;
+    }
+    .panel {
+      background: var(--color-linen);
+      border-radius: var(--radius-cards);
+      padding: var(--card-padding);
+    }
+
+    .muted { color: var(--color-sage); font-size: var(--text-caption); font-family: var(--font-ui); font-style: normal; }
+    .ok { color: var(--color-obsidian-ink); font-weight: 600; }
+    .bad { color: var(--color-bark); font-weight: 600; }
+    .warn { color: var(--color-sage); font-weight: 500; }
+    .status-failed { color: var(--color-bark); font-weight: 600; }
+
+    .upload-progress-list { display: flex; flex-direction: column; gap: 14px; }
+    .upload-progress-item {
+      border: 1px solid var(--color-mist);
+      border-radius: var(--radius-small);
+      padding: 12px 14px;
+      background: #fff;
+    }
+    .upload-progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .upload-progress-title { font-weight: 600; font-size: var(--text-body-sm); }
+    .upload-progress-meta { font-size: var(--text-caption); color: var(--color-sage); }
+    .progress-track {
+      height: 8px;
+      background: var(--color-mist);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-voltage), var(--color-moss-glow));
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.35s ease;
+    }
+    .upload-progress-phase {
+      margin-top: 6px;
+      font-size: var(--text-caption);
+      color: var(--color-sage);
+    }
+    .upload-progress-item--done {
+      border-color: var(--color-moss-glow);
+      background: #f6fbf7;
+    }
+    .upload-progress-item--done .progress-fill {
+      background: var(--color-voltage);
+    }
+    .upload-progress-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* —— Buttons —— */
+    button, .btn {
+      font-family: var(--font-ui);
+      font-size: var(--text-body-sm);
+      cursor: pointer;
+      border: none;
+      background: none;
+      margin: 0 12px 8px 0;
+      transition: opacity 0.15s, text-decoration 0.15s, transform 0.1s;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-voltage {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--color-voltage);
+      color: var(--color-obsidian-ink);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      padding: 10px 22px;
+      border-radius: var(--radius-buttons);
+      box-shadow: var(--shadow-lg), var(--shadow-lg-2);
+      text-decoration: none;
+    }
+    .btn-voltage:hover:not(:disabled) {
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+    .btn-voltage--compact {
+      padding: 6px 14px;
+      font-size: var(--text-caption);
+      letter-spacing: 0.11px;
+    }
+
+    .btn-ghost {
+      color: var(--color-obsidian-ink);
+      font-weight: 400;
+      padding: 4px 0;
+      text-decoration: none;
+    }
+    .btn-ghost:hover:not(:disabled) { text-decoration: underline; }
+    .btn-ghost--padded { padding: 8px 4px; }
+
+    .btn-icon {
+      color: var(--color-sage);
+      padding: 6px;
+      line-height: 0;
+      vertical-align: middle;
+      margin: 0;
+      border-radius: var(--radius-small);
+    }
+    .btn-icon:hover:not(:disabled) {
+      color: var(--color-bark);
+      background: var(--color-pollen);
+    }
+    .btn-icon svg { display: block; }
+
+    button.refreshing {
+      position: relative;
+      padding-left: 1.5rem;
+      pointer-events: none;
+    }
     button.refreshing::before {
       content: "";
       position: absolute;
-      left: 0.55rem;
+      left: 0;
       top: 50%;
-      width: 0.85rem;
-      height: 0.85rem;
-      margin-top: -0.425rem;
-      border: 2px solid rgba(255,255,255,0.35);
-      border-top-color: #fff;
+      width: 0.75rem;
+      height: 0.75rem;
+      margin-top: -0.375rem;
+      border: 2px solid var(--color-mist);
+      border-top-color: var(--color-voltage);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-overlay { opacity: 0.55; pointer-events: none; }
-    #storage-info { font-size: 0.8rem; color: #666; margin-bottom: 0.5rem; }
-    .actions { margin-top: 0.75rem; }
-    #toast { position: fixed; bottom: 1rem; right: 1rem; background: #111; color: #fff; padding: 0.6rem 1rem; border-radius: 6px; display: none; max-width: 360px; }
-    .features { font-size: 0.85rem; columns: 2; gap: 1rem; }
-    .features li { margin-bottom: 0.25rem; }
-    #run-status { font-size: 0.85rem; color: #444; margin-top: 0.5rem; white-space: pre-wrap; }
+
+    /* —— Forms —— */
+    input[type="text"],
+    input[type="password"],
+    input[type="file"],
+    select,
+    textarea {
+      font-family: var(--font-ui);
+      font-size: var(--text-body-sm);
+      color: var(--color-obsidian-ink);
+      background: var(--color-linen);
+      border: 1px solid var(--color-mist);
+      border-radius: var(--radius-small);
+      padding: 8px 10px;
+      outline: none;
+      letter-spacing: -0.28px;
+    }
+    textarea { min-height: 4.5rem; resize: vertical; width: 100%; }
+    input:focus, select:focus, textarea:focus { border-color: var(--color-voltage); }
+    label {
+      font-size: var(--text-caption);
+      font-weight: 500;
+      letter-spacing: 0.11px;
+      text-transform: uppercase;
+      color: var(--color-sage);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* —— Tables —— */
+    .table-wrap { overflow-x: auto; margin-top: var(--section-gap-inner); }
+    table { width: 100%; border-collapse: collapse; font-size: var(--text-body-sm); }
+    th {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--color-mist);
+      color: var(--color-sage);
+      font-size: var(--text-caption);
+      font-weight: 500;
+      letter-spacing: 0.11px;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--color-mist);
+      vertical-align: top;
+      color: var(--color-obsidian-ink);
+    }
+    tr:last-child td { border-bottom: none; }
+    td strong { font-weight: 600; }
+    td small { color: var(--color-sage); font-size: var(--text-caption); }
+
     tr.job-row { cursor: pointer; }
-    tr.job-row:hover { background: #f9f9fb; }
-    tr.job-row.expanded { background: #f3f6ff; }
-    tr.job-detail td { background: #fafbff; padding: 0.75rem 1rem; vertical-align: top; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    tr.job-row:hover td { background: rgba(196, 228, 201, 0.25); }
+    tr.job-row.expanded td { background: rgba(196, 228, 201, 0.35); }
+    tr.job-detail td {
+      padding: var(--card-padding);
+      background: rgba(196, 228, 201, 0.2);
+    }
+
+    .folder-tag {
+      display: inline-block;
+      font-size: var(--text-caption);
+      font-weight: 500;
+      letter-spacing: 0.11px;
+      text-transform: uppercase;
+      color: var(--color-sage);
+    }
+    .folder-tag.queue { color: var(--color-obsidian-ink); }
+    .folder-tag.uploaded { color: var(--color-bark); }
+    .folder-tag.missing { color: var(--color-moss-glow); }
+
+    .category-create {
+      display: flex;
+      gap: var(--element-gap);
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: var(--element-gap);
+    }
+    .category-create input { max-width: 14rem; }
+    .category-list { list-style: none; margin: 0; padding: 0; }
+    .category-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-mist);
+    }
+    .category-list li:last-child { border-bottom: none; }
+    .channel-category-select { max-width: 11rem; font-size: var(--text-body-sm); }
+    .channel-category-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .category-save-status { font-size: var(--text-caption); flex-basis: 100%; min-height: 1rem; color: var(--color-sage); }
+    .category-save-status.ok { color: var(--color-obsidian-ink); font-weight: 600; }
+    .category-save-status.bad { color: var(--color-bark); font-weight: 600; }
+    .category-save-status.pending { color: var(--color-sage); }
+    .connect-category-row { margin-bottom: var(--element-gap); }
+    .upload-settings-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 24px;
+      margin-bottom: var(--element-gap);
+      align-items: flex-end;
+    }
+    .upload-settings-row label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: var(--text-caption);
+      font-weight: 500;
+      color: var(--color-sage);
+    }
+    .upload-settings-row select,
+    .upload-settings-row input[type="number"] {
+      font-family: var(--font-ui);
+      font-size: var(--text-body-sm);
+      padding: 8px 10px;
+      border: 1px solid var(--color-mist);
+      border-radius: var(--radius-small);
+      min-width: 12rem;
+    }
+    .stage-schedule-info {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-style: italic;
+    }
+    .schedule-summary {
+      font-size: var(--text-caption);
+      color: var(--color-sage);
+      margin-bottom: 6px;
+      max-width: 14rem;
+      line-height: 1.35;
+    }
+    .channel-schedule-row td {
+      background: #fafdfa;
+      border-top: none;
+      padding-top: 0;
+    }
+    .channel-schedule-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+      gap: 12px 16px;
+      padding: 12px 0 4px;
+      align-items: end;
+    }
+    .channel-schedule-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: var(--text-caption);
+      font-weight: 500;
+      color: var(--color-sage);
+    }
+    .channel-schedule-form input,
+    .channel-schedule-form select {
+      font-family: var(--font-ui);
+      font-size: var(--text-body-sm);
+      padding: 8px 10px;
+      border: 1px solid var(--color-mist);
+      border-radius: var(--radius-small);
+    }
+    .channel-schedule-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      grid-column: 1 / -1;
+    }
+    .schedule-save-status {
+      font-size: var(--text-caption);
+      color: var(--color-sage);
+    }
+
+    .stage-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--element-gap);
+      margin-top: var(--section-gap-inner);
+    }
+    .stage-form .field { display: flex; flex-direction: column; gap: 6px; }
+    .stage-form .field label {
+      display: block;
+      text-transform: uppercase;
+    }
+    .stage-form .field--full { grid-column: 1 / -1; }
+    .stage-form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--element-gap);
+      align-items: center;
+    }
+    .stage-status {
+      font-size: var(--text-caption);
+      color: var(--color-sage);
+      flex: 1 1 100%;
+      min-height: 1rem;
+    }
+    .stage-status.ok { color: var(--color-obsidian-ink); font-weight: 600; }
+    .stage-status.bad { color: var(--color-bark); font-weight: 600; }
+    @media (max-width: 720px) {
+      .stage-form { grid-template-columns: 1fr; }
+    }
+    .actions { margin-top: 4px; }
+
+    #storage-info, #run-status {
+      font-size: var(--text-caption);
+      color: var(--color-sage);
+      font-family: var(--font-caption);
+      font-style: italic;
+      margin: 12px 0 0;
+    }
+    #run-status { white-space: pre-wrap; font-style: normal; font-family: var(--font-ui); }
+
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--element-gap); }
     @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
-    .detail-meta dl { margin: 0; font-size: 0.85rem; }
-    .detail-meta dt { font-weight: 600; margin-top: 0.5rem; color: #444; }
-    .detail-meta dd { margin: 0.15rem 0 0; word-break: break-word; }
-    .detail-path { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #555; }
-    .detail-preview img { max-width: 240px; max-height: 135px; border-radius: 6px; border: 1px solid #ddd; display: block; }
-    .detail-preview video { max-width: 100%; max-height: 280px; border-radius: 6px; border: 1px solid #ddd; background: #000; }
-    .detail-preview .placeholder { color: #888; font-size: 0.85rem; font-style: italic; }
-    .expand-hint { color: #888; font-size: 0.75rem; }
-    .click-title { text-decoration: underline dotted; text-underline-offset: 2px; }
+    .detail-meta dl { margin: 0; font-size: var(--text-body-sm); }
+    .detail-meta h3 {
+      font-family: var(--font-editorial);
+      font-weight: 300;
+      font-size: var(--text-subheading);
+      margin: 0 0 10px;
+    }
+    .detail-meta dt {
+      font-size: var(--text-caption);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.11px;
+      color: var(--color-sage);
+      margin-top: 10px;
+    }
+    .detail-meta dd { margin: 4px 0 0; word-break: break-word; }
+    .detail-path { font-family: ui-monospace, monospace; font-size: var(--text-caption); color: var(--color-sage); }
+    .detail-preview img {
+      max-width: 240px;
+      max-height: 135px;
+      border-radius: var(--radius-images);
+      display: block;
+      filter: grayscale(100%);
+    }
+    .detail-preview video {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: var(--radius-images);
+      background: var(--color-obsidian-ink);
+    }
+    .detail-preview .placeholder {
+      color: var(--color-sage);
+      font-family: var(--font-caption);
+      font-style: italic;
+      font-size: var(--text-body);
+    }
+    .expand-hint { color: var(--color-moss-glow); font-size: var(--text-caption); }
+    .click-title { text-decoration: underline dotted; text-underline-offset: 3px; }
+
+    .features { font-size: var(--text-body-sm); columns: 2; gap: 16px; }
+    .features li { margin-bottom: 6px; break-inside: avoid; }
+
+    .loading-overlay { opacity: 0.45; pointer-events: none; }
+
+    /* —— Toast —— */
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #fff;
+      color: var(--color-obsidian-ink);
+      padding: 16px 18px;
+      border-radius: var(--radius-cards);
+      border: 1px solid var(--color-mist);
+      box-shadow: var(--shadow-lg-2);
+      display: none;
+      max-width: 400px;
+      z-index: 9000;
+    }
+    #toast.error {
+      border-color: color-mix(in srgb, var(--color-bark) 35%, var(--color-mist));
+      background: var(--color-linen);
+    }
+    #toast.error .toast-message { color: var(--color-bark); }
+    #toast.toast-confirm {
+      padding: 0;
+      overflow: hidden;
+    }
+    #toast.toast-confirm .toast-message {
+      margin-bottom: 0;
+      padding: 16px 18px 14px;
+      border-bottom: 1px solid var(--color-mist);
+    }
+    #toast .toast-message { line-height: 1.45; font-size: var(--text-body-sm); }
+    #toast .toast-message .muted {
+      display: block;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--color-mist);
+    }
+    #toast.toast-confirm .toast-message .muted {
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+    #toast .toast-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      padding: 12px 18px 14px;
+      background: var(--color-linen);
+    }
+    #toast:not(.toast-confirm) .toast-message {
+      padding: 0;
+    }
+    #toast .toast-actions button { margin: 0; }
+
+    /* —— Login —— */
     #login-gate {
       position: fixed;
       inset: 0;
-      background: #000;
-      color: #fff;
+      background: var(--color-linen);
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 10000;
+      padding: 32px;
     }
     #login-gate[hidden], #app[hidden] { display: none !important; }
-    #login-gate h1 {
-      font-size: 1.25rem;
-      font-weight: 400;
-      margin: 0 0 1.25rem;
-      letter-spacing: 0.02em;
+    .login-panel { width: min(420px, 100%); }
+    .login-panel .display-headline { font-size: clamp(2rem, 7vw, 3rem); }
+    .login-panel .lede { margin-bottom: 20px; color: var(--color-sage); font-style: italic; font-family: var(--font-caption); }
+    #login-password { width: 100%; margin-bottom: 16px; }
+    #login-error { color: var(--color-bark); font-size: var(--text-caption); font-weight: 600; margin: 0; }
+
+    @media (max-width: 720px) {
+      .site-header { padding: 10px 16px; }
+      .page { padding: 28px 16px 40px; }
+      .section { padding-top: 28px; }
+      .hero { padding-bottom: 28px; }
     }
-    #login-password {
-      background: #000;
-      border: 1px solid #444;
-      color: #fff;
-      padding: 0.65rem 0.75rem;
-      border-radius: 4px;
-      width: min(300px, 80vw);
-      font-size: 1rem;
-      outline: none;
-    }
-    #login-password:focus { border-color: #888; }
-    #login-error { color: #f55; margin: 0.75rem 0 0; font-size: 0.9rem; }
   </style>
 </head>
 <body>
   <div id="login-gate" hidden>
-    <h1>Enter password</h1>
-    <input type="password" id="login-password" autocomplete="current-password" spellcheck="false" />
-    <p id="login-error" hidden></p>
+    <div class="login-panel">
+      <span class="tick" aria-hidden="true"></span>
+      <h1 class="display-headline">YouTube<br><span style="color:var(--color-voltage)">Uploader</span></h1>
+      <p class="lede">Enter your dashboard password to continue.</p>
+      <input type="password" id="login-password" autocomplete="current-password" spellcheck="false" placeholder="Password" />
+      <p id="login-error" hidden></p>
+    </div>
   </div>
 
   <div id="app" hidden>
-  <h1>YouTube Uploader</h1>
-  <p class="sub">Dashboard — channels, queue, and uploads. <a href="/docs">API docs</a> · <button class="secondary" id="btn-logout" style="padding:0.2rem 0.5rem;font-size:0.8rem">Sign out</button></p>
-  <div id="toast"></div>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="wordmark" href="/"><span class="wordmark-a">YouTube </span><span class="wordmark-b">Uploader</span></a>
+        <div class="header-actions">
+          <button type="button" class="btn-ghost" id="btn-refresh">Refresh</button>
+          <a class="btn-ghost" href="/docs" target="_blank" rel="noopener">API docs</a>
+          <span class="mark" aria-hidden="true">||</span>
+          <button type="button" class="btn-ghost" id="btn-logout">Sign out</button>
+        </div>
+      </div>
+    </header>
 
-  <section>
-    <h2>Actions</h2>
-    <div class="actions">
-      <button id="btn-connect">Connect YouTube channel</button>
-      <button class="secondary" id="btn-refresh">Refresh</button>
-      <button class="secondary" id="btn-features">Toggle features list</button>
-    </div>
-    <div id="run-status"></div>
-  </section>
+    <main class="page">
+      <header class="hero">
+        <span class="tick" aria-hidden="true"></span>
+        <h1 class="display-headline">Upload<br>dashboard</h1>
+        <p class="lede">Manage channels, assembly categories, and your upload queue. Connect OAuth, stage jobs, and publish to YouTube.</p>
+      </header>
 
-  <section id="channels-section">
-    <h2>Authenticated channels</h2>
-    <p id="storage-info"></p>
-    <table>
-      <thead><tr><th>Channel</th><th>Auth</th><th>Pending</th><th>Actions</th></tr></thead>
-      <tbody id="channels-body"><tr><td colspan="4">Loading…</td></tr></tbody>
-    </table>
-  </section>
+      <section class="section" id="categories-section">
+        <span class="section-tag">Assembly</span>
+        <h2 class="section-title">Categories</h2>
+        <p class="section-lede">Labels for channels (e.g. korean). Pick a category on each channel row and click Save.</p>
+        <div class="panel">
+          <div class="category-create">
+            <input type="text" id="new-category-name" placeholder="e.g. korean" />
+            <button type="button" class="btn-voltage btn-voltage--compact" id="btn-create-category">Create →</button>
+          </div>
+          <div id="categories-list"><p class="muted">Loading…</p></div>
+        </div>
+      </section>
 
-  <section id="jobs-section">
-    <h2>Queue <span class="muted">(queue/ — upload in order)</span></h2>
-    <label>Filter: <select id="channel-filter"><option value="">All channels</option></select></label>
-    <table>
-      <thead><tr><th>#</th><th>Channel</th><th>Job ID</th><th>Title</th><th>Status</th><th>Folder</th><th>Actions</th></tr></thead>
-      <tbody id="queue-body"><tr><td colspan="7">Loading…</td></tr></tbody>
-    </table>
-  </section>
+      <section class="section">
+        <span class="section-tag">Connect</span>
+        <h2 class="section-title">Actions</h2>
+        <div class="panel">
+          <div class="connect-category-row">
+            <label>Category for new channel
+              <select id="connect-category" class="channel-category-select"><option value="">—</option></select>
+            </label>
+          </div>
+          <div class="upload-settings-row">
+            <label for="upload-spacing">Spacing between uploads
+              <select id="upload-spacing">
+                <option value="auto">Auto (infer from YouTube schedule)</option>
+                <option value="12">Every 12 hours</option>
+                <option value="24" selected>Every 24 hours</option>
+                <option value="48">Every 48 hours</option>
+              </select>
+            </label>
+            <label for="upload-max-per-run">Max uploads per run
+              <input type="number" id="upload-max-per-run" min="1" placeholder="All pending" />
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-voltage" id="btn-connect">Connect channel →</button>
+            <button type="button" class="btn-ghost btn-ghost--padded" id="btn-features">Toggle features</button>
+          </div>
+          <div id="run-status"></div>
+        </div>
+      </section>
 
-  <section id="uploaded-section">
-    <h2>Uploaded <span class="muted">(uploaded/ — archive after YouTube upload)</span></h2>
-    <table>
-      <thead><tr><th></th><th>Channel</th><th>Job ID</th><th>Title</th><th>YouTube</th><th>Uploaded</th><th>Folder</th></tr></thead>
-      <tbody id="uploaded-body"><tr><td colspan="6">Loading…</td></tr></tbody>
-    </table>
-  </section>
+      <section class="section" id="channels-section">
+        <span class="section-tag">OAuth</span>
+        <h2 class="section-title">Channels</h2>
+        <p id="storage-info" class="section-lede"></p>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Channel</th><th>Category</th><th>Auth</th><th>Pending</th><th>Schedule</th><th>Actions</th></tr></thead>
+              <tbody id="channels-body"><tr><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-  <section id="features-section" hidden>
-    <h2>YouTube upload features</h2>
-    <ul class="features" id="features-list"></ul>
-  </section>
+      <section class="section" id="stage-section">
+        <span class="section-tag">Stage</span>
+        <h2 class="section-title">Manual upload</h2>
+        <p class="section-lede muted" style="font-style:normal">Upload a video file to Cloudflare R2 queue/, then publish to YouTube to test scheduling.</p>
+        <div class="panel">
+          <form id="stage-form" class="stage-form">
+            <div class="field">
+              <label for="stage-channel">Channel</label>
+              <select id="stage-channel" required><option value="">Select channel…</option></select>
+            </div>
+            <div class="field">
+              <label for="stage-privacy">Privacy</label>
+              <select id="stage-privacy">
+                <option value="private" selected>private (scheduled)</option>
+                <option value="public">public</option>
+                <option value="unlisted">unlisted</option>
+              </select>
+            </div>
+            <div class="field field--full">
+              <label for="stage-video">Video file</label>
+              <input type="file" id="stage-video" accept="video/*,.mp4,.mov,.webm,.mkv" required />
+            </div>
+            <div class="field field--full">
+              <label for="stage-thumbnail">Thumbnail (optional)</label>
+              <input type="file" id="stage-thumbnail" accept="image/*,.png,.jpg,.jpeg,.webp" />
+            </div>
+            <div class="field field--full">
+              <label for="stage-title">Title</label>
+              <input type="text" id="stage-title" placeholder="Video title" required maxlength="100" />
+            </div>
+            <div class="field field--full">
+              <label for="stage-description">Description</label>
+              <textarea id="stage-description" placeholder="Optional description"></textarea>
+            </div>
+            <div class="field">
+              <label for="stage-is-short">Format</label>
+              <select id="stage-is-short">
+                <option value="false" selected>Regular video</option>
+                <option value="true">Short</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="stage-tags">Tags</label>
+              <input type="text" id="stage-tags" placeholder="comma, separated" />
+            </div>
+            <p class="stage-schedule-info muted" id="stage-schedule-info" aria-live="polite"></p>
+            <div class="stage-form-actions">
+              <button type="submit" class="btn-voltage" id="btn-stage">Stage to queue →</button>
+              <button type="button" class="btn-ghost btn-ghost--padded" id="btn-stage-upload">Stage &amp; upload to YouTube</button>
+              <button type="button" class="btn-ghost btn-ghost--padded" id="btn-stage-plan">Preview schedule</button>
+              <p class="stage-status" id="stage-status" aria-live="polite"></p>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="section" id="uploading-section">
+        <span class="section-tag">Live</span>
+        <h2 class="section-title">Uploading now</h2>
+        <p class="section-lede muted" style="font-style:normal">Real-time progress from parallel upload workers</p>
+        <div class="panel">
+          <div id="uploading-list" class="upload-progress-list">
+            <p class="muted">No uploads in progress.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="jobs-section">
+        <span class="section-tag">Queue</span>
+        <h2 class="section-title">Pending jobs</h2>
+        <p class="section-lede muted" style="font-style:normal">queue/ — upload in order</p>
+        <div class="panel">
+          <label>Filter <select id="channel-filter"><option value="">All channels</option></select></label>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Channel</th><th>Job ID</th><th>Title</th><th>Status</th><th>Folder</th><th>Actions</th></tr></thead>
+              <tbody id="queue-body"><tr><td colspan="7">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="uploaded-section">
+        <span class="section-tag">Archive</span>
+        <h2 class="section-title">Uploaded</h2>
+        <p class="section-lede muted" style="font-style:normal">uploaded/ — after YouTube publish</p>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th></th><th>Channel</th><th>Job ID</th><th>Title</th><th>YouTube</th><th>Uploaded</th><th>Folder</th></tr></thead>
+              <tbody id="uploaded-body"><tr><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features-section" hidden>
+        <span class="section-tag">API</span>
+        <h2 class="section-title">Features</h2>
+        <div class="panel">
+          <ul class="features" id="features-list"></ul>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast"></div>
   </div>
 
   <script>
     const API = '';
+    const TRASH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+    let savedCategories = [];
+
+    function categoryOptionsHtml(selected) {
+      const opts = ['<option value="">—</option>'];
+      savedCategories.forEach(c => {
+        opts.push('<option value="' + esc(c) + '"' + (c === selected ? ' selected' : '') + '>' + esc(c) + '</option>');
+      });
+      return opts.join('');
+    }
+
+    function fillCategorySelect(el, selected) {
+      if (!el) return;
+      el.innerHTML = categoryOptionsHtml(selected || '');
+    }
+
+    function renderCategoriesSection() {
+      const list = document.getElementById('categories-list');
+      if (!savedCategories.length) {
+        list.innerHTML = '<p class="muted">No categories yet — create one above.</p>';
+        return;
+      }
+      list.innerHTML = '<ul class="category-list">' + savedCategories.map(c => `
+        <li>
+          <span>${esc(c)}</span>
+          <button type="button" class="btn-icon" data-delete-category="${esc(c)}" title="Delete category">${TRASH_ICON}</button>
+        </li>`).join('') + '</ul>';
+    }
+
+    function syncCategoryDropdowns() {
+      fillCategorySelect(document.getElementById('connect-category'));
+      document.querySelectorAll('select[data-set-category]').forEach(sel => {
+        fillCategorySelect(sel, sel.dataset.current || sel.value);
+        updateCategorySaveButton(sel);
+      });
+    }
+
+    const expandedChannelSchedule = new Set();
+
+    function formatScheduleSummary(pub) {
+      pub = pub || {};
+      const ivl = pub.interval_hours != null ? pub.interval_hours : 24;
+      const parts = [ivl + 'h between uploads'];
+      if (pub.uploads_per_day) parts.push('max ' + pub.uploads_per_day + ' per run');
+      const tz = pub.timezone || 'America/New_York';
+      const hr = pub.hour != null ? pub.hour : 9;
+      parts.push('fallback ' + hr + ':00 ' + tz);
+      return parts.join(' · ');
+    }
+
+    function scheduleFormRowHtml(ch) {
+      const pub = ch.publish || {};
+      const tz = esc(pub.timezone || 'America/New_York');
+      const hour = pub.hour != null ? pub.hour : 9;
+      const ivl = pub.interval_hours != null ? pub.interval_hours : 24;
+      const maxRun = pub.uploads_per_day != null ? pub.uploads_per_day : '';
+      return `<tr class="channel-schedule-row" data-schedule-row="${esc(ch.id)}">
+        <td colspan="6">
+          <div class="channel-schedule-form" data-schedule-form="${esc(ch.id)}"
+            data-current-timezone="${tz}"
+            data-current-hour="${hour}"
+            data-current-interval="${ivl}"
+            data-current-max="${esc(String(maxRun))}">
+            <label>Spacing (hours)
+              <select data-field="interval_hours">
+                <option value="12"${ivl === 12 ? ' selected' : ''}>Every 12 hours</option>
+                <option value="24"${ivl === 24 ? ' selected' : ''}>Every 24 hours</option>
+                <option value="48"${ivl === 48 ? ' selected' : ''}>Every 48 hours</option>
+                <option value="${ivl}"${![12, 24, 48].includes(Number(ivl)) ? ' selected' : ''} hidden>${ivl}h (custom)</option>
+              </select>
+            </label>
+            <label>Max uploads per run
+              <input type="number" data-field="uploads_per_day" min="1" placeholder="No cap" value="${esc(String(maxRun))}" />
+            </label>
+            <label>Timezone
+              <input type="text" data-field="timezone" value="${tz}" placeholder="America/New_York" />
+            </label>
+            <label>Fallback hour (0–23)
+              <input type="number" data-field="hour" min="0" max="23" value="${hour}" />
+            </label>
+            <div class="channel-schedule-actions">
+              <button type="button" class="btn-voltage btn-voltage--compact" data-save-schedule="${esc(ch.id)}" disabled>Save schedule →</button>
+              <span class="schedule-save-status" data-schedule-status="${esc(ch.id)}" aria-live="polite"></span>
+              <span class="muted">Used when no YouTube schedule exists · uploads append after latest scheduled slot</span>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    function setScheduleSaveStatus(channelId, message, kind) {
+      const el = document.querySelector('[data-schedule-status="' + channelId + '"]');
+      if (!el) return;
+      el.textContent = message || '';
+      el.className = 'schedule-save-status' + (kind ? ' ' + kind : '');
+    }
+
+    function updateScheduleSaveButton(formEl) {
+      if (!formEl) return;
+      const channelId = formEl.dataset.scheduleForm;
+      const btn = document.querySelector('[data-save-schedule="' + channelId + '"]');
+      if (!btn) return;
+      const tz = formEl.querySelector('[data-field="timezone"]').value.trim();
+      const hour = formEl.querySelector('[data-field="hour"]').value.trim();
+      const ivl = formEl.querySelector('[data-field="interval_hours"]').value.trim();
+      const maxRun = formEl.querySelector('[data-field="uploads_per_day"]').value.trim();
+      const dirty = tz !== (formEl.dataset.currentTimezone || '')
+        || hour !== (formEl.dataset.currentHour || '')
+        || ivl !== (formEl.dataset.currentInterval || '')
+        || maxRun !== (formEl.dataset.currentMax || '');
+      btn.disabled = !dirty || btn.dataset.saving === '1';
+    }
+
+    function renderChannelsTable(channels) {
+      const tbody = document.getElementById('channels-body');
+      const filter = document.getElementById('channel-filter');
+      const prev = filter.value;
+      filter.innerHTML = '<option value="">All channels</option>';
+      if (!channels.length) {
+        tbody.innerHTML = '<tr><td colspan="6">No channels — click Connect channel</td></tr>';
+        syncStageChannelDropdown([]);
+        return;
+      }
+      tbody.innerHTML = channels.map(ch => {
+        const expanded = expandedChannelSchedule.has(ch.id);
+        const canEdit = ch.auth && ch.auth.valid;
+        const scheduleCell = canEdit
+          ? `<div class="schedule-summary">${esc(formatScheduleSummary(ch.publish))}</div>
+             <button type="button" class="btn-ghost btn-ghost--compact" data-toggle-schedule="${esc(ch.id)}">${expanded ? 'Hide schedule' : 'Edit schedule'}</button>`
+          : `<div class="schedule-summary">${esc(formatScheduleSummary(ch.publish))}</div>
+             <span class="muted">Reauth to edit</span>`;
+        const mainRow = `<tr>
+          <td><strong>${ch.name}</strong><br><small>${ch.id}${ch.custom_url ? ' ' + ch.custom_url : ''}</small></td>
+          <td>
+            <div class="channel-category-cell">
+              <select class="channel-category-select" data-set-category="${ch.id}" data-current="${esc(ch.category || '')}" data-channel-name="${esc(ch.name)}">${categoryOptionsHtml(ch.category || '')}</select>
+              <button type="button" class="btn-voltage btn-voltage--compact category-save-btn" data-save-category="${ch.id}" disabled title="Save category">Save →</button>
+              <span class="category-save-status" data-category-status="${ch.id}" aria-live="polite"></span>
+            </div>
+          </td>
+          <td>${authBadge(ch.auth)}</td>
+          <td>${ch.pending_count} queue · ${ch.uploaded_count || 0} uploaded${ch.failed_count ? ' · ' + ch.failed_count + ' failed' : ''}</td>
+          <td>${scheduleCell}</td>
+          <td>
+            <button class="btn-voltage btn-voltage--compact" data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload 1 →</button>
+            <button class="btn-ghost btn-ghost--padded" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload all</button>
+            <button class="btn-ghost btn-ghost--padded" data-reauth="${ch.id}">Reauth</button>
+            <button type="button" class="btn-icon" data-remove-channel="${ch.id}" data-channel-name="${esc(ch.name)}" title="Remove channel">${TRASH_ICON}</button>
+          </td>
+        </tr>`;
+        const scheduleRow = expanded && canEdit ? scheduleFormRowHtml(ch) : '';
+        return mainRow + scheduleRow;
+      }).join('');
+      channels.forEach(ch => {
+        const opt = document.createElement('option');
+        opt.value = ch.id;
+        opt.textContent = ch.id + ' (' + ch.pending_count + ' queue, ' + (ch.uploaded_count || 0) + ' uploaded)';
+        filter.appendChild(opt);
+      });
+      if (prev) filter.value = prev;
+      syncStageChannelDropdown(channels);
+      syncCategoryDropdowns();
+    }
+
+    function toggleChannelSchedule(channelId) {
+      if (expandedChannelSchedule.has(channelId)) expandedChannelSchedule.delete(channelId);
+      else expandedChannelSchedule.add(channelId);
+      if (dashboardData) renderChannelsTable(dashboardData.channels || []);
+    }
+
+    async function saveChannelSchedule(channelId) {
+      const form = document.querySelector('[data-schedule-form="' + channelId + '"]');
+      const btn = document.querySelector('[data-save-schedule="' + channelId + '"]');
+      if (!form || !btn) return;
+      const channelName = (dashboardData && dashboardData.channels || []).find(c => c.id === channelId)?.name || channelId;
+      const timezone = form.querySelector('[data-field="timezone"]').value.trim();
+      const hour = parseInt(form.querySelector('[data-field="hour"]').value, 10);
+      const interval_hours = parseFloat(form.querySelector('[data-field="interval_hours"]').value);
+      const maxRaw = form.querySelector('[data-field="uploads_per_day"]').value.trim();
+      if (!timezone) {
+        toast('Enter a timezone', true);
+        return;
+      }
+      if (Number.isNaN(hour) || hour < 0 || hour > 23) {
+        toast('Hour must be 0–23', true);
+        return;
+      }
+      if (Number.isNaN(interval_hours) || interval_hours <= 0) {
+        toast('Invalid spacing', true);
+        return;
+      }
+      const body = {
+        publish: {
+          timezone,
+          hour,
+          interval_hours,
+          uploads_per_day: maxRaw ? parseInt(maxRaw, 10) : null,
+        },
+      };
+      btn.disabled = true;
+      btn.dataset.saving = '1';
+      btn.textContent = 'Saving…';
+      setScheduleSaveStatus(channelId, 'Saving…', 'pending');
+      try {
+        const updated = await api('/v1/channels/' + encodeURIComponent(channelId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const pub = updated.publish || {};
+        form.dataset.currentTimezone = pub.timezone || '';
+        form.dataset.currentHour = String(pub.hour != null ? pub.hour : 9);
+        form.dataset.currentInterval = String(pub.interval_hours != null ? pub.interval_hours : 24);
+        form.dataset.currentMax = pub.uploads_per_day != null ? String(pub.uploads_per_day) : '';
+        setScheduleSaveStatus(channelId, 'Saved', 'ok');
+        toast('Schedule saved for ' + channelName);
+        if (dashboardData && dashboardData.channels) {
+          const ch = dashboardData.channels.find(c => c.id === channelId);
+          if (ch) ch.publish = pub;
+        }
+        renderChannelsTable(dashboardData.channels || []);
+        const channelIdInStage = document.getElementById('stage-channel').value.trim();
+        if (channelIdInStage === channelId) loadStageScheduleInfo(channelId);
+      } catch (err) {
+        setScheduleSaveStatus(channelId, 'Save failed: ' + err.message, 'bad');
+        toast('Failed to save schedule: ' + err.message, true);
+      } finally {
+        delete btn.dataset.saving;
+        btn.textContent = 'Save schedule →';
+        updateScheduleSaveButton(form);
+      }
+    }
+
+    function setCategorySaveStatus(channelId, message, kind) {
+      const el = document.querySelector('[data-category-status="' + channelId + '"]');
+      if (!el) return;
+      el.textContent = message || '';
+      el.className = 'category-save-status' + (kind ? ' ' + kind : '');
+    }
+
+    function updateCategorySaveButton(selectEl) {
+      const cell = selectEl.closest('.channel-category-cell');
+      if (!cell) return;
+      const btn = cell.querySelector('[data-save-category]');
+      if (!btn) return;
+      const current = selectEl.dataset.current || '';
+      const value = selectEl.value.trim();
+      btn.disabled = value === current || btn.dataset.saving === '1';
+    }
+
+    async function saveChannelCategory(channelId) {
+      const select = document.querySelector('select[data-set-category="' + channelId + '"]');
+      const btn = document.querySelector('[data-save-category="' + channelId + '"]');
+      if (!select || !btn) return;
+      const category = select.value.trim();
+      const previous = select.dataset.current || '';
+      const channelName = select.dataset.channelName || channelId;
+      const label = category || '—';
+
+      btn.disabled = true;
+      btn.dataset.saving = '1';
+      btn.textContent = 'Saving…';
+      setCategorySaveStatus(channelId, 'Saving…', 'pending');
+      try {
+        const updated = await api('/v1/channels/' + encodeURIComponent(channelId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category }),
+        });
+        select.dataset.current = updated.category || '';
+        fillCategorySelect(select, select.dataset.current);
+        setCategorySaveStatus(channelId, 'Saved: ' + (updated.category || '—'), 'ok');
+        toast('Category saved for ' + channelName + ': ' + label);
+        if (dashboardData && dashboardData.channels) {
+          const ch = dashboardData.channels.find(c => c.id === channelId);
+          if (ch) ch.category = updated.category || '';
+        }
+      } catch (err) {
+        fillCategorySelect(select, previous);
+        setCategorySaveStatus(channelId, 'Save failed: ' + err.message, 'bad');
+        toast('Failed to save category for ' + channelName + ': ' + err.message, true);
+      } finally {
+        delete btn.dataset.saving;
+        btn.textContent = 'Save →';
+        updateCategorySaveButton(select);
+      }
+    }
+
+    async function loadCategories() {
+      const data = await api('/v1/categories');
+      savedCategories = data.categories || [];
+      renderCategoriesSection();
+      syncCategoryDropdowns();
+    }
 
     function showLoginGate() {
       document.getElementById('app').hidden = true;
@@ -191,12 +1183,50 @@
       return true;
     }
 
-    function toast(msg, isError) {
+    let toastTimer = null;
+
+    function hideToast() {
       const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.style.background = isError ? '#c33' : '#111';
+      el.className = '';
+      el.innerHTML = '';
+      el.style.display = 'none';
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+        toastTimer = null;
+      }
+    }
+
+    function toast(msg, isError) {
+      hideToast();
+      const el = document.getElementById('toast');
+      el.className = isError ? 'error' : '';
+      el.innerHTML = '<div class="toast-message">' + esc(msg) + '</div>';
       el.style.display = 'block';
-      setTimeout(() => { el.style.display = 'none'; }, 5000);
+      toastTimer = setTimeout(hideToast, 5000);
+    }
+
+    function toastConfirm(messageHtml, options) {
+      hideToast();
+      const el = document.getElementById('toast');
+      const confirmLabel = (options && options.confirmLabel) || 'Confirm';
+      el.className = 'toast-confirm';
+      el.innerHTML =
+        '<div class="toast-message">' + messageHtml + '</div>'
+        + '<div class="toast-actions">'
+        + '<button type="button" class="btn-ghost cancel" data-toast-cancel>Cancel</button>'
+        + '<button type="button" class="btn-ghost" data-toast-confirm>' + esc(confirmLabel) + '</button>'
+        + '</div>';
+      el.style.display = 'block';
+      return new Promise(resolve => {
+        el.querySelector('[data-toast-cancel]').onclick = () => {
+          hideToast();
+          resolve(false);
+        };
+        el.querySelector('[data-toast-confirm]').onclick = () => {
+          hideToast();
+          resolve(true);
+        };
+      });
     }
 
     function authBadge(auth) {
@@ -224,6 +1254,203 @@
         throw new Error(err.detail || res.statusText);
       }
       return res.json();
+    }
+
+    async function apiForm(path, formData) {
+      const res = await fetch(API + path, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      if (res.status === 401) {
+        showLoginGate();
+        throw new Error('Sign in required');
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const detail = err.detail;
+        const msg = Array.isArray(detail)
+          ? detail.map(d => d.msg || JSON.stringify(d)).join('; ')
+          : (detail || res.statusText);
+        throw new Error(msg);
+      }
+      return res.json();
+    }
+
+    function getUploadRunOptions(count) {
+      const body = {
+        parallel: true,
+        upload_retries: 5,
+      };
+      if (count !== null && count !== undefined) body.count = count;
+      const spacing = document.getElementById('upload-spacing').value;
+      if (spacing && spacing !== 'auto') body.interval_hours = parseFloat(spacing);
+      const maxRun = document.getElementById('upload-max-per-run').value.trim();
+      if (maxRun) {
+        const n = parseInt(maxRun, 10);
+        if (n > 0) body.uploads_per_day = n;
+      }
+      return body;
+    }
+
+    function planQueryString(limit) {
+      const qs = new URLSearchParams();
+      if (limit != null) qs.set('limit', String(limit));
+      const spacing = document.getElementById('upload-spacing').value;
+      if (spacing && spacing !== 'auto') qs.set('interval_hours', spacing);
+      const s = qs.toString();
+      return s ? '?' + s : '';
+    }
+
+    async function loadStageScheduleInfo(channelId) {
+      const el = document.getElementById('stage-schedule-info');
+      if (!channelId) {
+        el.textContent = '';
+        return;
+      }
+      el.textContent = 'Loading YouTube schedule…';
+      try {
+        const data = await api('/v1/channels/' + encodeURIComponent(channelId) + '/youtube/scheduled');
+        const spacing = document.getElementById('upload-spacing').value;
+        const spacingLabel = spacing === 'auto'
+          ? 'auto spacing from existing schedule (default 24h if none)'
+          : spacing + 'h spacing';
+        if (!data.count) {
+          el.textContent = 'No scheduled videos on YouTube — next upload publishes immediately (' + spacingLabel + ').';
+          return;
+        }
+        let tail = 'unknown';
+        if (data.tail_publish_at) {
+          try {
+            tail = new Date(data.tail_publish_at).toLocaleString();
+          } catch (_) {
+            tail = data.tail_publish_at;
+          }
+        }
+        el.textContent = data.count + ' scheduled on YouTube · latest slot ' + tail
+          + ' · new uploads append after tail (' + spacingLabel + ').';
+      } catch (err) {
+        el.textContent = 'Could not load YouTube schedule — connect OAuth on this channel.';
+      }
+    }
+
+    function setStageStatus(msg, kind) {
+      const el = document.getElementById('stage-status');
+      el.textContent = msg || '';
+      el.className = 'stage-status' + (kind ? ' ' + kind : '');
+    }
+
+    function syncStageChannelDropdown(channels) {
+      const sel = document.getElementById('stage-channel');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Select channel…</option>';
+      (channels || []).forEach(ch => {
+        const opt = document.createElement('option');
+        opt.value = ch.id;
+        const auth = ch.auth && ch.auth.valid ? '' : ' · needs OAuth';
+        opt.textContent = ch.name + ' (' + ch.id + ')' + auth;
+        opt.disabled = false;
+        sel.appendChild(opt);
+      });
+      if (prev) sel.value = prev;
+      if (sel.value) loadStageScheduleInfo(sel.value);
+    }
+
+    function defaultTitleFromFile(file) {
+      if (!file || !file.name) return '';
+      return file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+    }
+
+    async function submitStage(andUpload) {
+      const channelId = document.getElementById('stage-channel').value.trim();
+      const videoInput = document.getElementById('stage-video');
+      const thumbInput = document.getElementById('stage-thumbnail');
+      const title = document.getElementById('stage-title').value.trim();
+      const description = document.getElementById('stage-description').value;
+      const privacy = document.getElementById('stage-privacy').value;
+      const isShort = document.getElementById('stage-is-short').value;
+      const tags = document.getElementById('stage-tags').value.trim();
+
+      if (!channelId) {
+        toast('Select a channel', true);
+        return;
+      }
+      if (!videoInput.files || !videoInput.files[0]) {
+        toast('Choose a video file', true);
+        return;
+      }
+      if (!title) {
+        toast('Enter a title', true);
+        return;
+      }
+
+      const btnStage = document.getElementById('btn-stage');
+      const btnUpload = document.getElementById('btn-stage-upload');
+      btnStage.disabled = true;
+      btnUpload.disabled = true;
+      setStageStatus('Uploading to R2…', 'pending');
+
+      const fd = new FormData();
+      fd.append('video', videoInput.files[0]);
+      fd.append('title', title);
+      fd.append('description', description);
+      fd.append('privacy', privacy);
+      fd.append('is_short', isShort);
+      if (tags) fd.append('tags', tags);
+      if (thumbInput.files && thumbInput.files[0]) {
+        fd.append('thumbnail', thumbInput.files[0]);
+      }
+
+      try {
+        const staged = await apiForm(
+          '/v1/channels/' + encodeURIComponent(channelId) + '/jobs',
+          fd
+        );
+        setStageStatus(
+          'Staged ' + staged.job_id + ' → ' + (staged.queue_prefix || staged.video_uri || 'queue/'),
+          'ok'
+        );
+        toast('Staged to queue: ' + staged.job_id);
+        videoInput.value = '';
+        thumbInput.value = '';
+        await loadDashboard(true);
+        if (andUpload) {
+          const ch = (dashboardData && dashboardData.channels || []).find(c => c.id === channelId);
+          if (!ch || !ch.auth || !ch.auth.valid) {
+            toast('Staged — connect OAuth on this channel before uploading to YouTube', true);
+            return;
+          }
+          await startUpload(channelId, 1);
+        }
+      } catch (err) {
+        setStageStatus(err.message || 'Stage failed', 'bad');
+        toast('Stage failed: ' + (err.message || err), true);
+      } finally {
+        btnStage.disabled = false;
+        btnUpload.disabled = false;
+      }
+    }
+
+    async function previewStagePlan() {
+      const channelId = document.getElementById('stage-channel').value.trim();
+      if (!channelId) {
+        toast('Select a channel', true);
+        return;
+      }
+      setStageStatus('Loading plan…', 'pending');
+      try {
+        const plan = await api('/v1/channels/' + encodeURIComponent(channelId) + '/plan' + planQueryString(5));
+        if (!plan.length) {
+          setStageStatus('No pending jobs — stage a video first, or queue is empty', '');
+          toast('No pending jobs in queue');
+          return;
+        }
+        const lines = plan.map(p => p.job_id + ': ' + p.publish_display).join(' · ');
+        setStageStatus('Next slots: ' + lines, 'ok');
+      } catch (err) {
+        setStageStatus('Plan failed: ' + err.message, 'bad');
+        toast(err.message, true);
+      }
     }
 
     function esc(s) {
@@ -279,6 +1506,9 @@
       const qs = force ? '?refresh=true' : '';
       const data = await api('/v1/dashboard' + qs);
       dashboardData = data;
+      savedCategories = data.categories || savedCategories;
+      renderCategoriesSection();
+      syncCategoryDropdowns();
       const channels = data.channels || [];
       const storageEl = document.getElementById('storage-info');
       const cacheNote = data.cached ? ' · cached' : '';
@@ -287,37 +1517,101 @@
       } else {
         storageEl.textContent = '';
       }
-      const tbody = document.getElementById('channels-body');
-      const filter = document.getElementById('channel-filter');
-      const prev = filter.value;
-      filter.innerHTML = '<option value="">All channels</option>';
-      if (!channels.length) {
-        tbody.innerHTML = '<tr><td colspan="4">No channels — click Connect YouTube channel</td></tr>';
-        renderQueueJobs([]);
-        renderUploadedJobs([]);
-        return channels;
-      }
-      tbody.innerHTML = channels.map(ch => `
-        <tr>
-          <td><strong>${ch.name}</strong><br><small>${ch.id}${ch.custom_url ? ' ' + ch.custom_url : ''}</small></td>
-          <td>${authBadge(ch.auth)}</td>
-          <td>${ch.pending_count} queue · ${ch.uploaded_count || 0} uploaded${ch.failed_count ? ' · ' + ch.failed_count + ' failed' : ''}</td>
-          <td>
-            <button data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload 1</button>
-            <button class="secondary" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload all</button>
-            <button class="secondary" data-reauth="${ch.id}">Reauth</button>
-          </td>
-        </tr>`).join('');
-      channels.forEach(ch => {
-        const opt = document.createElement('option');
-        opt.value = ch.id;
-        opt.textContent = ch.id + ' (' + ch.pending_count + ' queue, ' + (ch.uploaded_count || 0) + ' uploaded)';
-        filter.appendChild(opt);
-      });
-      if (prev) filter.value = prev;
+      renderChannelsTable(channels);
       renderQueueJobs(data.queue_jobs || data.jobs || []);
+      renderUploadingJobs(data.uploading_jobs || []);
       renderUploadedJobs(data.uploaded_jobs || []);
       return channels;
+    }
+
+    function phaseLabel(phase) {
+      const labels = {
+        starting: 'Starting',
+        preparing: 'Preparing',
+        downloading: 'Downloading from storage',
+        uploading: 'Uploading to YouTube',
+        thumbnail: 'Uploading thumbnail',
+        archiving: 'Archiving',
+        done: 'Complete',
+      };
+      return labels[phase] || phase || 'Working';
+    }
+
+    function renderUploadingJobs(jobs) {
+      const el = document.getElementById('uploading-list');
+      if (!jobs || !jobs.length) {
+        el.innerHTML = '<p class="muted">No uploads in progress.</p>';
+        return;
+      }
+      el.innerHTML = jobs.map(j => {
+        const pct = Math.round(Number(j.upload_progress || 0));
+        const done = j.completed || j.upload_phase === 'done' || pct >= 100;
+        const msg = j.upload_message || phaseLabel(j.upload_phase);
+        const doneClass = done ? ' upload-progress-item--done' : '';
+        const link = (j.youtube_url && done)
+          ? ' · <a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener">View on YouTube</a>'
+          : '';
+        const cancelBtn = done
+          ? ''
+          : '<button type="button" class="btn-ghost btn-ghost--padded" data-cancel-upload="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Cancel</button>';
+        return `<div class="upload-progress-item${doneClass}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <div class="upload-progress-head">
+            <span class="upload-progress-title">${esc(j.title || j.id)}${done ? ' ✓' : ''}</span>
+            <span class="upload-progress-meta">${esc(j.channel_id)} · <code>${esc(j.id)}</code></span>
+          </div>
+          <div class="progress-track" aria-hidden="true"><div class="progress-fill" style="width:${done ? 100 : pct}%"></div></div>
+          <div class="upload-progress-phase">${esc(msg)} · ${done ? 100 : pct}%${link}</div>
+          <div class="upload-progress-actions">${cancelBtn}</div>
+        </div>`;
+      }).join('');
+    }
+
+    let activeUploadPollTimer = null;
+    const activeUploadCompletedToasted = new Set();
+    let activeUploadGracePolls = 0;
+
+    async function pollActiveUploads() {
+      try {
+        const data = await api('/v1/uploads/active');
+        const uploads = data.uploads || [];
+        renderUploadingJobs(uploads.map(u => ({
+          id: u.job_id,
+          channel_id: u.channel_id,
+          title: u.title,
+          upload_phase: u.upload_phase,
+          upload_progress: u.upload_progress,
+          upload_message: u.upload_message,
+          completed: u.completed,
+          youtube_url: u.youtube_url,
+        })));
+        uploads.forEach(u => {
+          const key = u.channel_id + ':' + u.job_id;
+          if (u.completed && !activeUploadCompletedToasted.has(key)) {
+            activeUploadCompletedToasted.add(key);
+            const label = u.youtube_url ? 'Upload complete' : 'Upload finished';
+            toast(label + ': ' + (u.title || u.job_id));
+          }
+        });
+        const activeCount = uploads.filter(u => !u.completed).length;
+        const totalCount = data.count || uploads.length;
+        if (totalCount > 0) {
+          activeUploadGracePolls = uploads.every(u => u.completed) ? activeUploadGracePolls + 1 : 0;
+          if (!activeUploadPollTimer) {
+            activeUploadPollTimer = setInterval(pollActiveUploads, 800);
+          }
+          if (activeCount === 0 && activeUploadGracePolls >= 3) {
+            clearInterval(activeUploadPollTimer);
+            activeUploadPollTimer = null;
+            activeUploadGracePolls = 0;
+            loadDashboard(false);
+          }
+        } else if (activeUploadPollTimer) {
+          clearInterval(activeUploadPollTimer);
+          activeUploadPollTimer = null;
+          activeUploadGracePolls = 0;
+          loadDashboard(false);
+        }
+      } catch (_) { /* ignore poll errors */ }
     }
 
     let dashboardData = null;
@@ -363,7 +1657,7 @@
         + (job.video_uri ? '<dt>Video URI</dt><dd class="detail-path">' + esc(job.video_uri) + '</dd>' : '')
         + '</dl></div>'
         + '<div class="detail-preview"><h3>Preview</h3>' + thumbHtml
-        + '<p style="margin:0.5rem 0 0.25rem;font-size:0.85rem;">Video</p>' + videoHtml + '</div>'
+        + '<p class="muted" style="margin:8px 0 4px">Video</p>' + videoHtml + '</div>'
         + '</div>';
     }
 
@@ -405,7 +1699,6 @@
     function renderQueueJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
       let filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs.slice();
-      // Assign queue numbers client-side for pending if API omitted them
       let pos = 1;
       filtered = filtered.map(j => {
         if (j.status === 'pending' && (j.queue_position == null || j.queue_position === undefined)) {
@@ -415,7 +1708,7 @@
       });
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="7">No jobs in queue/ — stage via <code>POST /v1/channels/{id}/jobs</code> or <code>uploader queue add</code></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">No jobs in queue/ — use <strong>Manual upload</strong> above or <code>POST /v1/channels/{id}/jobs</code></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => {
@@ -429,10 +1722,9 @@
           <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint">▸ details</span></td>
           <td>${statusLabel(j.status)}</td>
           <td title="${esc(jobStoragePrefix(j))}">${storageBadge(j)}<br><small class="detail-path">${shortPath(jobStoragePrefix(j))}</small></td>
-          <td>${j.status === 'pending' ? '<button data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
+          <td>${j.status === 'pending' ? '<button class="btn-ghost btn-ghost--padded" data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
         </tr>`;
       }).join('');
-      // Re-open expanded rows after refresh
       filtered.filter(j => expandedJobKeys.has(jobKey(j.channel_id, j.id))).forEach(j => {
         const row = tbody.querySelector('tr.job-row[data-job="' + j.id + '"][data-channel="' + j.channel_id + '"]');
         if (row) toggleJobRow(j.channel_id, j.id, row);
@@ -497,14 +1789,15 @@
     }
 
     async function startUpload(channelId, count) {
-      const body = count === null ? { upload_retries: 5 } : { count: count, upload_retries: 5 };
+      const body = getUploadRunOptions(count);
       const res = await api('/v1/channels/' + encodeURIComponent(channelId) + '/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      toast('Upload started');
-      pollRun(res.run_id);
+      document.getElementById('run-status').textContent = res.message || 'Upload workers dispatched';
+      toast('Parallel upload started');
+      pollActiveUploads();
     }
 
     async function refresh() {
@@ -532,6 +1825,30 @@
 
     document.getElementById('btn-refresh').onclick = refresh;
 
+    document.getElementById('stage-video').addEventListener('change', (e) => {
+      const titleEl = document.getElementById('stage-title');
+      if (titleEl.value.trim()) return;
+      const file = e.target.files && e.target.files[0];
+      const guess = defaultTitleFromFile(file);
+      if (guess) titleEl.value = guess;
+    });
+
+    document.getElementById('stage-channel').addEventListener('change', (e) => {
+      loadStageScheduleInfo(e.target.value.trim());
+    });
+    document.getElementById('upload-spacing').addEventListener('change', () => {
+      const channelId = document.getElementById('stage-channel').value.trim();
+      if (channelId) loadStageScheduleInfo(channelId);
+    });
+
+    document.getElementById('stage-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitStage(false);
+    });
+
+    document.getElementById('btn-stage-upload').onclick = () => submitStage(true);
+    document.getElementById('btn-stage-plan').onclick = () => previewStagePlan();
+
     document.getElementById('btn-logout').onclick = async () => {
       await fetch('/logout', { method: 'POST', credentials: 'include' });
       showLoginGate();
@@ -544,8 +1861,65 @@
       if (ok) await refresh();
     });
 
+    document.getElementById('btn-create-category').onclick = async () => {
+      const input = document.getElementById('new-category-name');
+      const name = input.value.trim();
+      if (!name) {
+        toast('Enter a category name', true);
+        return;
+      }
+      try {
+        const data = await api('/v1/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        savedCategories = data.categories || [];
+        input.value = '';
+        renderCategoriesSection();
+        syncCategoryDropdowns();
+        toast('Created category: ' + name);
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+
+    document.getElementById('new-category-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btn-create-category').click();
+      }
+    });
+
+    document.getElementById('categories-list').onclick = async (e) => {
+      const btn = e.target.closest('[data-delete-category]');
+      if (!btn) return;
+      const name = btn.dataset.deleteCategory;
+      const confirmed = await toastConfirm(
+        '<strong>Delete category "' + esc(name) + '"?</strong>'
+        + '<span class="muted">Channels using this category will be cleared.</span>',
+        { confirmLabel: 'Delete category' }
+      );
+      if (!confirmed) return;
+      try {
+        const data = await api('/v1/categories/' + encodeURIComponent(name), { method: 'DELETE' });
+        savedCategories = data.categories || [];
+        renderCategoriesSection();
+        syncCategoryDropdowns();
+        toast('Deleted category: ' + name);
+        refresh();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+
     document.getElementById('btn-connect').onclick = async () => {
-      const res = await api('/v1/oauth/start', { method: 'POST' });
+      const category = document.getElementById('connect-category').value.trim();
+      const res = await api('/v1/oauth/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category }),
+      });
       window.location.href = res.auth_url;
     };
 
@@ -556,13 +1930,73 @@
       } else loadJobs();
     };
 
-    document.getElementById('channels-body').onclick = async (e) => {
+    document.getElementById('channels-body').addEventListener('change', (e) => {
       const t = e.target;
+      if (t.dataset && t.dataset.setCategory) {
+        updateCategorySaveButton(t);
+        setCategorySaveStatus(t.dataset.setCategory, '', '');
+        return;
+      }
+      const form = t.closest('[data-schedule-form]');
+      if (form) updateScheduleSaveButton(form);
+    });
+
+    document.getElementById('channels-body').addEventListener('input', (e) => {
+      const form = e.target.closest('[data-schedule-form]');
+      if (form) updateScheduleSaveButton(form);
+    });
+
+    document.getElementById('channels-body').onclick = async (e) => {
+      const t = e.target.closest('button') || e.target;
+      if (!t || !t.dataset) return;
+      if (t.dataset.saveCategory) saveChannelCategory(t.dataset.saveCategory);
+      if (t.dataset.toggleSchedule) toggleChannelSchedule(t.dataset.toggleSchedule);
+      if (t.dataset.saveSchedule) saveChannelSchedule(t.dataset.saveSchedule);
       if (t.dataset.upload) startUpload(t.dataset.upload, 1);
       if (t.dataset.uploadAll) startUpload(t.dataset.uploadAll, null);
       if (t.dataset.reauth) {
         const res = await api('/v1/channels/' + encodeURIComponent(t.dataset.reauth) + '/oauth/start', { method: 'POST' });
         window.location.href = res.auth_url;
+      }
+      if (t.dataset.removeChannel) {
+        const id = t.dataset.removeChannel;
+        const name = t.dataset.channelName || id;
+        const confirmed = await toastConfirm(
+          '<strong>Remove channel "' + esc(name) + '"?</strong>'
+          + '<span class="muted">OAuth will be disconnected. Queue and uploaded files in storage are kept.</span>',
+          { confirmLabel: 'Remove channel' }
+        );
+        if (!confirmed) return;
+        await api('/v1/channels/' + encodeURIComponent(id), { method: 'DELETE' });
+        toast('Removed channel: ' + name);
+        refresh();
+      }
+    };
+
+    document.getElementById('uploading-list').onclick = async (e) => {
+      const btn = e.target.closest('[data-cancel-upload]');
+      if (!btn) return;
+      e.stopPropagation();
+      const channelId = btn.dataset.cancelUpload;
+      const jobId = btn.dataset.job;
+      const confirmed = await toastConfirm(
+        '<strong>Cancel upload for <code>' + esc(jobId) + '</code>?</strong>'
+        + '<span class="muted">Stops the worker and returns the video to the pending queue. The Cloud Run task may still exit on its own.</span>',
+        { confirmLabel: 'Cancel upload' }
+      );
+      if (!confirmed) return;
+      btn.disabled = true;
+      try {
+        await api(
+          '/v1/channels/' + encodeURIComponent(channelId) + '/jobs/' + encodeURIComponent(jobId) + '/cancel-upload',
+          { method: 'POST' }
+        );
+        toast('Upload cancelled — back in queue');
+        pollActiveUploads();
+        loadDashboard(true);
+      } catch (err) {
+        toast('Cancel failed: ' + (err.message || err), true);
+        btn.disabled = false;
       }
     };
 
@@ -628,6 +2062,7 @@
         history.replaceState({}, '', '/');
       }
       refresh();
+      pollActiveUploads();
     })();
   </script>
 </body>

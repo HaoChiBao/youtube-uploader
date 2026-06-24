@@ -31,10 +31,52 @@ class YouTubeVideoInfo:
 
 
 def _parse_api_datetime(value: str) -> datetime:
+    return parse_youtube_datetime(value)
+
+
+def parse_youtube_datetime(value: str) -> datetime:
+    """Parse YouTube API RFC3339 publishAt (Z or offset)."""
     text = value.strip()
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     return datetime.fromisoformat(text)
+
+
+def fetch_scheduled_publish_datetimes(
+    token_path: str | Path,
+    *,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
+    oauth_port: int = 8080,
+) -> list[datetime]:
+    """Return future scheduled publishAt times from the YouTube channel."""
+    videos = list_channel_videos(
+        token_path,
+        client_secret=client_secret,
+        client_config=client_config,
+        scheduled_only=True,
+        oauth_port=oauth_port,
+    )
+    return [parse_youtube_datetime(v.publish_at) for v in videos if v.publish_at]
+
+
+def infer_schedule_interval_hours(scheduled: list[datetime]) -> float | None:
+    """Median gap between consecutive scheduled publish times, in hours."""
+    if len(scheduled) < 2:
+        return None
+    times = sorted(scheduled)
+    gaps: list[float] = []
+    for i in range(1, len(times)):
+        delta = times[i] - times[i - 1]
+        hours = delta.total_seconds() / 3600.0
+        if hours >= 0.5:
+            gaps.append(hours)
+    if not gaps:
+        return None
+    gaps.sort()
+    mid = len(gaps) // 2
+    median = gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2.0
+    return max(1.0, min(168.0, round(median, 2)))
 
 
 def _build_youtube(

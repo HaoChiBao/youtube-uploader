@@ -2,23 +2,205 @@
 
 from __future__ import annotations
 
-import shutil
 import sys
-import tempfile
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from uploader.channels import AppConfig, ChannelConfig, get_channel
-from uploader.progress import MultiProgress
 from uploader.registry import UploadEntry, UploadRegistry
-from uploader.storage import load_description, resolve_to_local_path
-from uploader.job_metadata import load_job_metadata
-from uploader.job_store import archive_job_from_entry
-from uploader.oauth import resolve_oauth_settings
 from uploader.state_store import config_base_from_path
-from uploader.youtube_client import upload_video_with_retry
+from uploader.upload_worker import upload_single_job
+
+
+@dataclass
+class ChannelUploadPlan:
+    """Publish plan for a batch of pending jobs."""
+
+    items: list[tuple[UploadEntry, str]]
+    upload_immediately: bool = False
+    anchor: str = "default"  # immediate | youtube_tail | explicit_start | no_schedule | fallback_tomorrow
+    interval_hours: float = 24.0
+
+
+def effective_interval_hours(
+    channel: ChannelConfig,
+    scheduled: list[datetime] | None,
+    interval_hours: float | None,
+) -> float:
+    """Resolve spacing between uploads: explicit > inferred from YouTube > channel default."""
+    if interval_hours is not None:
+        return interval_hours
+    if scheduled and len(scheduled) >= 2:
+        from uploader.channel_list import infer_schedule_interval_hours
+
+        inferred = infer_schedule_interval_hours(scheduled)
+        if inferred is not None:
+            return inferred
+    return channel.publish.interval_hours
+
+
+def build_channel_upload_plan(
+    channel: ChannelConfig,
+    config: AppConfig,
+    pending: list[UploadEntry],
+    *,
+    start: str | None = None,
+    interval_hours: float | None = None,
+    no_schedule: bool = False,
+    oauth_client_secret: Path | None = None,
+    oauth_client_config: dict | None = None,
+    oauth_port: int | None = None,
+) -> ChannelUploadPlan:
+    """Plan upload times: append after YouTube schedule, or upload immediately if none."""
+    scheduled: list[datetime] | None = None
+    if not no_schedule and not start:
+        try:
+            from uploader.channel_list import fetch_scheduled_publish_datetimes
+
+            scheduled = fetch_scheduled_publish_datetimes(
+                channel.token_path,
+                client_secret=oauth_client_secret,
+                client_config=oauth_client_config,
+                oauth_port=oauth_port if oauth_port is not None else config.google.oauth_port,
+            )
+        except Exception as e:
+            print(
+                f"  warning: could not read YouTube schedule for {channel.id}, "
+                f"scheduling from tomorrow: {e}",
+                file=sys.stderr,
+            )
+
+    ivl = effective_interval_hours(channel, scheduled, interval_hours)
+
+    if no_schedule:
+        start_dt = parse_start(
+            start,
+            timezone_name=channel.publish.timezone,
+            default_hour=channel.publish.hour,
+        )
+        return ChannelUploadPlan(
+            items=compute_publish_schedule(pending, start_dt, ivl, no_schedule=True),
+            upload_immediately=True,
+            anchor="no_schedule",
+            interval_hours=ivl,
+        )
+
+    if start:
+        start_dt = parse_start(
+            start,
+            timezone_name=channel.publish.timezone,
+            default_hour=channel.publish.hour,
+        )
+        return ChannelUploadPlan(
+            items=compute_publish_schedule(pending, start_dt, ivl, no_schedule=False),
+            upload_immediately=False,
+            anchor="explicit_start",
+            interval_hours=ivl,
+        )
+
+    if scheduled is not None and not scheduled:
+        return ChannelUploadPlan(
+            items=[(entry, "") for entry in pending],
+            upload_immediately=True,
+            anchor="immediate",
+            interval_hours=ivl,
+        )
+
+    if scheduled:
+        start_dt = resolve_publish_start(
+            channel,
+            interval_hours=ivl,
+            scheduled_publish_ats=scheduled,
+        )
+        return ChannelUploadPlan(
+            items=compute_publish_schedule(pending, start_dt, ivl, no_schedule=False),
+            upload_immediately=False,
+            anchor="youtube_tail",
+            interval_hours=ivl,
+        )
+
+    start_dt = parse_start(
+        None,
+        timezone_name=channel.publish.timezone,
+        default_hour=channel.publish.hour,
+    )
+    return ChannelUploadPlan(
+        items=compute_publish_schedule(pending, start_dt, ivl, no_schedule=False),
+        upload_immediately=False,
+        anchor="fallback_tomorrow",
+        interval_hours=ivl,
+    )
+
+
+def resolve_publish_start(
+    channel: ChannelConfig,
+    *,
+    start: str | None = None,
+    interval_hours: float | None = None,
+    no_schedule: bool = False,
+    scheduled_publish_ats: list[datetime] | None = None,
+) -> datetime:
+    """First publishAt for the next batch.
+
+    When `start` is not set and scheduling is enabled, anchor after the latest
+    YouTube scheduled video (+ interval). Otherwise use tomorrow at publish.hour.
+    """
+    tz = channel.publish.timezone
+    hour = channel.publish.hour
+    ivl = interval_hours if interval_hours is not None else channel.publish.interval_hours
+
+    if start:
+        return parse_start(start, timezone_name=tz, default_hour=hour)
+    if no_schedule:
+        return parse_start(None, timezone_name=tz, default_hour=hour)
+    if scheduled_publish_ats:
+        tail = max(scheduled_publish_ats)
+        if tail.tzinfo is None:
+            tail = tail.replace(tzinfo=timezone.utc)
+        return tail + timedelta(hours=ivl)
+    return parse_start(None, timezone_name=tz, default_hour=hour)
+
+
+def resolve_publish_start_for_channel(
+    channel: ChannelConfig,
+    config: AppConfig,
+    *,
+    start: str | None = None,
+    interval_hours: float | None = None,
+    no_schedule: bool = False,
+    oauth_client_secret: Path | None = None,
+    oauth_client_config: dict | None = None,
+    oauth_port: int | None = None,
+) -> datetime:
+    """Resolve first publishAt for plan preview (legacy helper)."""
+    plan = build_channel_upload_plan(
+        channel,
+        config,
+        pending=[UploadEntry(id="_preview", channel_id=channel.id)],
+        start=start,
+        interval_hours=interval_hours,
+        no_schedule=no_schedule,
+        oauth_client_secret=oauth_client_secret,
+        oauth_client_config=oauth_client_config,
+        oauth_port=oauth_port,
+    )
+    if plan.upload_immediately:
+        return parse_start(
+            None,
+            timezone_name=channel.publish.timezone,
+            default_hour=channel.publish.hour,
+        )
+    _, publish_at = plan.items[0]
+    if publish_at:
+        return datetime.fromisoformat(publish_at.replace("Z", "+00:00"))
+    return parse_start(
+        None,
+        timezone_name=channel.publish.timezone,
+        default_hour=channel.publish.hour,
+    )
 
 
 @dataclass
@@ -81,151 +263,77 @@ def run_channel(
     start: str | None = None,
     interval_hours: float | None = None,
     limit: int | None = None,
+    uploads_per_day: int | None = None,
     no_schedule: bool = False,
     privacy: str | None = None,
     upload_retries: int = 3,
     retry_delay: float = 30.0,
     tags: list[str] | None = None,
+    oauth_client_secret: Path | None = None,
+    oauth_client_config: dict | None = None,
+    oauth_port: int | None = None,
 ) -> RunResult:
-    """Process all pending uploads for a channel."""
+    """Process pending uploads sequentially in-process (one job at a time)."""
+    import os
+
     channel = get_channel(config, channel_id)
     registry = UploadRegistry(channel.registry_path)
     pending = registry.pending(channel_id=channel.id)
-    if limit is not None:
+    daily_cap = uploads_per_day if uploads_per_day is not None else channel.publish.uploads_per_day
+    if daily_cap is not None:
+        cap = daily_cap if limit is None else min(limit, daily_cap)
+        pending = pending[: max(0, cap)]
+    elif limit is not None:
         pending = pending[: max(0, limit)]
 
     result = RunResult(channel_id=channel.id, total=len(pending))
     if not pending:
         return result
 
-    ivl = interval_hours if interval_hours is not None else channel.publish.interval_hours
-    start_dt = parse_start(
-        start,
-        timezone_name=channel.publish.timezone,
-        default_hour=channel.publish.hour,
+    upload_plan = build_channel_upload_plan(
+        channel,
+        config,
+        pending,
+        start=start,
+        interval_hours=interval_hours,
+        no_schedule=no_schedule,
+        oauth_client_secret=oauth_client_secret,
+        oauth_client_config=oauth_client_config,
+        oauth_port=oauth_port,
     )
-    plan = compute_publish_schedule(pending, start_dt, ivl, no_schedule=no_schedule)
+    plan = upload_plan.items
 
     if dry_run:
         return result
 
-    oauth = resolve_oauth_settings(
-        config.google.client_secret_path,
-        oauth_port=config.google.oauth_port,
-    )
-    token_path = channel.token_path
-    import os
-
     config_path = Path(os.environ.get("UPLOADER_CONFIG", "config/channels.yaml")).expanduser().resolve()
     base = config_base_from_path(config_path)
 
-    labels = [entry.id for entry, _ in plan]
-    results: dict[int, tuple[str, str]] = {}
-
-    with MultiProgress(labels) as bars:
-        for i, (entry, publish_at) in enumerate(plan):
-            registry.mark_uploading(entry.id)
-            tmp_root: Path | None = None
-            try:
-                tmp_root = Path(tempfile.mkdtemp(prefix=f"uploader_{entry.id}_"))
-                video_uri = entry.resolved_video_uri()
-                if not video_uri:
-                    raise FileNotFoundError("No video_uri or video path on entry")
-
-                video_path = resolve_to_local_path(video_uri, temp_dir=tmp_root)
-                job_meta = load_job_metadata(
-                    entry, base=base, channel=channel, config_defaults=config.job_defaults
-                )
-                if job_meta:
-                    description = job_meta.description or load_description(entry.description)
-                    title = job_meta.title or entry.title or entry.id
-                    effective_privacy = privacy if privacy is not None else job_meta.privacy
-                    effective_category = job_meta.category_id or channel.category_id
-                    effective_made_for_kids = job_meta.made_for_kids
-                    effective_tags = (
-                        tags
-                        if tags is not None
-                        else (job_meta.effective_tags() or channel.default_tags)
-                    )
-                else:
-                    description = load_description(entry.description)
-                    title = entry.title or entry.id
-                    effective_privacy = privacy or "private"
-                    effective_category = channel.category_id
-                    effective_made_for_kids = channel.made_for_kids
-                    effective_tags = tags if tags is not None else channel.default_tags
-
-                thumb_path = None
-                thumb_uri = entry.resolved_thumbnail_uri()
-                if thumb_uri:
-                    try:
-                        thumb_path = resolve_to_local_path(thumb_uri, temp_dir=tmp_root)
-                    except (FileNotFoundError, ValueError):
-                        thumb_path = None
-
-                bars.update(i, 0.0, "uploading…")
-
-                def on_progress(p: float, *, idx: int = i) -> None:
-                    bars.update(idx, p * 100.0, "uploading…")
-
-                def on_retry(
-                    attempt: int, attempts: int, err: BaseException, *, idx: int = i
-                ) -> None:
-                    bars.update(idx, 0.0, f"retry {attempt}/{attempts} ({err})…")
-
-                response = upload_video_with_retry(
-                    video_path,
-                    max_attempts=upload_retries,
-                    retry_delay_sec=retry_delay,
-                    on_retry=on_retry,
-                    title=title,
-                    description=description,
-                    client_secret=oauth.client_secret_path,
-                    client_config=oauth.client_config,
-                    token_path=token_path,
-                    privacy=effective_privacy,
-                    category_id=effective_category,
-                    tags=effective_tags or None,
-                    made_for_kids=effective_made_for_kids,
-                    thumbnail_path=thumb_path,
-                    publish_at=publish_at or None,
-                    oauth_port=oauth.oauth_port,
-                    on_progress=on_progress,
-                )
-
-                youtube_id = response.get("id", "")
-                registry.mark_uploaded(entry.id, youtube_id=youtube_id, publish_at=publish_at)
-                try:
-                    archive_job_from_entry(entry, base=base, registry=registry)
-                except Exception as archive_err:
-                    print(
-                        f"  warning: could not archive {entry.id} to uploaded/: {archive_err}",
-                        file=sys.stderr,
-                    )
-                result.uploaded += 1
-                url = f"https://youtu.be/{youtube_id}"
-                result.urls.append(url)
-                when = "immediately" if no_schedule else f"scheduled {publish_at}"
-                msg = "done"
-                if response.get("_thumbnail_warning"):
-                    msg = "done (thumbnail skipped)"
-                bars.update(i, 100.0, msg)
-                results[i] = (youtube_id, when)
-
-            except Exception as e:
-                registry.mark_failed(entry.id, error=str(e))
-                result.failed += 1
-                result.errors.append((entry.id, str(e)))
-                bars.update(i, bars.pcts[i], f"FAILED: {e}")
-            finally:
-                if tmp_root and tmp_root.exists():
-                    shutil.rmtree(tmp_root, ignore_errors=True)
-
-    print(file=sys.stderr)
-    for i, (entry, _) in enumerate(plan):
-        if i in results:
-            youtube_id, when = results[i]
-            print(f"  {entry.id}: https://youtu.be/{youtube_id}  ({when})", file=sys.stderr)
+    for entry, publish_at in plan:
+        worker_id = f"seq_{uuid.uuid4().hex[:10]}"
+        one = upload_single_job(
+            channel.id,
+            entry.id,
+            config,
+            worker_id=worker_id,
+            base=base,
+            publish_at=publish_at,
+            no_schedule=upload_plan.upload_immediately or not publish_at,
+            privacy=privacy,
+            upload_retries=upload_retries,
+            retry_delay=retry_delay,
+            tags=tags,
+        )
+        if one.success:
+            result.uploaded += 1
+            if one.youtube_url:
+                result.urls.append(one.youtube_url)
+            when = "immediately" if (upload_plan.upload_immediately or not publish_at) else f"scheduled {one.publish_at}"
+            print(f"  {entry.id}: {one.youtube_url}  ({when})", file=sys.stderr)
+        else:
+            result.failed += 1
+            result.errors.append((entry.id, one.error))
+            print(f"  {entry.id}: FAILED — {one.error}", file=sys.stderr)
 
     return result
 
@@ -237,27 +345,36 @@ def run_all_channels(
     start: str | None = None,
     interval_hours: float | None = None,
     limit: int | None = None,
+    uploads_per_day: int | None = None,
     no_schedule: bool = False,
     privacy: str | None = None,
     upload_retries: int = 3,
     retry_delay: float = 30.0,
     tags: list[str] | None = None,
+    oauth_client_secret: Path | None = None,
+    oauth_client_config: dict | None = None,
+    oauth_port: int | None = None,
 ) -> list[RunResult]:
     """Process pending uploads for every configured channel."""
     results: list[RunResult] = []
     for channel in config.channels:
-        result = run_channel(
-            channel.id,
-            config,
-            dry_run=dry_run,
-            start=start,
-            interval_hours=interval_hours,
-            limit=limit,
-            no_schedule=no_schedule,
-            privacy=privacy,
-            upload_retries=upload_retries,
-            retry_delay=retry_delay,
-            tags=tags,
+        results.append(
+            run_channel(
+                channel.id,
+                config,
+                dry_run=dry_run,
+                start=start,
+                interval_hours=interval_hours,
+                limit=limit,
+                uploads_per_day=uploads_per_day,
+                no_schedule=no_schedule,
+                privacy=privacy,
+                upload_retries=upload_retries,
+                retry_delay=retry_delay,
+                tags=tags,
+                oauth_client_secret=oauth_client_secret,
+                oauth_client_config=oauth_client_config,
+                oauth_port=oauth_port,
+            )
         )
-        results.append(result)
     return results

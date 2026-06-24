@@ -77,6 +77,10 @@ def registry_key(channel_id: str) -> str:
     return f"state/{channel_id}/upload_registry.txt"
 
 
+def upload_lock_key(channel_id: str, job_id: str) -> str:
+    return f"state/{channel_id}/locks/{job_id}.lock"
+
+
 def queue_key(channel_id: str, job_id: str, filename: str) -> str:
     return f"{QUEUE_PREFIX}/{channel_id}/{job_id}/{filename}"
 

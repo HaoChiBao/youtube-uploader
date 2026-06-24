@@ -10,6 +10,7 @@ from uploader import bucket_layout
 from uploader.object_storage import is_s3_uri
 from uploader.job_defaults import JobDefaults, global_job_defaults
 from uploader.state_store import read_raw_config
+from uploader.category_store import categories_from_data
 
 
 @dataclass
@@ -17,6 +18,7 @@ class PublishConfig:
     timezone: str = "America/New_York"
     hour: int = 9
     interval_hours: float = 24.0
+    uploads_per_day: int | None = None
 
 
 @dataclass
@@ -34,6 +36,7 @@ class ChannelConfig:
     publish: PublishConfig = field(default_factory=PublishConfig)
     youtube_channel_id: str = ""
     custom_url: str = ""
+    category: str = ""
 
 
 @dataclass
@@ -48,6 +51,7 @@ class GoogleConfig:
 class AppConfig:
     channels: list[ChannelConfig]
     google: GoogleConfig
+    categories: list[str] = field(default_factory=list)
     job_defaults: JobDefaults = field(default_factory=JobDefaults)
 
 
@@ -149,13 +153,24 @@ def load_config(path: Path | None = None) -> AppConfig:
                     timezone=publish_raw.get("timezone", "America/New_York"),
                     hour=int(publish_raw.get("hour", 9)),
                     interval_hours=float(publish_raw.get("interval_hours", 24)),
+                    uploads_per_day=(
+                        int(publish_raw["uploads_per_day"])
+                        if publish_raw.get("uploads_per_day") is not None
+                        else None
+                    ),
                 ),
                 youtube_channel_id=raw.get("youtube_channel_id", ""),
                 custom_url=raw.get("custom_url", ""),
+                category=str(raw.get("category") or "").strip(),
             )
         )
 
-    return AppConfig(channels=channels, google=google, job_defaults=job_defaults)
+    return AppConfig(
+        channels=channels,
+        google=google,
+        categories=categories_from_data(data),
+        job_defaults=job_defaults,
+    )
 
 
 def resolve_channel(config: AppConfig, ref: str) -> ChannelConfig:

@@ -51,5 +51,22 @@ channels:
     hour: 9
     interval_hours: 24.0
   custom_url: '@nappabeats'
+  category: korean
+- id: sapporobeats
+  name: Sapporo Beats
+  youtube_channel_id: UCVtQpU0jppqzFXPb4NhSgCw
+  token_path: s3://youtuber-uploader/secrets/sapporobeats/youtube_token.json
+  registry_path: s3://youtuber-uploader/state/sapporobeats/upload_registry.txt
+  category_id: '10'
+  default_tags: []
+  made_for_kids: false
+  publish:
+    timezone: America/New_York
+    hour: 9
+    interval_hours: 24.0
+  custom_url: '@sapporobeats'
+  category: korean
 google:
   oauth_port: 8080
+categories:
+- korean

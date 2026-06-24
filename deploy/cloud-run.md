@@ -134,31 +134,60 @@ curl -H "X-API-Key: YOUR_KEY" "$URL/v1/dashboard"
 
 ---
 
-## 6. Large video uploads
+## 6. Assembler integration — required endpoints
+
+**Queue (assembler, per video):**
+
+```bash
+curl -X POST "$URL/v1/channels/nappabeats/jobs/register" \
+  -H "X-API-Key: $UPLOADER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_id": "mv_20260624_061500",
+    "title": "Generated title",
+    "description": "…",
+    "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
+    "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png"
+  }'
+```
+
+Set Cloud Run env: `ASSEMBLY_R2_BUCKET=music-assembly-data` (and grant read access or `ASSEMBLY_R2_*` keys).
+
+**Upload to YouTube (cron or manual — register does not upload):**
+
+```bash
+curl -X POST "$URL/v1/channels/nappabeats/runs" \
+  -H "X-API-Key: $UPLOADER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"count": 1, "upload_retries": 5}'
+```
+
+Poll: `GET $URL/v1/runs/{run_id}`
+
+Verify assembler bucket: `GET $URL/v1/capabilities` → `assembly_integration.assembly_r2`
+
+---
+
+## 7. Large video uploads (multipart alternative)
 
 Cloud Run limits **HTTP request bodies to 32 MB**. Do not POST huge files to `/v1/channels/{id}/jobs` through Cloud Run.
 
-**Recommended:** your generator writes the MP4 to R2, then:
-
-```bash
-curl -X POST "$URL/v1/channels/CHANNEL/jobs/register" \
-  -H "X-API-Key: YOUR_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"...","video_uri":"s3://bucket/queue/CHANNEL/job_id/video.mp4","job_id":"job_id"}'
-```
+**Recommended:** assembler writes to R2, then `POST .../jobs/register` (see §6).
 
 ---
 
-## 7. Scheduled uploads (optional)
+## 8. Scheduled uploads (optional)
 
-Cloud Run is not ideal as a cron worker. For nightly `uploader run`:
+Cloud Run is not ideal as a cron worker. For nightly uploads after assembly:
 
-- **Cloud Scheduler** → HTTP `POST /v1/channels/{id}/runs` with `X-API-Key`, or
+- **Cloud Scheduler** → HTTP `POST /v1/channels/{id}/runs` with `X-API-Key` and `{"count": 1}`, or
 - Run the CLI on a small **Compute Engine** VM on a schedule
 
+Stagger channels to stay under YouTube daily quota (~6 uploads/day default).
+
 ---
 
-## 8. Updating
+## 9. Updating
 
 ```bash
 gcloud builds submit --tag "$IMAGE"

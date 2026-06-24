@@ -147,13 +147,13 @@ def register_job_from_request(
     *,
     base: Path,
     config_defaults: JobDefaults | None = None,
-) -> StagedJobOut:
+) -> tuple[StagedJobOut, bool]:
     metadata = None
     if body.metadata:
         metadata = JobMetadata.from_dict(body.metadata)
 
     try:
-        staged = register_job_from_uris(
+        staged, created = register_job_from_uris(
             channel,
             title=body.title,
             description=body.description,
@@ -173,7 +173,7 @@ def register_job_from_request(
     except Exception as e:
         raise _ingest_http_error(e) from e
 
-    return staged_job_to_out(staged)
+    return staged_job_to_out(staged), created
 
 
 def parse_stage_form_fields(

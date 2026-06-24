@@ -14,6 +14,8 @@ Standalone microservice that uploads pre-rendered videos to YouTube, schedules p
 - Retry transient failures (timeouts, 408/429/5xx) with linear backoff
 - List channel videos; filter to scheduled only
 - Multi-channel via `config/channels.yaml`
+- **Assembly categories** — saved labels per channel (e.g. `korean`), separate from YouTube video `category_id`
+- **Web dashboard** — manage categories, connect/remove channels, assign categories, upload queue
 - Resolve video/thumbnail/description from local paths, `file://`, or `s3://` URIs
 - **Cloudflare R2** — durable storage for config, OAuth tokens, registries, and video jobs
 
@@ -87,6 +89,19 @@ Sign in via browser as the YouTube channel owner. The service saves:
 
 Channel id is derived from the @handle or channel name (e.g. `justcavefire`).
 
+**Assembly categories** (optional) — labels for grouping channels with your content pipeline. Manage via dashboard **Categories** or API `GET/POST/DELETE /v1/categories`. Stored in `channels.yaml`:
+
+```yaml
+categories:
+  - korean
+  - lofi
+channels:
+  - id: justcavefire
+    name: Just Cave Fire
+    category: korean          # assembly label (not YouTube category_id)
+    category_id: "10"       # YouTube video category for uploads
+```
+
 ### 6. Test upload
 
 ```bash
@@ -130,7 +145,9 @@ Set `UPLOADER_API_PUBLIC_URL=http://127.0.0.1:8000` in `.env` if using a differe
 
 **Cloud Run:** see [deploy/cloud-run.md](deploy/cloud-run.md) for Dockerfile, `gcloud` deploy, and production env vars.
 
-The dashboard uses **`GET /v1/dashboard`** (one request for channels + queue). In-memory caching keeps repeat loads fast (~100ms vs ~20s before optimization).
+The dashboard uses **`GET /v1/dashboard`** (one request for channels, categories, and queue). In-memory caching keeps repeat loads fast (~100ms vs ~20s before optimization).
+
+**Dashboard sections:** **Categories** (create/delete saved labels) · **Connect YouTube channel** (OAuth + optional category) · **Channels** (category dropdown, upload, reauth, remove) · **Queue** / **Uploaded**
 
 **Cache invalidation** (automatic — no manual flush needed):
 
@@ -138,6 +155,7 @@ The dashboard uses **`GET /v1/dashboard`** (one request for channels + queue). I
 |-------|----------------|
 | `queue add` / `queue remove` / upload run | Queue + dashboard |
 | OAuth connect / reauth | Config + tokens + dashboard |
+| Category create/delete or channel category PATCH | Config + dashboard |
 | `write_raw_config` / `channel add` | Config + dashboard |
 | TTL expiry (fallback) | Dashboard 60s, config 120s, tokens 300s |
 
@@ -147,16 +165,22 @@ Use **Refresh** in the UI (calls `?refresh=true`) to force reload from R2. Routi
 
 | Endpoint | Description |
 |----------|-------------|
+| `GET /v1/categories` | List saved assembly categories |
+| `POST /v1/categories` | Create category `{ "name": "korean" }` |
+| `GET /v1/channels` | All channels with OAuth status, counts, and `category` |
+| `GET /v1/youtube/channels` | Upload-ready channels only (valid OAuth) |
+| `PATCH /v1/channels/{ref}` | Assign category `{ "category": "korean" }` or clear with `""` |
+| `DELETE /v1/channels/{ref}` | Disconnect channel (keeps queue data in R2) |
 | `POST /v1/channels/{id}/jobs` | **Add video to queue** — multipart upload (AI pipelines) |
 | `GET /v1/jobs?status=pending` | List pending upload queue |
 | `POST /v1/channels/{id}/runs` | Upload queued videos to YouTube |
-| `GET /v1/dashboard` | Channels + queue + history (cached) |
+| `GET /v1/dashboard` | Categories + channels + queue + history (cached) |
 
 Full endpoint catalog: [`api/endpoint_docs.py`](api/endpoint_docs.py) (also returned by `GET /v1/capabilities`).
 
 ### HTTP API reference
 
-Canonical descriptions live in `api/endpoint_docs.py` and appear in OpenAPI at `/docs`.
+Canonical descriptions live in `api/endpoint_docs.py` and appear in OpenAPI at **`/docs`** (Swagger UI) and **`/redoc`**. Each operation includes purpose, curl usage, and example JSON responses. Machine-readable catalog: `GET /v1/capabilities`.
 
 #### Health & discovery
 
@@ -169,9 +193,24 @@ Canonical descriptions live in `api/endpoint_docs.py` and appear in OpenAPI at `
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/dashboard` | All channels + `queue_jobs` + `uploaded_jobs` in one cached request (`?refresh=true` to bypass) |
-| GET | `/v1/channels` | List channels with OAuth status and pending/uploaded/failed counts |
+| GET | `/v1/dashboard` | Categories + all channels + `queue_jobs` + `uploaded_jobs` (`?refresh=true` to bypass cache) |
+| GET | `/v1/channels` | List channels with OAuth status, counts, and `category` |
+| GET | `/v1/youtube/channels` | Upload-ready channels only (valid OAuth; includes `category`) |
 | GET | `/v1/channels/{ref}` | Single channel (ref = id, name, `@handle`, or YouTube channel id) |
+| PATCH | `/v1/channels/{ref}` | Assign assembly `category` (must exist in `/v1/categories`) or clear with `""` |
+| DELETE | `/v1/channels/{ref}` | Remove channel from uploader (disconnect OAuth; keeps queue/upload data) |
+
+#### Assembly categories
+
+Saved in `channels.yaml` as a top-level `categories:` list. Distinct from YouTube video `category_id` (default `"10"`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/categories` | List saved categories (deduplicated) |
+| POST | `/v1/categories` | Create category — body `{ "name": "korean" }` (rejects duplicates) |
+| DELETE | `/v1/categories/{name}` | Delete category and clear it from any channels using it |
+
+Dashboard: use the **Categories** section to create/delete; assign via dropdown on each channel row or when connecting OAuth.
 
 #### Jobs — queue ingest & management
 
@@ -199,7 +238,7 @@ Canonical descriptions live in `api/endpoint_docs.py` and appear in OpenAPI at `
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v1/oauth/start` | Start browser OAuth to add a channel |
+| POST | `/v1/oauth/start` | Start browser OAuth to add a channel — optional body `{ "category": "korean" }` |
 | POST | `/v1/channels/{ref}/oauth/start` | Re-authenticate an existing channel |
 | POST | `/v1/storage/init` | Create R2 bucket layout (`uploader storage init`) |
 
@@ -225,11 +264,163 @@ Sign out from the dashboard with the **Sign out** button, or `POST /logout`.
 
 Leave both unset for local dev (no auth).
 
+## Upload flow — required endpoints
+
+A video reaches YouTube in **two steps**: **queue** (stage/register) then **run** (upload to YouTube). Register alone does not publish anything.
+
+```mermaid
+sequenceDiagram
+  participant ASM as ai-music-assembler
+  participant API as uploader-api
+  participant R2 as R2 (music-assembly-data)
+  participant YT as YouTube
+
+  Note over ASM,YT: One-time setup
+  API->>API: POST /v1/oauth/start (browser)
+  ASM->>API: GET /v1/channels (channel slugs)
+
+  Note over ASM,YT: Per finished video
+  ASM->>R2: encode + upload MP4/thumbnail
+  ASM->>API: POST .../jobs/register
+  API-->>ASM: 201 pending (or 200 idempotent)
+
+  Note over ASM,YT: Upload to YouTube (manual, cron, or dashboard)
+  API->>R2: download video_uri at run time
+  API->>YT: resumable upload + schedule
+  API-->>API: GET /v1/runs/{run_id} until done
+```
+
+### Endpoint checklist
+
+| Step | Who calls | Method | Path | Required? | Purpose |
+|------|-----------|--------|------|-----------|---------|
+| **1. Discover channels** | Assembler dashboard | `GET` | `/v1/channels` | Recommended | Returns `channels[].id` slugs (`nappabeats`, `justcavefire`, …) used in register URL and R2 paths |
+| **2. Queue job** | Assembler (`ASSEMBLY_QUEUE_YOUTUBE`) | `POST` | `/v1/channels/{channel_ref}/jobs/register` | **Yes** | Append `pending` registry row; validate `video_uri` exists in R2 |
+| **3. Upload to YouTube** | Operator, cron, or dashboard | `POST` | `/v1/channels/{channel_ref}/runs` | **Yes** | Download MP4 from `video_uri`, upload to YouTube, set `publishAt` |
+| **4. Poll run** | Whoever started the run | `GET` | `/v1/runs/{run_id}` | Recommended | `status`, `uploaded`, `urls`, `errors` until `completed` |
+| **5. Verify queue** | Ops / debugging | `GET` | `/v1/jobs?channel={ref}&status=pending` | Optional | Confirm job is queued before/after run |
+
+**One-time setup (not per video):**
+
+| Step | Who | Method | Path | Purpose |
+|------|-----|--------|------|---------|
+| Connect YouTube OAuth | Human (browser) | `POST` | `/v1/oauth/start` | Save refresh token per channel — **required before step 3 works** |
+| Check assembler R2 access | Ops | `GET` | `/v1/capabilities` | `assembly_integration.assembly_r2.reachable` must be `true` for cross-bucket URIs |
+| Health | Load balancer | `GET` | `/v1/health` | Liveness (no auth) |
+
+**Auth header on steps 1–4 (hosted):** `X-API-Key: $UPLOADER_API_KEY`
+
+---
+
+### Step 2 — Register (assembler)
+
+Called automatically when `ASSEMBLY_QUEUE_YOUTUBE=true` (or `--queue-youtube`). **Does not upload to YouTube.**
+
+```
+POST /v1/channels/{channel_ref}/jobs/register
+Content-Type: application/json
+X-API-Key: $UPLOADER_API_KEY
+```
+
+`{channel_ref}` must match `channels[].id` from `GET /v1/channels` (e.g. `nappabeats`).
+
+**Request body (assembler sends today):**
+
+```json
+{
+  "job_id": "mv_20260624_061500",
+  "title": "Generated YouTube title",
+  "description": "Full description with chapter timestamps",
+  "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
+  "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `title` | Yes | YouTube title |
+| `video_uri` | Yes | `s3://` URI — assembler bucket (`music-assembly-data`) or uploader bucket |
+| `job_id` | Recommended | Run folder basename (`mv_YYYYMMDD_HHMMSS`); idempotent key |
+| `description` | No | Inline text (not a URI) |
+| `thumbnail_uri` | No | `s3://` PNG/JPG |
+
+**Responses:** `201` new job · `200` same `job_id` + `video_uri` (idempotent) · `404` unknown channel · `409` same `job_id`, different `video_uri` · `400`/`502` file missing or R2 access denied
+
+---
+
+### Step 3 — Run (upload to YouTube)
+
+**Required to actually publish.** Channel must have `auth.valid: true` (OAuth connected).
+
+```
+POST /v1/channels/{channel_ref}/runs
+Content-Type: application/json
+X-API-Key: $UPLOADER_API_KEY
+
+{"count": 1, "upload_retries": 5}
+```
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `count` | all pending | Upload oldest N jobs (`1` = one video) |
+| `upload_retries` | `3` | Retries on 408/429/5xx |
+| `no_schedule` | `false` | `true` = publish immediately (private until live) |
+| `privacy` | channel/job default | Override per run |
+
+**Response:** `202` with `run_id`. Poll:
+
+```
+GET /v1/runs/{run_id}
+```
+
+When `status` is `completed`, check `urls` for `https://youtu.be/...` and `errors` for failures.
+
+**Cron example (Cloud Scheduler, one channel per job):**
+
+```bash
+curl -X POST "$UPLOADER_API_URL/v1/channels/nappabeats/runs" \
+  -H "X-API-Key: $UPLOADER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"count": 1, "upload_retries": 5}'
+```
+
+Upload all channels: `POST /v1/runs/all` (same body).
+
+---
+
+### Alternative: multipart queue (not assembler)
+
+For small files or local dev only (Cloud Run **32 MB** body limit):
+
+```
+POST /v1/channels/{channel_ref}/jobs    # multipart: video + title
+POST /v1/channels/{channel_ref}/runs   # same as step 3
+```
+
+---
+
+### Environment required for cross-bucket assembler URIs
+
+```env
+ASSEMBLY_R2_BUCKET=music-assembly-data
+# Option A: uploader R2 token has read access to both buckets (no extra keys)
+# Option B: dedicated read credentials:
+# ASSEMBLY_R2_ENDPOINT_URL=...
+# ASSEMBLY_R2_ACCESS_KEY_ID=...
+# ASSEMBLY_R2_SECRET_ACCESS_KEY=...
+```
+
+Verify: `GET /v1/capabilities` → `assembly_integration.assembly_r2.reachable: true`
+
+---
+
 ### AI video pipeline integration
 
-Use the API at the end of your generator pipeline to push finished videos into the upload queue. No YouTube OAuth is required for staging — only for `POST .../runs`.
+Use the API at the end of your generator pipeline to push finished videos into the upload queue. No YouTube OAuth is required for **register** — only for **`POST .../runs`**.
 
-**Option A — upload the file directly (simplest)**
+See **[Upload flow — required endpoints](#upload-flow--required-endpoints)** above for the full checklist.
+
+**Option A — upload the file directly (simplest, local/small files)**
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/v1/channels/justcavefire/jobs" \
@@ -241,11 +432,32 @@ curl -X POST "http://127.0.0.1:8000/v1/channels/justcavefire/jobs" \
   -F "tags=ai,generated"
 ```
 
-Returns `201` with `job_id`, `video_uri`, `queue_prefix`, and registry path. Poll with `GET /v1/jobs?channel=justcavefire&status=pending` or trigger upload with `POST /v1/channels/justcavefire/runs`.
+Returns `201` with `job_id`, `video_uri`, `queue_prefix`, and registry path. Then call `POST /v1/channels/justcavefire/runs` with `{"count": 1}`.
 
-**Option B — pipeline writes to R2 first, then registers**
+**Option B — ai-music-assembler auto-queue (production)**
 
-If your generator uploads directly to the same R2 bucket:
+When `ASSEMBLY_QUEUE_YOUTUBE=true`, the assembler calls **step 2 only** (`POST .../jobs/register`). An operator or cron must call **step 3** (`POST .../runs`) to upload to YouTube.
+
+```bash
+curl -X POST "$UPLOADER_API_URL/v1/channels/nappabeats/jobs/register" \
+  -H "X-API-Key: $UPLOADER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_id": "mv_20260624_061500",
+    "title": "Generated title",
+    "description": "Chapter timestamps…",
+    "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
+    "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png"
+  }'
+```
+
+Configure assembler bucket access in `.env` (see `ASSEMBLY_R2_*` in `.env.example`). Either grant the uploader R2 token read access to both buckets, or set dedicated `ASSEMBLY_R2_ACCESS_KEY_ID` credentials.
+
+Re-posting the same `job_id` is **idempotent** (`200`, no duplicate). **You must still call** `POST /v1/channels/nappabeats/runs` `{"count": 1}` to upload to YouTube.
+
+Check `GET /v1/capabilities` → `assembly_integration.assembly_r2` for bucket reachability.
+
+**Option B (same bucket)** — if your generator uploads directly to the uploader R2 bucket:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/v1/channels/justcavefire/jobs/register" \
@@ -268,11 +480,12 @@ The service validates the file exists, writes metadata sidecars (`metadata.json`
 | Status | Meaning |
 |--------|---------|
 | `201` | Job staged successfully |
+| `200` | Idempotent re-register (same `job_id` + `video_uri`) |
 | `400` | Missing/empty video or file not found |
 | `404` | Unknown channel |
-| `409` | Duplicate `job_id` |
+| `409` | Duplicate `job_id` with different `video_uri` |
 | `422` | Invalid metadata (e.g. bad privacy value) |
-| `502` | Storage/R2 failure |
+| `502` | Storage/R2 failure (including assembler bucket access denied) |
 
 Set `UPLOADER_API_KEY` in `.env` and pass `X-API-Key: ...` on ingest routes when exposing the API beyond localhost.
 
@@ -294,7 +507,8 @@ Channel reference (`<ref>`) can be config id, display name, `@handle`, or YouTub
 | Command | Description |
 |---------|-------------|
 | `uploader channel add` | OAuth in browser; save channel by @handle or name |
-| `uploader channel list` | List configured channels and token paths |
+| `uploader channel add --category korean` | Same, with assembly category (must exist in `categories:` list) |
+| `uploader channel list` | List configured channels, categories, and token paths |
 | `uploader channel reauth <ref>` | Re-authenticate one channel |
 | `uploader channels` | Alias for `uploader channel list` |
 
@@ -455,7 +669,7 @@ All durable state lives in R2 (local `config/` and `secrets/` are mirrored for c
 
 ```
 {bucket}/
-├── config/channels.yaml
+├── config/channels.yaml          # channels + categories: list + google/oauth settings
 ├── secrets/{channel_id}/youtube_token.json
 ├── state/{channel_id}/channel.meta.json
 ├── state/{channel_id}/upload_registry.txt   # JSON-lines job queue + history

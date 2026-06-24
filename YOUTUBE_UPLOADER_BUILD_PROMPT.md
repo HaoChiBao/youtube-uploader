@@ -275,20 +275,27 @@ def run_channel(channel_id: str, *, dry_run=False, ...) -> RunResult: ...
 
 ### Upstream contract (ai-music-assembler handoff)
 
-The video assembler will produce jobs like:
+**Required HTTP endpoints:**
+
+| Step | Endpoint | Purpose |
+|------|----------|---------|
+| 1 | `POST /v1/channels/{channel_ref}/jobs/register` | Queue job (`pending`) — assembler calls after encode |
+| 2 | `POST /v1/channels/{channel_ref}/runs` | Upload to YouTube — cron/operator calls after register |
+| 3 | `GET /v1/runs/{run_id}` | Poll run progress |
+
+The assembler produces register payloads like:
 
 ```json
 {
-  "id": "mv_20260617_180732_01",
-  "channel_id": "justcavefire",
+  "job_id": "mv_20260624_061500",
   "title": "...",
   "description": "... with YouTube chapter timestamps ...",
-  "video_uri": "s3://bucket/queue/justcavefire/job-001/video.mp4",
-  "thumbnail_uri": "s3://bucket/queue/justcavefire/job-001/thumbnail.png"
+  "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
+  "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png"
 }
 ```
 
-Uploader owns everything after that.
+Uploader owns everything after register, including the **`POST .../runs`** step to YouTube.
 
 ---
 

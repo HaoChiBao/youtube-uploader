@@ -15,6 +15,7 @@ class OAuthSession:
     nonce: str
     mode: Literal["add", "reauth"]
     channel_id: str = ""
+    category: str = ""
     code_verifier: str = ""
     created_at: float = 0.0
 

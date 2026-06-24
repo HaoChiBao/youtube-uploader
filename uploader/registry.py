@@ -124,6 +124,40 @@ class UploadRegistry:
             entries = [e for e in entries if e.channel_id == channel_id]
         return entries
 
+    def uploading(self, channel_id: str | None = None) -> list[UploadEntry]:
+        entries = [e for e in self.load() if e.status == STATUS_UPLOADING]
+        if channel_id is not None:
+            entries = [e for e in entries if e.channel_id == channel_id]
+        return entries
+
+    def all_uploading(self) -> list[UploadEntry]:
+        return self.uploading()
+
+    @staticmethod
+    def upload_progress_fields(entry: UploadEntry) -> dict:
+        extra = entry.extra or {}
+        return {
+            "upload_worker_id": str(extra.get("upload_worker_id", "") or ""),
+            "upload_phase": str(extra.get("upload_phase", "") or ""),
+            "upload_progress": float(extra.get("upload_progress", 0) or 0),
+            "upload_message": str(extra.get("upload_message", "") or ""),
+            "upload_started_at": str(extra.get("upload_started_at", "") or ""),
+            "upload_updated_at": str(extra.get("upload_updated_at", "") or ""),
+        }
+
+    @staticmethod
+    def upload_stale(entry: UploadEntry, *, stale_seconds: int = 600) -> bool:
+        """True when an uploading job has no recent progress (reclaimable)."""
+        extra = entry.extra or {}
+        updated = extra.get("upload_updated_at") or extra.get("upload_started_at") or ""
+        if not updated:
+            return True
+        try:
+            ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        return (datetime.now(timezone.utc) - ts).total_seconds() > stale_seconds
+
     def get(self, entry_id: str) -> UploadEntry | None:
         for e in self.load():
             if e.id == entry_id:
@@ -138,10 +172,85 @@ class UploadRegistry:
                 self._write_all(entries)
                 return
 
-    def mark_uploading(self, entry_id: str) -> None:
+    def mark_uploading(
+        self,
+        entry_id: str,
+        *,
+        worker_id: str = "",
+        publish_at: str = "",
+    ) -> None:
         def _upd(e: UploadEntry) -> None:
             e.status = STATUS_UPLOADING
             e.error = ""
+            if publish_at:
+                e.publish_at = publish_at
+            extra = dict(e.extra or {})
+            if worker_id:
+                extra["upload_worker_id"] = worker_id
+            extra["upload_phase"] = "starting"
+            extra["upload_progress"] = 0.0
+            extra["upload_message"] = "Starting upload worker"
+            now = _utc_now_iso()
+            extra["upload_started_at"] = now
+            extra["upload_updated_at"] = now
+            e.extra = extra
+
+        self._update_entry(entry_id, _upd)
+
+    def set_upload_progress(
+        self,
+        entry_id: str,
+        *,
+        phase: str,
+        progress: float,
+        message: str = "",
+    ) -> None:
+        pct = max(0.0, min(100.0, float(progress)))
+
+        def _upd(e: UploadEntry) -> None:
+            extra = dict(e.extra or {})
+            extra["upload_phase"] = phase
+            extra["upload_progress"] = pct
+            if message:
+                extra["upload_message"] = message
+            extra["upload_updated_at"] = _utc_now_iso()
+            e.extra = extra
+
+        self._update_entry(entry_id, _upd)
+
+    def reset_upload_to_pending(self, entry_id: str) -> None:
+        """Return an uploading job to pending and clear progress metadata."""
+
+        def _upd(e: UploadEntry) -> None:
+            e.status = STATUS_PENDING
+            e.error = ""
+            extra = dict(e.extra or {})
+            for key in (
+                "upload_worker_id",
+                "upload_phase",
+                "upload_progress",
+                "upload_message",
+                "upload_started_at",
+                "upload_updated_at",
+            ):
+                extra.pop(key, None)
+            e.extra = extra
+
+        self._update_entry(entry_id, _upd)
+
+    def clear_upload_progress(self, entry_id: str) -> None:
+        def _upd(e: UploadEntry) -> None:
+            extra = dict(e.extra or {})
+            for key in (
+                "upload_worker_id",
+                "upload_phase",
+                "upload_progress",
+                "upload_message",
+                "upload_started_at",
+                "upload_updated_at",
+            ):
+                extra.pop(key, None)
+            e.extra = extra
 
         self._update_entry(entry_id, _upd)
 
@@ -156,6 +265,19 @@ class UploadRegistry:
                 e.publish_at = publish_at
             e.uploaded_at = _utc_now_iso()
             e.error = ""
+            extra = dict(e.extra or {})
+            for key in (
+                "upload_worker_id",
+                "upload_phase",
+                "upload_progress",
+                "upload_message",
+                "upload_started_at",
+                "upload_updated_at",
+            ):
+                extra.pop(key, None)
+            extra["upload_phase"] = "done"
+            extra["upload_progress"] = 100.0
+            e.extra = extra
 
         self._update_entry(entry_id, _upd)
 
