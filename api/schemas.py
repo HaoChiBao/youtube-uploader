@@ -186,8 +186,19 @@ class ActiveUploadsResponse(BaseModel):
 class CancelUploadResponse(BaseModel):
     channel_id: str
     job_id: str
-    status: str = "pending"
-    message: str = "Upload cancelled; job returned to queue"
+
+
+class ReconcileActionOut(BaseModel):
+    channel_id: str
+    job_id: str
+    action: str
+    detail: str = ""
+
+
+class ReconcileUploadsResponse(BaseModel):
+    scanned: int = 0
+    actions: list[ReconcileActionOut] = Field(default_factory=list)
+    dry_run: bool = False
 
 
 class ParallelRunResponse(BaseModel):

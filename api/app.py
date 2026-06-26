@@ -66,6 +66,8 @@ from api.schemas import (
     OAuthStartRequest,
     OAuthStartResponse,
     PlanItemOut,
+    ReconcileUploadsResponse,
+    ReconcileActionOut,
     RunRequest,
     RunResponse,
     RunStatusOut,
@@ -115,7 +117,7 @@ from uploader.scheduler import (
     run_channel,
 )
 from uploader.job_views import list_active_uploads
-from uploader.worker_dispatch import dispatch_parallel_uploads
+from uploader.upload_reconcile import reconcile_uploads
 from uploader.state_store import ensure_bucket_structure
 
 
@@ -726,6 +728,40 @@ def create_app() -> FastAPI:
             for v in views
         ]
         return ActiveUploadsResponse(uploads=uploads, count=len(uploads))
+
+    @app.post("/v1/uploads/reconcile", response_model=ReconcileUploadsResponse, tags=["uploads"])
+    def reconcile_stuck_uploads(
+        dry_run: bool = Query(default=False, description="Report actions without applying"),
+        channel: str | None = Query(default=None, description="Limit to one channel id"),
+    ):
+        """Repair stuck uploading jobs and archive uploaded jobs left in queue/."""
+        config = get_app_config()
+        oauth = get_oauth_settings()
+        try:
+            result = reconcile_uploads(
+                config,
+                base=get_storage_base(),
+                oauth=oauth,
+                channel_id=channel,
+                dry_run=dry_run,
+            )
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        if not dry_run and result.actions:
+            clear_all_caches()
+        return ReconcileUploadsResponse(
+            scanned=result.scanned,
+            dry_run=dry_run,
+            actions=[
+                ReconcileActionOut(
+                    channel_id=a.channel_id,
+                    job_id=a.job_id,
+                    action=a.action,
+                    detail=a.detail,
+                )
+                for a in result.actions
+            ],
+        )
 
     @app.post(
         "/v1/channels/{channel_ref}/jobs/{job_id}/cancel-upload",

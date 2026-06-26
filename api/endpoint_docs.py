@@ -11,6 +11,7 @@ API_TAGS: list[dict] = [
     {"name": "channels", "description": "Configured YouTube channels, OAuth status, and queue counts."},
     {"name": "jobs", "description": "Upload queue: stage videos, list pending/history, preview media, remove jobs."},
     {"name": "runs", "description": "Background YouTube upload runs and progress polling."},
+    {"name": "uploads", "description": "Live upload progress and stuck-job reconcile."},
     {"name": "oauth", "description": "Browser OAuth to add or re-authenticate YouTube channels."},
     {"name": "storage", "description": "Initialize Cloudflare R2 / local bucket layout."},
     {"name": "youtube", "description": "Read YouTube channel data and list videos on YouTube."},
@@ -514,6 +515,59 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             "urls": ["https://youtu.be/dQw4w9WgXcQ"],
             "errors": [],
         },
+    ),
+    _ep(
+        "GET",
+        "/v1/uploads/active",
+        "uploads",
+        "List in-progress uploads",
+        "Dashboard **Uploading now** panel: jobs with status uploading and recent progress.",
+        f"{_KEY} {_BASE}/v1/uploads/active",
+        {
+            "count": 1,
+            "uploads": [
+                {
+                    "channel_id": "justcavefire",
+                    "job_id": "job_abc123",
+                    "title": "My Video",
+                    "upload_phase": "uploading",
+                    "upload_progress": 87,
+                    "completed": False,
+                    "youtube_url": "",
+                }
+            ],
+        },
+        details="Recently completed jobs remain visible briefly (grace period) so the UI can show 100% before archive.",
+    ),
+    _ep(
+        "POST",
+        "/v1/uploads/reconcile",
+        "uploads",
+        "Repair stuck uploads",
+        "Scan registries for orphaned uploading jobs and archive completed jobs left in queue/.",
+        (
+            f'curl -X POST "{_BASE}/v1/uploads/reconcile" \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY"\n'
+            f'curl -X POST "{_BASE}/v1/uploads/reconcile?dry_run=true&channel=justcavefire" \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY"'
+        ),
+        {
+            "scanned": 3,
+            "dry_run": False,
+            "actions": [
+                {
+                    "channel_id": "justcavefire",
+                    "job_id": "job_abc123",
+                    "action": "archived",
+                    "detail": "uploaded in registry but still in queue/",
+                }
+            ],
+        },
+        details=(
+            "Run via Cloud Scheduler every 10 minutes (see deploy/cloud-scheduler-reconcile.md). "
+            "Env: UPLOADER_RECONCILE_STALE_SECONDS (default 180), UPLOADER_RECONCILE_FAIL_SECONDS (default 7200). "
+            "CLI: `uploader reconcile-uploads [--dry-run] [--channel ID]`."
+        ),
     ),
     _ep(
         "POST",

@@ -120,6 +120,15 @@ def acquire_upload_lock(
         return True
 
 
+def lock_is_expired_or_missing(channel_id: str, job_id: str, *, base: Path) -> bool:
+    """True when no lock exists or the lease has expired (safe to reclaim)."""
+    uri = lock_location(channel_id, job_id, base=base)
+    existing = _read_lock(uri)
+    if existing is None:
+        return True
+    return _lock_expired(existing)
+
+
 def release_upload_lock(channel_id: str, job_id: str, *, base: Path, worker_id: str | None = None) -> None:
     """Drop lock file. If worker_id is set, only release when it matches."""
     uri = lock_location(channel_id, job_id, base=base)

@@ -108,6 +108,13 @@ CLI_COMMANDS: list[dict] = [
         "api": "POST /v1/channels/{id}/jobs/register",
         "implemented": True,
     },
+    {
+        "group": "queue",
+        "command": "uploader reconcile-uploads [--channel] [--dry-run]",
+        "description": "Repair stuck uploading jobs; archive completed jobs left in queue/",
+        "api": "POST /v1/uploads/reconcile",
+        "implemented": True,
+    },
 ]
 
 YOUTUBE_FEATURES: list[dict] = [
@@ -116,6 +123,11 @@ YOUTUBE_FEATURES: list[dict] = [
     {"id": "custom_thumbnail", "name": "Custom thumbnail", "description": "Best-effort thumbnail set after upload"},
     {"id": "schedule_publish", "name": "Scheduled publish", "description": "publishAt RFC3339 UTC; uploads as private until publish time"},
     {"id": "upload_registry", "name": "Upload registry", "description": "JSON-lines queue: pending → uploading → uploaded | failed"},
+    {
+        "id": "upload_reconcile",
+        "name": "Upload reconcile cron",
+        "description": "POST /v1/uploads/reconcile repairs stuck Uploading now jobs (Cloud Scheduler every 10 min)",
+    },
     {"id": "batch_stagger", "name": "Batch stagger", "description": "interval_hours between videos in a run"},
     {"id": "retry_transient", "name": "Retry transient errors", "description": "408/429/5xx and network errors with backoff"},
     {"id": "list_scheduled", "name": "List scheduled videos", "description": "Query channel for future publishAt videos"},

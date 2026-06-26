@@ -208,8 +208,10 @@ def upload_single_job(
             progress.set("thumbnail", 96, "Thumbnail uploaded")
 
         youtube_id = response.get("id", "")
-        progress.set("archiving", 98, "Archiving job")
+        # Persist uploaded status before thumbnail/archive so a worker crash cannot leave
+        # the job stuck in uploading at 100%.
         registry.mark_uploaded(job_id, youtube_id=youtube_id, publish_at=effective_publish_at)
+        progress.set("archiving", 98, "Archiving job")
         try:
             archive_job_from_entry(entry, base=base, registry=registry)
         except Exception as archive_err:
@@ -229,6 +231,18 @@ def upload_single_job(
         )
 
     except Exception as e:
+        existing = registry.get(job_id)
+        if existing and existing.status == "uploaded":
+            release_upload_lock(channel.id, job_id, base=base, worker_id=worker_id)
+            return SingleUploadResult(
+                channel_id=channel.id,
+                job_id=job_id,
+                success=True,
+                youtube_id=existing.youtube_id,
+                youtube_url=existing.youtube_url,
+                publish_at=existing.publish_at,
+                worker_id=worker_id,
+            )
         registry.mark_failed(job_id, error=str(e))
         release_upload_lock(channel.id, job_id, base=base, worker_id=worker_id)
         return SingleUploadResult(

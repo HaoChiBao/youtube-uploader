@@ -106,6 +106,13 @@ def _build_parser() -> argparse.ArgumentParser:
     upload_job.add_argument("--retry-delay", type=float, default=None, metavar="SEC")
     upload_job.add_argument("--tags", default=None, help="Comma-separated tags.")
 
+    reconcile = sub.add_parser(
+        "reconcile-uploads",
+        help="Repair stuck uploading jobs (finalize, archive, or reset orphans).",
+    )
+    reconcile.add_argument("--channel", default=None, help=_CHANNEL_HELP)
+    reconcile.add_argument("--dry-run", action="store_true", help="Report only; do not modify registry.")
+
     run_all = sub.add_parser("run-all", help="Process pending uploads for every configured channel.")
     run_all.add_argument("--start", default=None, metavar="'YYYY-MM-DD HH:MM'")
     run_all.add_argument("--interval-hours", type=float, default=None)
@@ -559,6 +566,35 @@ def _cmd_upload_job(args, config) -> int:
     return 1
 
 
+def _cmd_reconcile_uploads(args, config) -> int:
+    from uploader.state_store import config_base_from_path
+    from uploader.upload_reconcile import reconcile_uploads
+
+    base = config_base_from_path(_config_path_from_args(args))
+    oauth = _oauth_for_config(config)
+    channel_id = args.channel.strip() if args.channel else None
+    if channel_id:
+        try:
+            resolve_channel(config, channel_id)
+        except KeyError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+    result = reconcile_uploads(
+        config,
+        base=base,
+        oauth=oauth,
+        channel_id=channel_id,
+        dry_run=args.dry_run,
+    )
+    prefix = "Would" if args.dry_run else "Reconcile"
+    print(f"{prefix}: scanned {result.scanned}, actions {len(result.actions)}", file=sys.stderr)
+    for action in result.actions:
+        detail = f" — {action.detail}" if action.detail else ""
+        print(f"  {action.channel_id}/{action.job_id}: {action.action}{detail}", file=sys.stderr)
+    return 0
+
+
 def _cmd_run(args, config) -> int:
     print(f"uploader run: channel={args.channel}", file=sys.stderr, flush=True)
     if getattr(args, "parallel", False):
@@ -982,6 +1018,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": _cmd_run,
         "run-all": _cmd_run_all,
         "upload-job": _cmd_upload_job,
+        "reconcile-uploads": _cmd_reconcile_uploads,
         "list": _cmd_list,
         "enqueue": _cmd_enqueue,
         "upload": _cmd_upload,
