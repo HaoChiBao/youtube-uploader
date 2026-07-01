@@ -7,70 +7,76 @@
   <!-- Style tokens: see DESIGN.md at repo root -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --color-linen: #fafffa;
-      --color-obsidian-ink: #121613;
+      --color-cream-paper: #ffffeb;
+      --color-midnight-ink: #1a1a1a;
       --color-pure-black: #000000;
-      --color-bark: #232924;
-      --color-sage: #516254;
-      --color-mist: #c8d2c8;
-      --color-voltage: #2bee4b;
-      --color-moss-glow: #93b799;
-      --color-pollen: #c4e4c9;
-      --font-ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
-      --font-editorial: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-      --font-caption: Georgia, 'Times New Roman', serif;
-      --text-caption: 11px;
-      --text-body-sm: 14px;
+      --color-white: #ffffff;
+      --color-stone-mist: #e4e4d0;
+      --color-graphite-veil: #8a8a80;
+      --color-smoke: #5f5f59;
+      --color-charcoal: #222222;
+      --color-charcoal-mist: #333333;
+      --color-deep-forest-teal: #034f46;
+      --color-lavender-whisper: #f0d7ff;
+      --color-amber-pulse: #ffa946;
+      --font-figtree: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+      --font-eb-garamond: 'EB Garamond', Georgia, 'Times New Roman', serif;
+      --text-caption: 14px;
+      --leading-caption: 1.3;
       --text-body: 16px;
-      --text-subheading: 18px;
-      --page-max-width: 1440px;
+      --leading-body: 1.3;
+      --text-subheading: 20px;
+      --leading-subheading: 1.3;
+      --text-heading-sm: 24px;
+      --text-heading: 32px;
+      --text-heading-lg: 48px;
+      --text-display: 64px;
+      --page-max-width: 1200px;
       --section-gap: 40px;
       --section-gap-inner: 12px;
-      --card-padding: 14px;
-      --element-gap: 12px;
-      --radius-cards: 14px;
-      --radius-images: 14px;
-      --radius-buttons: 10px;
-      --radius-small: 5px;
-      --shadow-lg: rgba(16, 94, 29, 0.45) 1px 8px 20px 0px;
-      --shadow-lg-2: rgba(18, 146, 39, 0.25) 1px 8px 20px 0px;
+      --card-padding: 24px;
+      --element-gap: 16px;
+      --radius-nav: 14px;
+      --radius-cards: 32px;
+      --radius-buttons: 14px;
+      --radius-small: 8px;
+      --radius-badges: 1000px;
+      --radius-images: 40px;
+      --shadow-nav: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
     *, *::before, *::after { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: var(--font-ui);
-      font-size: var(--text-body-sm);
+      font-family: var(--font-figtree);
+      font-size: var(--text-body);
       font-weight: 400;
-      line-height: 1.4;
-      letter-spacing: -0.28px;
-      color: var(--color-obsidian-ink);
-      background: var(--color-linen);
+      line-height: var(--leading-body);
+      color: var(--color-midnight-ink);
+      background: var(--color-cream-paper);
       -webkit-font-smoothing: antialiased;
     }
 
     a {
-      color: var(--color-obsidian-ink);
+      color: var(--color-midnight-ink);
       text-decoration: underline;
       text-underline-offset: 3px;
     }
-    a:hover { color: var(--color-bark); }
+    a:hover { color: var(--color-charcoal); }
 
     code {
       font-family: ui-monospace, monospace;
       font-size: var(--text-caption);
-      letter-spacing: 0;
     }
 
     /* —— Nav header —— */
     .site-header {
-      background: var(--color-linen);
-      padding: 12px 32px;
-      border-bottom: 1px solid var(--color-mist);
+      background: transparent;
+      padding: var(--spacing-16, 16px) var(--spacing-32, 32px);
     }
     .site-header-inner {
       max-width: var(--page-max-width);
@@ -79,116 +85,323 @@
       align-items: center;
       gap: var(--element-gap);
       flex-wrap: wrap;
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      padding: 10px 16px;
+      box-shadow: var(--shadow-nav);
     }
     .wordmark {
-      font-size: var(--text-body-sm);
+      font-family: var(--font-figtree);
+      font-size: var(--text-body);
       font-weight: 600;
-      letter-spacing: -0.28px;
       text-decoration: none;
-      color: var(--color-obsidian-ink);
+      color: var(--color-midnight-ink);
     }
     .wordmark:hover { text-decoration: none; }
-    .wordmark-b { color: var(--color-voltage); }
+    .wordmark-a { color: var(--color-graphite-veil); font-weight: 500; }
+    .wordmark-b { color: var(--color-midnight-ink); }
     .header-actions {
       margin-left: auto;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       flex-wrap: wrap;
     }
     .mark {
-      color: var(--color-voltage);
-      font-weight: 600;
-      font-size: var(--text-body-sm);
-      letter-spacing: -0.05em;
+      color: var(--color-stone-mist);
+      font-weight: 500;
+      font-size: var(--text-caption);
       user-select: none;
+    }
+    .header-actions .btn-ghost {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+    .header-actions .btn-icon-refresh {
+      padding: 8px;
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      background: transparent;
+      color: var(--color-midnight-ink);
+      margin: 0;
+    }
+    .header-actions .btn-icon-refresh:hover:not(:disabled) {
+      background: var(--color-stone-mist);
+    }
+    .header-actions .btn-link {
+      padding: 8px 4px;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-smoke);
+      text-decoration: none;
+      background: none;
+      margin: 0;
+    }
+    .header-actions .btn-link:hover { color: var(--color-midnight-ink); text-decoration: underline; }
+    .subnav {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-left: auto;
+      margin-right: 12px;
+    }
+    .subnav a {
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-smoke);
+      text-decoration: none;
+      border-radius: var(--radius-small);
+    }
+    .subnav a:hover {
+      color: var(--color-midnight-ink);
+      background: color-mix(in srgb, var(--color-stone-mist) 50%, transparent);
+      text-decoration: none;
     }
 
     /* —— Page —— */
     .page {
       max-width: var(--page-max-width);
       margin: 0 auto;
-      padding: var(--section-gap) 32px 48px;
+      padding: 24px 32px 64px;
     }
-    .hero {
-      margin-bottom: 0;
-      padding-bottom: var(--section-gap);
-      border-bottom: 1px solid var(--color-mist);
-      position: relative;
-    }
-    .tick {
-      display: block;
-      width: 40px;
-      height: 2px;
-      background: var(--color-voltage);
-      margin-bottom: 12px;
-    }
-    .display-headline {
-      font-family: var(--font-editorial);
-      font-weight: 300;
-      font-size: clamp(2.25rem, 6vw, 3.75rem);
-      line-height: 0.9;
-      letter-spacing: -0.03em;
-      color: var(--color-obsidian-ink);
-      margin: 0 0 10px;
-    }
-    .lede {
-      margin: 0;
-      max-width: 36rem;
+    .page-header { margin-bottom: 20px; }
+    .page-title {
+      font-family: var(--font-eb-garamond);
       font-weight: 400;
-      color: var(--color-obsidian-ink);
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
     }
+    .page-subtitle {
+      margin: 0;
+      font-size: var(--text-body);
+      color: var(--color-smoke);
+      max-width: 32rem;
+    }
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .stat {
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      padding: 14px 16px;
+    }
+    .stat-value {
+      display: block;
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-smoke);
+      margin-top: 4px;
+    }
+    .stat--active .stat-value { color: var(--color-deep-forest-teal); }
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .section-header h2 {
+      font-family: var(--font-figtree);
+      font-size: var(--text-subheading);
+      font-weight: 600;
+      line-height: 1.2;
+      margin: 0 0 4px;
+    }
+    .section-header .section-desc {
+      margin: 0;
+      font-size: var(--text-caption);
+      color: var(--color-smoke);
+      max-width: 36rem;
+    }
+    .section-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .toolbar-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-smoke);
+    }
+    .toolbar-field select,
+    .toolbar-field input {
+      font-size: 13px;
+      padding: 7px 10px;
+    }
+    .toolbar-field select { min-width: 10rem; }
+    .toolbar-field input[type="number"] { width: 5.5rem; }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: var(--radius-badges);
+      white-space: nowrap;
+      background: color-mix(in srgb, var(--color-stone-mist) 40%, var(--color-white));
+      color: var(--color-smoke);
+      border: 1px solid var(--color-stone-mist);
+    }
+    .badge-ok {
+      background: color-mix(in srgb, var(--color-deep-forest-teal) 12%, var(--color-white));
+      color: var(--color-deep-forest-teal);
+      border: 1px solid color-mix(in srgb, var(--color-deep-forest-teal) 25%, transparent);
+    }
+    .badge-warn {
+      background: color-mix(in srgb, var(--color-amber-pulse) 15%, var(--color-white));
+      color: var(--color-charcoal);
+      border: 1px solid color-mix(in srgb, var(--color-amber-pulse) 40%, transparent);
+    }
+    .badge-bad {
+      background: color-mix(in srgb, var(--color-stone-mist) 60%, var(--color-white));
+      color: var(--color-smoke);
+      border: 1px solid var(--color-stone-mist);
+    }
+    .count-pill { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .count-pill.has-pending { color: var(--color-deep-forest-teal); }
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .btn-group .btn-voltage--compact,
+    .btn-group .btn-ghost--compact { margin: 0; }
+    .empty-state {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--color-smoke);
+      font-size: var(--text-caption);
+    }
+    .settings-panel {
+      margin-top: var(--section-gap);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-cards);
+      background: var(--color-white);
+      overflow: hidden;
+    }
+    .settings-panel > summary {
+      padding: 16px 24px;
+      font-size: var(--text-body);
+      font-weight: 600;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .settings-panel > summary::-webkit-details-marker { display: none; }
+    .settings-panel > summary::after {
+      content: '+';
+      float: right;
+      font-weight: 400;
+      color: var(--color-smoke);
+    }
+    .settings-panel[open] > summary::after { content: '−'; }
+    .settings-panel > summary:hover { background: color-mix(in srgb, var(--color-stone-mist) 30%, transparent); }
+    .settings-inner {
+      padding: 0 24px 24px;
+      border-top: 1px solid var(--color-stone-mist);
+    }
+    .settings-block { padding-top: 24px; }
+    .settings-block + .settings-block {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--color-stone-mist);
+    }
+    .settings-block h3 {
+      font-size: var(--text-body);
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+    .settings-block .settings-desc {
+      margin: 0 0 16px;
+      font-size: var(--text-caption);
+      color: var(--color-smoke);
+    }
+    .section-live.is-idle { display: none; }
+    .section-live.is-active { display: block; margin-bottom: 8px; }
+    .section-live.is-active .panel {
+      border-color: color-mix(in srgb, var(--color-deep-forest-teal) 30%, var(--color-stone-mist));
+    }
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: var(--text-caption);
+      color: var(--color-smoke);
+    }
+    .filter-row select { font-size: 13px; padding: 7px 10px; }
 
     /* —— Sections —— */
     .section {
       margin: 0;
       padding: var(--section-gap) 0 0;
-      border-top: 1px solid var(--color-mist);
+      scroll-margin-top: 80px;
     }
-    .section-tag {
-      display: block;
-      font-size: var(--text-caption);
-      font-weight: 500;
-      letter-spacing: 0.11px;
-      text-transform: uppercase;
-      color: var(--color-sage);
-      margin-bottom: 4px;
-    }
-    .section-title {
-      font-family: var(--font-editorial);
-      font-weight: 300;
-      font-size: clamp(1.5rem, 3vw, 2.25rem);
+    .section-tag { display: none; }
+    .section-title { display: none; }
+    .section-lede { display: none; }
+    .display-headline {
+      font-family: var(--font-eb-garamond);
+      font-weight: 400;
+      font-size: clamp(2rem, 7vw, 2.5rem);
       line-height: 0.95;
-      letter-spacing: -0.02em;
-      margin: 0 0 6px;
-      color: var(--color-obsidian-ink);
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
     }
-    .section-lede {
-      margin: 0 0 var(--section-gap-inner);
-      color: var(--color-sage);
-      font-family: var(--font-caption);
-      font-size: var(--text-body-sm);
-      font-style: italic;
-      max-width: 40rem;
+    .display-muted { color: var(--color-graphite-veil); }
+    .lede {
+      margin: 0 0 20px;
+      font-size: var(--text-body);
+      color: var(--color-smoke);
+    }
+    .tick {
+      display: block;
+      width: 40px;
+      height: 4px;
+      background: var(--color-lavender-whisper);
+      border-radius: 2px;
+      margin-bottom: 16px;
     }
     .panel {
-      background: var(--color-linen);
-      border-radius: var(--radius-cards);
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: 16px;
       padding: var(--card-padding);
     }
 
-    .muted { color: var(--color-sage); font-size: var(--text-caption); font-family: var(--font-ui); font-style: normal; }
-    .ok { color: var(--color-obsidian-ink); font-weight: 600; }
-    .bad { color: var(--color-bark); font-weight: 600; }
-    .warn { color: var(--color-sage); font-weight: 500; }
-    .status-failed { color: var(--color-bark); font-weight: 600; }
+    .muted { color: var(--color-smoke); font-size: var(--text-caption); font-family: var(--font-figtree); font-style: normal; }
+    .ok { color: var(--color-deep-forest-teal); font-weight: 600; }
+    .bad { color: var(--color-charcoal); font-weight: 600; }
+    .warn { color: var(--color-amber-pulse); font-weight: 500; }
+    .status-failed { color: var(--color-charcoal); font-weight: 600; }
 
-    .upload-progress-list { display: flex; flex-direction: column; gap: 14px; }
+    .upload-progress-list { display: flex; flex-direction: column; gap: 16px; }
     .upload-progress-item {
-      border: 1px solid var(--color-mist);
-      border-radius: var(--radius-small);
-      padding: 12px 14px;
-      background: #fff;
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      padding: 16px 18px;
+      background: var(--color-white);
     }
     .upload-progress-head {
       display: flex;
@@ -198,32 +411,32 @@
       margin-bottom: 8px;
       flex-wrap: wrap;
     }
-    .upload-progress-title { font-weight: 600; font-size: var(--text-body-sm); }
-    .upload-progress-meta { font-size: var(--text-caption); color: var(--color-sage); }
+    .upload-progress-title { font-weight: 600; font-size: var(--text-body); }
+    .upload-progress-meta { font-size: var(--text-caption); color: var(--color-smoke); }
     .progress-track {
       height: 8px;
-      background: var(--color-mist);
-      border-radius: 999px;
+      background: var(--color-stone-mist);
+      border-radius: var(--radius-badges);
       overflow: hidden;
     }
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--color-voltage), var(--color-moss-glow));
-      border-radius: 999px;
+      background: linear-gradient(90deg, var(--color-lavender-whisper), var(--color-deep-forest-teal));
+      border-radius: var(--radius-badges);
       width: 0%;
       transition: width 0.35s ease;
     }
     .upload-progress-phase {
       margin-top: 6px;
       font-size: var(--text-caption);
-      color: var(--color-sage);
+      color: var(--color-smoke);
     }
     .upload-progress-item--done {
-      border-color: var(--color-moss-glow);
-      background: #f6fbf7;
+      border-color: var(--color-deep-forest-teal);
+      background: color-mix(in srgb, var(--color-lavender-whisper) 15%, var(--color-white));
     }
     .upload-progress-item--done .progress-fill {
-      background: var(--color-voltage);
+      background: var(--color-deep-forest-teal);
     }
     .upload-progress-actions {
       margin-top: 10px;
@@ -233,13 +446,13 @@
 
     /* —— Buttons —— */
     button, .btn {
-      font-family: var(--font-ui);
-      font-size: var(--text-body-sm);
+      font-family: var(--font-figtree);
+      font-size: var(--text-caption);
       cursor: pointer;
       border: none;
       background: none;
-      margin: 0 12px 8px 0;
-      transition: opacity 0.15s, text-decoration 0.15s, transform 0.1s;
+      margin: 0 10px 8px 0;
+      transition: opacity 0.15s, background 0.15s, transform 0.1s;
     }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -247,68 +460,207 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: var(--color-voltage);
-      color: var(--color-obsidian-ink);
+      background: var(--color-lavender-whisper);
+      color: var(--color-midnight-ink);
       font-weight: 600;
-      letter-spacing: 0.01em;
-      text-transform: uppercase;
-      padding: 10px 22px;
+      padding: 10px 18px;
+      border: 1px solid var(--color-midnight-ink);
       border-radius: var(--radius-buttons);
-      box-shadow: var(--shadow-lg), var(--shadow-lg-2);
       text-decoration: none;
+      text-transform: none;
+      letter-spacing: normal;
+      box-shadow: none;
     }
     .btn-voltage:hover:not(:disabled) {
       transform: translateY(-1px);
       text-decoration: none;
+      background: color-mix(in srgb, var(--color-lavender-whisper) 85%, var(--color-white));
     }
     .btn-voltage--compact {
-      padding: 6px 14px;
-      font-size: var(--text-caption);
-      letter-spacing: 0.11px;
+      padding: 8px 14px;
+      font-size: 13px;
     }
 
     .btn-ghost {
-      color: var(--color-obsidian-ink);
-      font-weight: 400;
-      padding: 4px 0;
+      display: inline-flex;
+      align-items: center;
+      color: var(--color-midnight-ink);
+      font-weight: 600;
+      padding: 10px 18px;
+      border: 1px solid var(--color-midnight-ink);
+      border-radius: var(--radius-buttons);
+      background: transparent;
       text-decoration: none;
     }
-    .btn-ghost:hover:not(:disabled) { text-decoration: underline; }
-    .btn-ghost--padded { padding: 8px 4px; }
+    .btn-ghost:hover:not(:disabled) {
+      text-decoration: none;
+      background: color-mix(in srgb, var(--color-stone-mist) 40%, transparent);
+    }
+    .btn-ghost--padded { padding: 10px 18px; }
+    .btn-ghost--compact {
+      padding: 6px 12px;
+      font-size: 13px;
+    }
 
     .btn-icon {
-      color: var(--color-sage);
+      color: var(--color-graphite-veil);
       padding: 6px;
       line-height: 0;
       vertical-align: middle;
       margin: 0;
       border-radius: var(--radius-small);
+      border: none;
     }
     .btn-icon:hover:not(:disabled) {
-      color: var(--color-bark);
-      background: var(--color-pollen);
+      color: var(--color-midnight-ink);
+      background: var(--color-stone-mist);
     }
     .btn-icon svg { display: block; }
 
     button.refreshing {
       position: relative;
-      padding-left: 1.5rem;
       pointer-events: none;
+      opacity: 0.6;
+    }
+    button.refreshing.btn-icon-refresh {
+      color: transparent;
     }
     button.refreshing::before {
       content: "";
       position: absolute;
-      left: 0;
+      left: 50%;
       top: 50%;
       width: 0.75rem;
       height: 0.75rem;
-      margin-top: -0.375rem;
-      border: 2px solid var(--color-mist);
-      border-top-color: var(--color-voltage);
+      margin: -0.375rem 0 0 -0.375rem;
+      border: 2px solid var(--color-stone-mist);
+      border-top-color: var(--color-deep-forest-teal);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
+
+    /* —— Loading & observability —— */
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 0.9; }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 0.875rem;
+      height: 0.875rem;
+      border: 2px solid var(--color-stone-mist);
+      border-top-color: var(--color-deep-forest-teal);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    .spinner--sm {
+      width: 0.75rem;
+      height: 0.75rem;
+    }
+
+    .btn-loading {
+      pointer-events: none;
+      opacity: 0.88;
+    }
+    .btn-loading::before {
+      content: "";
+      display: inline-block;
+      width: 0.875rem;
+      height: 0.875rem;
+      margin-right: 0.45rem;
+      vertical-align: -0.12em;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+    }
+    .btn-icon.btn-loading::before,
+    .btn-icon-refresh.btn-loading::before {
+      margin-right: 0;
+      vertical-align: middle;
+    }
+
+    .inline-loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--color-smoke);
+      font-size: var(--text-caption);
+      padding: 8px 0;
+    }
+    tr.loading-row td {
+      padding: 20px 12px;
+      border-bottom: none;
+    }
+
+    .stat-value.skeleton-text {
+      display: block;
+      width: 2.5rem;
+      height: 1.35rem;
+      border-radius: 6px;
+      background: var(--color-stone-mist);
+      animation: skeleton-pulse 1.2s ease-in-out infinite;
+      color: transparent;
+    }
+    .stats-bar.is-loading .stat {
+      pointer-events: none;
+    }
+
+    .skeleton-line {
+      display: block;
+      height: 12px;
+      border-radius: 6px;
+      background: var(--color-stone-mist);
+      animation: skeleton-pulse 1.2s ease-in-out infinite;
+      margin-bottom: 8px;
+    }
+    .skeleton-line.short { width: 55%; }
+    .skeleton-line:not(.short) { width: 88%; }
+    .features-skeleton {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .features-skeleton li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--color-stone-mist);
+    }
+    .features-skeleton li:last-child { border-bottom: none; }
+    .features-loaded {
+      animation: fade-in 0.25s ease-out;
+    }
+
+    .loading-overlay {
+      opacity: 0.55;
+      pointer-events: none;
+      position: relative;
+    }
+    .loading-overlay::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--color-lavender-whisper) 25%, transparent) 50%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
 
     /* —— Forms —— */
     input[type="text"],
@@ -316,24 +668,21 @@
     input[type="file"],
     select,
     textarea {
-      font-family: var(--font-ui);
-      font-size: var(--text-body-sm);
-      color: var(--color-obsidian-ink);
-      background: var(--color-linen);
-      border: 1px solid var(--color-mist);
-      border-radius: var(--radius-small);
-      padding: 8px 10px;
+      font-family: var(--font-figtree);
+      font-size: var(--text-body);
+      color: var(--color-midnight-ink);
+      background: var(--color-cream-paper);
+      border: 1px solid var(--color-graphite-veil);
+      border-radius: var(--radius-nav);
+      padding: 10px 12px;
       outline: none;
-      letter-spacing: -0.28px;
     }
     textarea { min-height: 4.5rem; resize: vertical; width: 100%; }
-    input:focus, select:focus, textarea:focus { border-color: var(--color-voltage); }
+    input:focus, select:focus, textarea:focus { border-color: var(--color-midnight-ink); }
     label {
       font-size: var(--text-caption);
       font-weight: 500;
-      letter-spacing: 0.11px;
-      text-transform: uppercase;
-      color: var(--color-sage);
+      color: var(--color-smoke);
       display: inline-flex;
       align-items: center;
       gap: 10px;
@@ -341,46 +690,45 @@
 
     /* —— Tables —— */
     .table-wrap { overflow-x: auto; margin-top: var(--section-gap-inner); }
-    table { width: 100%; border-collapse: collapse; font-size: var(--text-body-sm); }
+    table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }
     th {
       text-align: left;
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--color-mist);
-      color: var(--color-sage);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--color-stone-mist);
+      color: var(--color-smoke);
       font-size: var(--text-caption);
       font-weight: 500;
-      letter-spacing: 0.11px;
-      text-transform: uppercase;
     }
     td {
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--color-mist);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--color-stone-mist);
       vertical-align: top;
-      color: var(--color-obsidian-ink);
+      color: var(--color-midnight-ink);
     }
     tr:last-child td { border-bottom: none; }
     td strong { font-weight: 600; }
-    td small { color: var(--color-sage); font-size: var(--text-caption); }
+    td small { color: var(--color-smoke); font-size: var(--text-caption); }
 
     tr.job-row { cursor: pointer; }
-    tr.job-row:hover td { background: rgba(196, 228, 201, 0.25); }
-    tr.job-row.expanded td { background: rgba(196, 228, 201, 0.35); }
+    tr.job-row:hover td { background: color-mix(in srgb, var(--color-lavender-whisper) 20%, transparent); }
+    tr.job-row.expanded td { background: color-mix(in srgb, var(--color-lavender-whisper) 30%, transparent); }
     tr.job-detail td {
       padding: var(--card-padding);
-      background: rgba(196, 228, 201, 0.2);
+      background: color-mix(in srgb, var(--color-lavender-whisper) 12%, var(--color-white));
     }
 
     .folder-tag {
       display: inline-block;
-      font-size: var(--text-caption);
+      font-size: 12px;
       font-weight: 500;
-      letter-spacing: 0.11px;
-      text-transform: uppercase;
-      color: var(--color-sage);
+      color: var(--color-smoke);
+      padding: 4px 10px;
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-small);
     }
-    .folder-tag.queue { color: var(--color-obsidian-ink); }
-    .folder-tag.uploaded { color: var(--color-bark); }
-    .folder-tag.missing { color: var(--color-moss-glow); }
+    .folder-tag.queue { color: var(--color-midnight-ink); border-color: var(--color-midnight-ink); }
+    .folder-tag.uploaded { color: var(--color-deep-forest-teal); border-color: var(--color-deep-forest-teal); }
+    .folder-tag.missing { color: var(--color-amber-pulse); border-color: var(--color-amber-pulse); }
 
     .category-create {
       display: flex;
@@ -396,16 +744,16 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--color-mist);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--color-stone-mist);
     }
     .category-list li:last-child { border-bottom: none; }
-    .channel-category-select { max-width: 11rem; font-size: var(--text-body-sm); }
+    .channel-category-select { max-width: 11rem; font-size: var(--text-body); }
     .channel-category-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-    .category-save-status { font-size: var(--text-caption); flex-basis: 100%; min-height: 1rem; color: var(--color-sage); }
-    .category-save-status.ok { color: var(--color-obsidian-ink); font-weight: 600; }
-    .category-save-status.bad { color: var(--color-bark); font-weight: 600; }
-    .category-save-status.pending { color: var(--color-sage); }
+    .category-save-status { font-size: var(--text-caption); flex-basis: 100%; min-height: 1rem; color: var(--color-smoke); }
+    .category-save-status.ok { color: var(--color-deep-forest-teal); font-weight: 600; }
+    .category-save-status.bad { color: var(--color-charcoal); font-weight: 600; }
+    .category-save-status.pending { color: var(--color-smoke); }
     .connect-category-row { margin-bottom: var(--element-gap); }
     .upload-settings-row {
       display: flex;
@@ -420,31 +768,31 @@
       gap: 6px;
       font-size: var(--text-caption);
       font-weight: 500;
-      color: var(--color-sage);
+      color: var(--color-smoke);
     }
     .upload-settings-row select,
     .upload-settings-row input[type="number"] {
-      font-family: var(--font-ui);
-      font-size: var(--text-body-sm);
-      padding: 8px 10px;
-      border: 1px solid var(--color-mist);
-      border-radius: var(--radius-small);
+      font-family: var(--font-figtree);
+      font-size: var(--text-body);
+      padding: 10px 12px;
+      border: 1px solid var(--color-graphite-veil);
+      border-radius: var(--radius-nav);
       min-width: 12rem;
     }
     .stage-schedule-info {
       grid-column: 1 / -1;
       margin: 0;
-      font-style: italic;
+      font-style: normal;
     }
     .schedule-summary {
       font-size: var(--text-caption);
-      color: var(--color-sage);
+      color: var(--color-smoke);
       margin-bottom: 6px;
       max-width: 14rem;
       line-height: 1.35;
     }
     .channel-schedule-row td {
-      background: #fafdfa;
+      background: color-mix(in srgb, var(--color-stone-mist) 25%, var(--color-white));
       border-top: none;
       padding-top: 0;
     }
@@ -461,15 +809,15 @@
       gap: 6px;
       font-size: var(--text-caption);
       font-weight: 500;
-      color: var(--color-sage);
+      color: var(--color-smoke);
     }
     .channel-schedule-form input,
     .channel-schedule-form select {
-      font-family: var(--font-ui);
-      font-size: var(--text-body-sm);
-      padding: 8px 10px;
-      border: 1px solid var(--color-mist);
-      border-radius: var(--radius-small);
+      font-family: var(--font-figtree);
+      font-size: var(--text-body);
+      padding: 10px 12px;
+      border: 1px solid var(--color-graphite-veil);
+      border-radius: var(--radius-nav);
     }
     .channel-schedule-actions {
       display: flex;
@@ -480,7 +828,7 @@
     }
     .schedule-save-status {
       font-size: var(--text-caption);
-      color: var(--color-sage);
+      color: var(--color-smoke);
     }
 
     .stage-form {
@@ -492,7 +840,6 @@
     .stage-form .field { display: flex; flex-direction: column; gap: 6px; }
     .stage-form .field label {
       display: block;
-      text-transform: uppercase;
     }
     .stage-form .field--full { grid-column: 1 / -1; }
     .stage-form-actions {
@@ -504,12 +851,12 @@
     }
     .stage-status {
       font-size: var(--text-caption);
-      color: var(--color-sage);
+      color: var(--color-smoke);
       flex: 1 1 100%;
       min-height: 1rem;
     }
-    .stage-status.ok { color: var(--color-obsidian-ink); font-weight: 600; }
-    .stage-status.bad { color: var(--color-bark); font-weight: 600; }
+    .stage-status.ok { color: var(--color-deep-forest-teal); font-weight: 600; }
+    .stage-status.bad { color: var(--color-charcoal); font-weight: 600; }
     @media (max-width: 720px) {
       .stage-form { grid-template-columns: 1fr; }
     }
@@ -517,79 +864,85 @@
 
     #storage-info, #run-status {
       font-size: var(--text-caption);
-      color: var(--color-sage);
-      font-family: var(--font-caption);
-      font-style: italic;
-      margin: 12px 0 0;
+      color: var(--color-smoke);
+      font-family: var(--font-figtree);
+      font-style: normal;
     }
-    #run-status { white-space: pre-wrap; font-style: normal; font-family: var(--font-ui); }
+    #storage-info { margin: 0; }
+    #run-status {
+      white-space: pre-wrap;
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: color-mix(in srgb, var(--color-lavender-whisper) 25%, var(--color-white));
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      font-size: 13px;
+      color: var(--color-midnight-ink);
+    }
+    #run-status:empty { display: none; padding: 0; border: none; background: none; margin: 0; }
 
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--element-gap); }
     @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
-    .detail-meta dl { margin: 0; font-size: var(--text-body-sm); }
+    .detail-meta dl { margin: 0; font-size: var(--text-body); }
     .detail-meta h3 {
-      font-family: var(--font-editorial);
-      font-weight: 300;
+      font-family: var(--font-eb-garamond);
+      font-weight: 400;
       font-size: var(--text-subheading);
       margin: 0 0 10px;
     }
     .detail-meta dt {
       font-size: var(--text-caption);
       font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.11px;
-      color: var(--color-sage);
+      color: var(--color-smoke);
       margin-top: 10px;
     }
     .detail-meta dd { margin: 4px 0 0; word-break: break-word; }
-    .detail-path { font-family: ui-monospace, monospace; font-size: var(--text-caption); color: var(--color-sage); }
+    .detail-path { font-family: ui-monospace, monospace; font-size: var(--text-caption); color: var(--color-smoke); }
     .detail-preview img {
       max-width: 240px;
       max-height: 135px;
       border-radius: var(--radius-images);
       display: block;
-      filter: grayscale(100%);
     }
     .detail-preview video {
       max-width: 100%;
       max-height: 280px;
       border-radius: var(--radius-images);
-      background: var(--color-obsidian-ink);
+      background: var(--color-midnight-ink);
     }
     .detail-preview .placeholder {
-      color: var(--color-sage);
-      font-family: var(--font-caption);
-      font-style: italic;
+      color: var(--color-smoke);
+      font-family: var(--font-figtree);
+      font-style: normal;
       font-size: var(--text-body);
     }
-    .expand-hint { color: var(--color-moss-glow); font-size: var(--text-caption); }
+    .expand-hint { color: var(--color-graphite-veil); font-size: var(--text-caption); }
     .click-title { text-decoration: underline dotted; text-underline-offset: 3px; }
 
-    .features { font-size: var(--text-body-sm); columns: 2; gap: 16px; }
+    .features { font-size: var(--text-body); columns: 2; gap: 16px; }
     .features li { margin-bottom: 6px; break-inside: avoid; }
-
-    .loading-overlay { opacity: 0.45; pointer-events: none; }
+    .features-wrap { margin-top: 16px; min-height: 2rem; }
 
     /* —— Toast —— */
     #toast {
       position: fixed;
       bottom: 30px;
       right: 30px;
-      background: #fff;
-      color: var(--color-obsidian-ink);
+      background: var(--color-white);
+      color: var(--color-midnight-ink);
       padding: 16px 18px;
       border-radius: var(--radius-cards);
-      border: 1px solid var(--color-mist);
-      box-shadow: var(--shadow-lg-2);
+      border: 1px solid var(--color-stone-mist);
+      box-shadow: var(--shadow-nav);
       display: none;
       max-width: 400px;
       z-index: 9000;
     }
     #toast.error {
-      border-color: color-mix(in srgb, var(--color-bark) 35%, var(--color-mist));
-      background: var(--color-linen);
+      border-color: var(--color-charcoal);
+      background: var(--color-cream-paper);
     }
-    #toast.error .toast-message { color: var(--color-bark); }
+    #toast.error .toast-message { color: var(--color-charcoal); }
     #toast.toast-confirm {
       padding: 0;
       overflow: hidden;
@@ -597,14 +950,14 @@
     #toast.toast-confirm .toast-message {
       margin-bottom: 0;
       padding: 16px 18px 14px;
-      border-bottom: 1px solid var(--color-mist);
+      border-bottom: 1px solid var(--color-stone-mist);
     }
-    #toast .toast-message { line-height: 1.45; font-size: var(--text-body-sm); }
+    #toast .toast-message { line-height: var(--leading-body); font-size: var(--text-body); }
     #toast .toast-message .muted {
       display: block;
       margin-top: 8px;
       padding-top: 8px;
-      border-top: 1px solid var(--color-mist);
+      border-top: 1px solid var(--color-stone-mist);
     }
     #toast.toast-confirm .toast-message .muted {
       margin-top: 10px;
@@ -616,7 +969,7 @@
       justify-content: flex-end;
       flex-wrap: wrap;
       padding: 12px 18px 14px;
-      background: var(--color-linen);
+      background: var(--color-cream-paper);
     }
     #toast:not(.toast-confirm) .toast-message {
       padding: 0;
@@ -627,7 +980,7 @@
     #login-gate {
       position: fixed;
       inset: 0;
-      background: var(--color-linen);
+      background: var(--color-cream-paper);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -635,17 +988,39 @@
       padding: 32px;
     }
     #login-gate[hidden], #app[hidden] { display: none !important; }
-    .login-panel { width: min(420px, 100%); }
+    .login-panel {
+      width: min(420px, 100%);
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-cards);
+      padding: var(--card-padding);
+    }
     .login-panel .display-headline { font-size: clamp(2rem, 7vw, 3rem); }
-    .login-panel .lede { margin-bottom: 20px; color: var(--color-sage); font-style: italic; font-family: var(--font-caption); }
+    .login-panel .lede {
+      margin-bottom: 20px;
+      color: var(--color-smoke);
+      font-style: normal;
+      font-family: var(--font-figtree);
+      font-size: var(--text-body);
+    }
     #login-password { width: 100%; margin-bottom: 16px; }
-    #login-error { color: var(--color-bark); font-size: var(--text-caption); font-weight: 600; margin: 0; }
+    #login-error { color: var(--color-charcoal); font-size: var(--text-caption); font-weight: 600; margin: 0; }
+    .login-panel .btn-login {
+      width: 100%;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .section--band { display: none; }
 
     @media (max-width: 720px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .subnav { display: none; }
       .site-header { padding: 10px 16px; }
-      .page { padding: 28px 16px 40px; }
-      .section { padding-top: 28px; }
-      .hero { padding-bottom: 28px; }
+      .page { padding: 40px 16px 64px; }
+      .section { padding-top: 40px; }
+      .hero { padding-bottom: 40px; }
+      .panel { padding: 24px; }
     }
   </style>
 </head>
@@ -653,193 +1028,206 @@
   <div id="login-gate" hidden>
     <div class="login-panel">
       <span class="tick" aria-hidden="true"></span>
-      <h1 class="display-headline">YouTube<br><span style="color:var(--color-voltage)">Uploader</span></h1>
+      <h1 class="display-headline"><span class="display-muted">YouTube</span><br>Uploader</h1>
       <p class="lede">Enter your dashboard password to continue.</p>
       <input type="password" id="login-password" autocomplete="current-password" spellcheck="false" placeholder="Password" />
       <p id="login-error" hidden></p>
+      <button type="button" class="btn-voltage btn-login" id="btn-login">Sign in</button>
     </div>
   </div>
 
   <div id="app" hidden>
     <header class="site-header">
       <div class="site-header-inner">
-        <a class="wordmark" href="/"><span class="wordmark-a">YouTube </span><span class="wordmark-b">Uploader</span></a>
+        <a class="wordmark" href="/"><span class="wordmark-a">YouTube</span> <span class="wordmark-b">Uploader</span></a>
+        <nav class="subnav" aria-label="Sections">
+          <a href="#uploading-section">Live</a>
+          <a href="#channels-section">Channels</a>
+          <a href="#jobs-section">Queue</a>
+          <a href="#uploaded-section">History</a>
+          <a href="#settings-panel">Settings</a>
+        </nav>
         <div class="header-actions">
-          <button type="button" class="btn-ghost" id="btn-refresh">Refresh</button>
-          <a class="btn-ghost" href="/docs" target="_blank" rel="noopener">API docs</a>
-          <span class="mark" aria-hidden="true">||</span>
-          <button type="button" class="btn-ghost" id="btn-logout">Sign out</button>
+          <button type="button" class="btn-icon-refresh" id="btn-refresh" title="Refresh" aria-label="Refresh">↻</button>
+          <a class="btn-link" href="/docs" target="_blank" rel="noopener">API</a>
+          <button type="button" class="btn-link" id="btn-logout">Sign out</button>
         </div>
       </div>
     </header>
 
     <main class="page">
-      <header class="hero">
-        <span class="tick" aria-hidden="true"></span>
-        <h1 class="display-headline">Upload<br>dashboard</h1>
-        <p class="lede">Manage channels, assembly categories, and your upload queue. Connect OAuth, stage jobs, and publish to YouTube.</p>
+      <header class="page-header">
+        <h1 class="page-title">Upload dashboard</h1>
+        <p class="page-subtitle">Connect channels, queue videos, publish to YouTube.</p>
       </header>
 
-      <section class="section" id="categories-section">
-        <span class="section-tag">Assembly</span>
-        <h2 class="section-title">Categories</h2>
-        <p class="section-lede">Labels for channels (e.g. korean). Pick a category on each channel row and click Save.</p>
-        <div class="panel">
-          <div class="category-create">
-            <input type="text" id="new-category-name" placeholder="e.g. korean" />
-            <button type="button" class="btn-voltage btn-voltage--compact" id="btn-create-category">Create →</button>
+      <div class="stats-bar" id="stats-bar" aria-live="polite">
+        <div class="stat"><span class="stat-value" id="stat-channels">—</span><span class="stat-label">Channels</span></div>
+        <div class="stat"><span class="stat-value" id="stat-pending">—</span><span class="stat-label">Queued</span></div>
+        <div class="stat" id="stat-uploading-wrap"><span class="stat-value" id="stat-uploading">—</span><span class="stat-label">Uploading</span></div>
+        <div class="stat"><span class="stat-value" id="stat-uploaded">—</span><span class="stat-label">Published</span></div>
+      </div>
+
+      <section class="section section-live is-idle" id="uploading-section">
+        <div class="section-header">
+          <div>
+            <h2>Uploading now</h2>
+            <p class="section-desc">Live progress from parallel workers</p>
           </div>
-          <div id="categories-list"><p class="muted">Loading…</p></div>
+        </div>
+        <div class="panel">
+          <div id="uploading-list" class="upload-progress-list"></div>
         </div>
       </section>
 
-      <section class="section">
-        <span class="section-tag">Connect</span>
-        <h2 class="section-title">Actions</h2>
-        <div class="panel">
-          <div class="connect-category-row">
-            <label>Category for new channel
-              <select id="connect-category" class="channel-category-select"><option value="">—</option></select>
-            </label>
+      <section class="section" id="channels-section">
+        <div class="section-header">
+          <div>
+            <h2>Channels</h2>
+            <p class="section-desc" id="storage-info"></p>
           </div>
-          <div class="upload-settings-row">
-            <label for="upload-spacing">Spacing between uploads
+          <div class="section-toolbar">
+            <label class="toolbar-field">New channel category
+              <select id="connect-category" class="channel-category-select"><option value="">None</option></select>
+            </label>
+            <label class="toolbar-field">Upload spacing
               <select id="upload-spacing">
-                <option value="auto">Auto (infer from YouTube schedule)</option>
-                <option value="12">Every 12 hours</option>
-                <option value="24" selected>Every 24 hours</option>
-                <option value="48">Every 48 hours</option>
+                <option value="auto">Auto</option>
+                <option value="12">12h</option>
+                <option value="24" selected>24h</option>
+                <option value="48">48h</option>
               </select>
             </label>
-            <label for="upload-max-per-run">Max uploads per run
-              <input type="number" id="upload-max-per-run" min="1" placeholder="All pending" />
+            <label class="toolbar-field">Max / run
+              <input type="number" id="upload-max-per-run" min="1" placeholder="All" title="Max uploads per run" />
             </label>
+            <button type="button" class="btn-voltage" id="btn-connect">Connect channel</button>
           </div>
-          <div class="actions">
-            <button type="button" class="btn-voltage" id="btn-connect">Connect channel →</button>
-            <button type="button" class="btn-ghost btn-ghost--padded" id="btn-features">Toggle features</button>
+        </div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Channel</th><th>Category</th><th>Status</th><th>Queue</th><th>Schedule</th><th></th></tr></thead>
+              <tbody id="channels-body"><tr><td colspan="6">Loading…</td></tr></tbody>
+            </table>
           </div>
           <div id="run-status"></div>
         </div>
       </section>
 
-      <section class="section" id="channels-section">
-        <span class="section-tag">OAuth</span>
-        <h2 class="section-title">Channels</h2>
-        <p id="storage-info" class="section-lede"></p>
-        <div class="panel">
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Channel</th><th>Category</th><th>Auth</th><th>Pending</th><th>Schedule</th><th>Actions</th></tr></thead>
-              <tbody id="channels-body"><tr><td colspan="6">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="stage-section">
-        <span class="section-tag">Stage</span>
-        <h2 class="section-title">Manual upload</h2>
-        <p class="section-lede muted" style="font-style:normal">Upload a video file to Cloudflare R2 queue/, then publish to YouTube to test scheduling.</p>
-        <div class="panel">
-          <form id="stage-form" class="stage-form">
-            <div class="field">
-              <label for="stage-channel">Channel</label>
-              <select id="stage-channel" required><option value="">Select channel…</option></select>
-            </div>
-            <div class="field">
-              <label for="stage-privacy">Privacy</label>
-              <select id="stage-privacy">
-                <option value="private" selected>private (scheduled)</option>
-                <option value="public">public</option>
-                <option value="unlisted">unlisted</option>
-              </select>
-            </div>
-            <div class="field field--full">
-              <label for="stage-video">Video file</label>
-              <input type="file" id="stage-video" accept="video/*,.mp4,.mov,.webm,.mkv" required />
-            </div>
-            <div class="field field--full">
-              <label for="stage-thumbnail">Thumbnail (optional)</label>
-              <input type="file" id="stage-thumbnail" accept="image/*,.png,.jpg,.jpeg,.webp" />
-            </div>
-            <div class="field field--full">
-              <label for="stage-title">Title</label>
-              <input type="text" id="stage-title" placeholder="Video title" required maxlength="100" />
-            </div>
-            <div class="field field--full">
-              <label for="stage-description">Description</label>
-              <textarea id="stage-description" placeholder="Optional description"></textarea>
-            </div>
-            <div class="field">
-              <label for="stage-is-short">Format</label>
-              <select id="stage-is-short">
-                <option value="false" selected>Regular video</option>
-                <option value="true">Short</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="stage-tags">Tags</label>
-              <input type="text" id="stage-tags" placeholder="comma, separated" />
-            </div>
-            <p class="stage-schedule-info muted" id="stage-schedule-info" aria-live="polite"></p>
-            <div class="stage-form-actions">
-              <button type="submit" class="btn-voltage" id="btn-stage">Stage to queue →</button>
-              <button type="button" class="btn-ghost btn-ghost--padded" id="btn-stage-upload">Stage &amp; upload to YouTube</button>
-              <button type="button" class="btn-ghost btn-ghost--padded" id="btn-stage-plan">Preview schedule</button>
-              <p class="stage-status" id="stage-status" aria-live="polite"></p>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      <section class="section" id="uploading-section">
-        <span class="section-tag">Live</span>
-        <h2 class="section-title">Uploading now</h2>
-        <p class="section-lede muted" style="font-style:normal">Real-time progress from parallel upload workers</p>
-        <div class="panel">
-          <div id="uploading-list" class="upload-progress-list">
-            <p class="muted">No uploads in progress.</p>
-          </div>
-        </div>
-      </section>
-
       <section class="section" id="jobs-section">
-        <span class="section-tag">Queue</span>
-        <h2 class="section-title">Pending jobs</h2>
-        <p class="section-lede muted" style="font-style:normal">queue/ — upload in order</p>
+        <div class="section-header">
+          <div>
+            <h2>Queue</h2>
+            <p class="section-desc">Videos waiting to upload</p>
+          </div>
+        </div>
         <div class="panel">
-          <label>Filter <select id="channel-filter"><option value="">All channels</option></select></label>
+          <div class="filter-row">
+            <label>Channel <select id="channel-filter"><option value="">All channels</option></select></label>
+          </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Channel</th><th>Job ID</th><th>Title</th><th>Status</th><th>Folder</th><th>Actions</th></tr></thead>
-              <tbody id="queue-body"><tr><td colspan="7">Loading…</td></tr></tbody>
+              <thead><tr><th>#</th><th>Channel</th><th>Job</th><th>Title</th><th>Status</th><th></th></tr></thead>
+              <tbody id="queue-body"><tr><td colspan="6">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
       </section>
 
       <section class="section" id="uploaded-section">
-        <span class="section-tag">Archive</span>
-        <h2 class="section-title">Uploaded</h2>
-        <p class="section-lede muted" style="font-style:normal">uploaded/ — after YouTube publish</p>
+        <div class="section-header">
+          <div>
+            <h2>History</h2>
+            <p class="section-desc">Successfully published videos</p>
+          </div>
+        </div>
         <div class="panel">
           <div class="table-wrap">
             <table>
-              <thead><tr><th></th><th>Channel</th><th>Job ID</th><th>Title</th><th>YouTube</th><th>Uploaded</th><th>Folder</th></tr></thead>
+              <thead><tr><th></th><th>Channel</th><th>Job</th><th>Title</th><th>YouTube</th><th>Published</th></tr></thead>
               <tbody id="uploaded-body"><tr><td colspan="6">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
       </section>
 
-      <section class="section" id="features-section" hidden>
-        <span class="section-tag">API</span>
-        <h2 class="section-title">Features</h2>
-        <div class="panel">
-          <ul class="features" id="features-list"></ul>
+      <details class="settings-panel" id="settings-panel">
+        <summary>Settings &amp; manual upload</summary>
+        <div class="settings-inner">
+          <div class="settings-block" id="categories-section">
+            <h3>Categories</h3>
+            <p class="settings-desc">Organize channels by label (e.g. korean, ambient). Assign on each channel row.</p>
+            <div class="category-create">
+              <input type="text" id="new-category-name" placeholder="Category name" />
+              <button type="button" class="btn-voltage btn-voltage--compact" id="btn-create-category">Add</button>
+            </div>
+            <div id="categories-list"><p class="muted">Loading…</p></div>
+          </div>
+
+          <div class="settings-block" id="stage-section">
+            <h3>Manual upload</h3>
+            <p class="settings-desc">Stage a local video file to the queue, then publish via a channel above.</p>
+            <form id="stage-form" class="stage-form">
+              <div class="field">
+                <label for="stage-channel">Channel</label>
+                <select id="stage-channel" required><option value="">Select channel…</option></select>
+              </div>
+              <div class="field">
+                <label for="stage-privacy">Privacy</label>
+                <select id="stage-privacy">
+                  <option value="private" selected>Private (scheduled)</option>
+                  <option value="public">Public</option>
+                  <option value="unlisted">Unlisted</option>
+                </select>
+              </div>
+              <div class="field field--full">
+                <label for="stage-video">Video file</label>
+                <input type="file" id="stage-video" accept="video/*,.mp4,.mov,.webm,.mkv" required />
+              </div>
+              <div class="field field--full">
+                <label for="stage-thumbnail">Thumbnail (optional)</label>
+                <input type="file" id="stage-thumbnail" accept="image/*,.png,.jpg,.jpeg,.webp" />
+              </div>
+              <div class="field field--full">
+                <label for="stage-title">Title</label>
+                <input type="text" id="stage-title" placeholder="Video title" required maxlength="100" />
+              </div>
+              <div class="field field--full">
+                <label for="stage-description">Description</label>
+                <textarea id="stage-description" placeholder="Optional description"></textarea>
+              </div>
+              <div class="field">
+                <label for="stage-is-short">Format</label>
+                <select id="stage-is-short">
+                  <option value="false" selected>Regular video</option>
+                  <option value="true">Short</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="stage-tags">Tags</label>
+                <input type="text" id="stage-tags" placeholder="comma, separated" />
+              </div>
+              <p class="stage-schedule-info muted" id="stage-schedule-info" aria-live="polite"></p>
+              <div class="stage-form-actions">
+                <button type="submit" class="btn-voltage" id="btn-stage">Stage to queue</button>
+                <button type="button" class="btn-ghost btn-ghost--compact" id="btn-stage-upload">Stage &amp; upload</button>
+                <button type="button" class="btn-ghost btn-ghost--compact" id="btn-stage-plan">Preview schedule</button>
+                <p class="stage-status" id="stage-status" aria-live="polite"></p>
+              </div>
+            </form>
+          </div>
+
+          <div class="settings-block">
+            <h3>API capabilities</h3>
+            <p class="settings-desc">YouTube features exposed by this service.</p>
+            <button type="button" class="btn-ghost btn-ghost--compact" id="btn-features">Show features</button>
+            <div id="features-section" hidden>
+              <div id="features-list" class="features-wrap" role="status" aria-live="polite"></div>
+            </div>
+          </div>
         </div>
-      </section>
+      </details>
     </main>
 
     <div id="toast"></div>
@@ -850,6 +1238,69 @@
     const TRASH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 
     let savedCategories = [];
+
+    function setButtonLoading(btn, loading, label) {
+      if (!btn) return;
+      if (loading) {
+        if (!btn.dataset.savedLabel) btn.dataset.savedLabel = btn.textContent.trim();
+        btn.disabled = true;
+        btn.classList.add('btn-loading');
+        btn.setAttribute('aria-busy', 'true');
+        if (label) btn.textContent = label;
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+        btn.removeAttribute('aria-busy');
+        if (label !== undefined) btn.textContent = label;
+        else if (btn.dataset.savedLabel) btn.textContent = btn.dataset.savedLabel;
+        delete btn.dataset.savedLabel;
+      }
+    }
+
+    function setStatsLoading(loading) {
+      const bar = document.getElementById('stats-bar');
+      bar.classList.toggle('is-loading', loading);
+      ['stat-channels', 'stat-pending', 'stat-uploading', 'stat-uploaded'].forEach(id => {
+        const el = document.getElementById(id);
+        if (loading) {
+          el.textContent = '0';
+          el.classList.add('skeleton-text');
+        } else {
+          el.classList.remove('skeleton-text');
+        }
+      });
+    }
+
+    function setTableLoading(tbodyId, cols, message) {
+      const tbody = document.getElementById(tbodyId);
+      if (!tbody) return;
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="' + cols + '">'
+        + '<div class="inline-loading"><span class="spinner" aria-hidden="true"></span><span>'
+        + esc(message || 'Loading…') + '</span></div></td></tr>';
+    }
+
+    function renderFeaturesSkeleton() {
+      return '<ul class="features-skeleton" aria-hidden="true">'
+        + Array(6).fill(0).map(() =>
+          '<li><span class="skeleton-line"></span><span class="skeleton-line short"></span></li>'
+        ).join('')
+        + '</ul>';
+    }
+
+    function renderFeaturesList(features) {
+      return '<ul class="features features-loaded">'
+        + features.map(f => '<li><strong>' + esc(f.name) + '</strong> — ' + esc(f.description) + '</li>').join('')
+        + '</ul>';
+    }
+
+    function beginDashboardLoad() {
+      setStatsLoading(true);
+      setTableLoading('channels-body', 6, 'Loading channels…');
+      setTableLoading('queue-body', 6, 'Loading queue…');
+      setTableLoading('uploaded-body', 6, 'Loading history…');
+      const catList = document.getElementById('categories-list');
+      if (catList) catList.innerHTML = '<div class="inline-loading"><span class="spinner"></span><span>Loading…</span></div>';
+    }
 
     function categoryOptionsHtml(selected) {
       const opts = ['<option value="">—</option>'];
@@ -929,7 +1380,7 @@
               <input type="number" data-field="hour" min="0" max="23" value="${hour}" />
             </label>
             <div class="channel-schedule-actions">
-              <button type="button" class="btn-voltage btn-voltage--compact" data-save-schedule="${esc(ch.id)}" disabled>Save schedule →</button>
+              <button type="button" class="btn-voltage btn-voltage--compact" data-save-schedule="${esc(ch.id)}" disabled>Save</button>
               <span class="schedule-save-status" data-schedule-status="${esc(ch.id)}" aria-live="polite"></span>
               <span class="muted">Used when no YouTube schedule exists · uploads append after latest scheduled slot</span>
             </div>
@@ -967,7 +1418,7 @@
       const prev = filter.value;
       filter.innerHTML = '<option value="">All channels</option>';
       if (!channels.length) {
-        tbody.innerHTML = '<tr><td colspan="6">No channels — click Connect channel</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No channels yet. Click <strong>Connect channel</strong> above.</div></td></tr>';
         syncStageChannelDropdown([]);
         return;
       }
@@ -984,18 +1435,20 @@
           <td>
             <div class="channel-category-cell">
               <select class="channel-category-select" data-set-category="${ch.id}" data-current="${esc(ch.category || '')}" data-channel-name="${esc(ch.name)}">${categoryOptionsHtml(ch.category || '')}</select>
-              <button type="button" class="btn-voltage btn-voltage--compact category-save-btn" data-save-category="${ch.id}" disabled title="Save category">Save →</button>
+              <button type="button" class="btn-voltage btn-voltage--compact category-save-btn" data-save-category="${ch.id}" disabled title="Save category">Save</button>
               <span class="category-save-status" data-category-status="${ch.id}" aria-live="polite"></span>
             </div>
           </td>
           <td>${authBadge(ch.auth)}</td>
-          <td>${ch.pending_count} queue · ${ch.uploaded_count || 0} uploaded${ch.failed_count ? ' · ' + ch.failed_count + ' failed' : ''}</td>
+          <td><span class="count-pill${ch.pending_count ? ' has-pending' : ''}">${ch.pending_count}</span> queued${ch.failed_count ? ' · <span class="bad">' + ch.failed_count + ' failed</span>' : ''}</td>
           <td>${scheduleCell}</td>
           <td>
-            <button class="btn-voltage btn-voltage--compact" data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload 1 →</button>
-            <button class="btn-ghost btn-ghost--padded" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload all</button>
-            <button class="btn-ghost btn-ghost--padded" data-reauth="${ch.id}">Reauth</button>
+            <div class="btn-group">
+            <button class="btn-voltage btn-voltage--compact" data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload 1</button>
+            <button class="btn-ghost btn-ghost--compact" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>All</button>
+            <button class="btn-ghost btn-ghost--compact" data-reauth="${ch.id}" title="Reconnect OAuth">Reauth</button>
             <button type="button" class="btn-icon" data-remove-channel="${ch.id}" data-channel-name="${esc(ch.name)}" title="Remove channel">${TRASH_ICON}</button>
+            </div>
           </td>
         </tr>`;
         const scheduleRow = expanded && canEdit ? scheduleFormRowHtml(ch) : '';
@@ -1049,6 +1502,7 @@
       };
       btn.disabled = true;
       btn.dataset.saving = '1';
+      btn.classList.add('btn-loading');
       btn.textContent = 'Saving…';
       setScheduleSaveStatus(channelId, 'Saving…', 'pending');
       try {
@@ -1076,7 +1530,8 @@
         toast('Failed to save schedule: ' + err.message, true);
       } finally {
         delete btn.dataset.saving;
-        btn.textContent = 'Save schedule →';
+        btn.classList.remove('btn-loading');
+        btn.textContent = 'Save';
         updateScheduleSaveButton(form);
       }
     }
@@ -1109,6 +1564,7 @@
 
       btn.disabled = true;
       btn.dataset.saving = '1';
+      btn.classList.add('btn-loading');
       btn.textContent = 'Saving…';
       setCategorySaveStatus(channelId, 'Saving…', 'pending');
       try {
@@ -1131,7 +1587,8 @@
         toast('Failed to save category for ' + channelName + ': ' + err.message, true);
       } finally {
         delete btn.dataset.saving;
-        btn.textContent = 'Save →';
+        btn.classList.remove('btn-loading');
+        btn.textContent = 'Save';
         updateCategorySaveButton(select);
       }
     }
@@ -1166,21 +1623,27 @@
     async function attemptLogin() {
       const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
+      const btn = document.getElementById('btn-login');
       errEl.hidden = true;
-      const res = await fetch('/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        errEl.textContent = err.detail || 'Invalid password';
-        errEl.hidden = false;
-        return false;
+      setButtonLoading(btn, true, 'Signing in…');
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          errEl.textContent = err.detail || 'Invalid password';
+          errEl.hidden = false;
+          return false;
+        }
+        showApp();
+        return true;
+      } finally {
+        setButtonLoading(btn, false, 'Sign in');
       }
-      showApp();
-      return true;
     }
 
     let toastTimer = null;
@@ -1230,17 +1693,38 @@
     }
 
     function authBadge(auth) {
-      if (auth.valid) return '<span class="ok">authenticated</span>';
-      if (!auth.has_token) return '<span class="bad">not connected</span>';
+      if (auth.valid) return '<span class="badge badge-ok">Connected</span>';
+      if (!auth.has_token) return '<span class="badge badge-bad">Not connected</span>';
       const labels = {
-        missing: 'not connected',
-        empty: 'not connected',
-        needs_reauth: 'reconnect required',
-        refresh_failed: 'refresh failed — reconnect',
-        invalid: 'invalid token',
+        missing: 'Not connected',
+        empty: 'Not connected',
+        needs_reauth: 'Reconnect',
+        refresh_failed: 'Token expired',
+        invalid: 'Invalid token',
       };
       const label = labels[auth.status] || auth.status.replace(/_/g, ' ');
-      return '<span class="warn">' + label + '</span>';
+      return '<span class="badge badge-warn">' + esc(label) + '</span>';
+    }
+
+    function updateDashboardStats(channels, queueJobs, uploadedJobs, uploadingJobs) {
+      setStatsLoading(false);
+      document.getElementById('stats-bar').classList.remove('is-loading');
+      const pending = (queueJobs || []).filter(j => j.status === 'pending').length;
+      const uploaded = (uploadedJobs || []).length;
+      const uploading = (uploadingJobs || []).filter(j => !j.completed && j.upload_phase !== 'done').length;
+      const totalPublished = (channels || []).reduce((n, c) => n + (c.uploaded_count || 0), 0);
+      document.getElementById('stat-channels').textContent = String((channels || []).length);
+      document.getElementById('stat-pending').textContent = String(pending);
+      document.getElementById('stat-uploading').textContent = String(uploading);
+      document.getElementById('stat-uploaded').textContent = String(totalPublished || uploaded);
+      const wrap = document.getElementById('stat-uploading-wrap');
+      wrap.classList.toggle('stat--active', uploading > 0);
+    }
+
+    function setUploadingSectionVisible(active) {
+      const sec = document.getElementById('uploading-section');
+      sec.classList.toggle('is-active', active);
+      sec.classList.toggle('is-idle', !active);
     }
 
     async function api(path, opts) {
@@ -1386,8 +1870,8 @@
 
       const btnStage = document.getElementById('btn-stage');
       const btnUpload = document.getElementById('btn-stage-upload');
-      btnStage.disabled = true;
-      btnUpload.disabled = true;
+      setButtonLoading(btnStage, true, 'Staging…');
+      setButtonLoading(btnUpload, true, 'Staging…');
       setStageStatus('Uploading to R2…', 'pending');
 
       const fd = new FormData();
@@ -1426,18 +1910,20 @@
         setStageStatus(err.message || 'Stage failed', 'bad');
         toast('Stage failed: ' + (err.message || err), true);
       } finally {
-        btnStage.disabled = false;
-        btnUpload.disabled = false;
+        setButtonLoading(btnStage, false);
+        setButtonLoading(btnUpload, false);
       }
     }
 
     async function previewStagePlan() {
       const channelId = document.getElementById('stage-channel').value.trim();
+      const planBtn = document.getElementById('btn-stage-plan');
       if (!channelId) {
         toast('Select a channel', true);
         return;
       }
       setStageStatus('Loading plan…', 'pending');
+      setButtonLoading(planBtn, true, 'Loading…');
       try {
         const plan = await api('/v1/channels/' + encodeURIComponent(channelId) + '/plan' + planQueryString(5));
         if (!plan.length) {
@@ -1450,6 +1936,8 @@
       } catch (err) {
         setStageStatus('Plan failed: ' + err.message, 'bad');
         toast(err.message, true);
+      } finally {
+        setButtonLoading(planBtn, false);
       }
     }
 
@@ -1496,10 +1984,10 @@
     }
 
     function statusLabel(status) {
-      if (status === 'pending') return 'pending';
-      if (status === 'failed') return '<span class="status-failed">failed</span>';
-      if (status === 'uploading') return '<span class="warn">uploading</span>';
-      return status;
+      if (status === 'pending') return '<span class="badge badge-ok">Pending</span>';
+      if (status === 'failed') return '<span class="badge badge-bad">Failed</span>';
+      if (status === 'uploading') return '<span class="badge badge-warn">Uploading</span>';
+      return '<span class="badge">' + esc(status || '—') + '</span>';
     }
 
     async function loadDashboard(force) {
@@ -1513,7 +2001,7 @@
       const storageEl = document.getElementById('storage-info');
       const cacheNote = data.cached ? ' · cached' : '';
       if (data.config_uri) {
-        storageEl.textContent = 'Config: ' + data.config_uri + ' (' + (data.storage || 'local') + ')' + cacheNote;
+        storageEl.textContent = (data.storage || 'local') + ' storage' + cacheNote;
       } else {
         storageEl.textContent = '';
       }
@@ -1521,6 +2009,12 @@
       renderQueueJobs(data.queue_jobs || data.jobs || []);
       renderUploadingJobs(data.uploading_jobs || []);
       renderUploadedJobs(data.uploaded_jobs || []);
+      updateDashboardStats(
+        channels,
+        data.queue_jobs || data.jobs || [],
+        data.uploaded_jobs || [],
+        data.uploading_jobs || []
+      );
       return channels;
     }
 
@@ -1539,8 +2033,10 @@
 
     function renderUploadingJobs(jobs) {
       const el = document.getElementById('uploading-list');
+      const active = jobs && jobs.some(j => !j.completed && j.upload_phase !== 'done');
+      setUploadingSectionVisible(active);
       if (!jobs || !jobs.length) {
-        el.innerHTML = '<p class="muted">No uploads in progress.</p>';
+        el.innerHTML = '';
         return;
       }
       el.innerHTML = jobs.map(j => {
@@ -1584,6 +2080,12 @@
           completed: u.completed,
           youtube_url: u.youtube_url,
         })));
+        updateDashboardStats(
+          dashboardData ? dashboardData.channels : [],
+          dashboardData ? (dashboardData.queue_jobs || dashboardData.jobs || []) : [],
+          dashboardData ? (dashboardData.uploaded_jobs || []) : [],
+          uploads
+        );
         uploads.forEach(u => {
           const key = u.channel_id + ':' + u.job_id;
           if (u.completed && !activeUploadCompletedToasted.has(key)) {
@@ -1686,13 +2188,13 @@
       const detailRow = document.createElement('tr');
       detailRow.className = 'job-detail';
       detailRow.dataset.key = key;
-      detailRow.innerHTML = '<td colspan="7">Loading details…</td>';
+      detailRow.innerHTML = '<td colspan="6"><div class="inline-loading"><span class="spinner"></span><span>Loading details…</span></div></td>';
       rowEl.after(detailRow);
       try {
         const detail = await loadJobDetail(channelId, jobId);
-        detailRow.innerHTML = '<td colspan="7">' + renderDetailPanel(detail) + '</td>';
+        detailRow.innerHTML = '<td colspan="6">' + renderDetailPanel(detail) + '</td>';
       } catch (err) {
-        detailRow.innerHTML = '<td colspan="7"><span class="bad">' + esc(err.message) + '</span></td>';
+        detailRow.innerHTML = '<td colspan="6"><span class="bad">' + esc(err.message) + '</span></td>';
       }
     }
 
@@ -1708,7 +2210,7 @@
       });
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="7">No jobs in queue/ — use <strong>Manual upload</strong> above or <code>POST /v1/channels/{id}/jobs</code></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Queue is empty. Stage a video in <strong>Settings</strong> or register via the API.</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => {
@@ -1719,10 +2221,9 @@
           <td>${pos}</td>
           <td>${esc(j.channel_id)}</td>
           <td><code>${esc(j.id)}</code></td>
-          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint">▸ details</span></td>
+          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint">details</span></td>
           <td>${statusLabel(j.status)}</td>
-          <td title="${esc(jobStoragePrefix(j))}">${storageBadge(j)}<br><small class="detail-path">${shortPath(jobStoragePrefix(j))}</small></td>
-          <td>${j.status === 'pending' ? '<button class="btn-ghost btn-ghost--padded" data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
+          <td>${j.status === 'pending' ? '<button class="btn-ghost btn-ghost--compact" data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
         </tr>`;
       }).join('');
       filtered.filter(j => expandedJobKeys.has(jobKey(j.channel_id, j.id))).forEach(j => {
@@ -1736,18 +2237,17 @@
       const filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs;
       const tbody = document.getElementById('uploaded-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="7">No jobs in uploaded/</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No published videos yet.</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => `
         <tr class="job-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
-          <td><span class="expand-hint">▸</span></td>
+          <td><span class="expand-hint">›</span></td>
           <td>${esc(j.channel_id)}</td>
           <td><code>${esc(j.id)}</code></td>
           <td><span class="click-title">${esc(j.title || '(no title)')}</span></td>
-          <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(j.youtube_id) + '</a>' : '—'}</td>
-          <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', ' UTC')) : '—'}</td>
-          <td title="${esc(jobStoragePrefix(j))}">${storageBadge(j)}<br><small class="detail-path">${shortPath(jobStoragePrefix(j))}</small></td>
+          <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
+          <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', '')) : '—'}</td>
         </tr>`).join('');
     }
 
@@ -1788,16 +2288,21 @@
       }
     }
 
-    async function startUpload(channelId, count) {
-      const body = getUploadRunOptions(count);
-      const res = await api('/v1/channels/' + encodeURIComponent(channelId) + '/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      document.getElementById('run-status').textContent = res.message || 'Upload workers dispatched';
-      toast('Parallel upload started');
-      pollActiveUploads();
+    async function startUpload(channelId, count, triggerBtn) {
+      if (triggerBtn) setButtonLoading(triggerBtn, true, count == null ? 'Starting all…' : 'Starting…');
+      try {
+        const body = getUploadRunOptions(count);
+        const res = await api('/v1/channels/' + encodeURIComponent(channelId) + '/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        document.getElementById('run-status').textContent = res.message || 'Upload workers dispatched';
+        toast('Parallel upload started');
+        pollActiveUploads();
+      } finally {
+        if (triggerBtn) setButtonLoading(triggerBtn, false);
+      }
     }
 
     async function refresh() {
@@ -1807,7 +2312,8 @@
       const uploadedSection = document.getElementById('uploaded-section');
       btn.disabled = true;
       btn.classList.add('refreshing');
-      btn.textContent = 'Refreshing…';
+      btn.setAttribute('aria-busy', 'true');
+      beginDashboardLoad();
       channelsSection.classList.add('loading-overlay');
       jobsSection.classList.add('loading-overlay');
       uploadedSection.classList.add('loading-overlay');
@@ -1816,7 +2322,7 @@
       } finally {
         btn.disabled = false;
         btn.classList.remove('refreshing');
-        btn.textContent = 'Refresh';
+        btn.removeAttribute('aria-busy');
         channelsSection.classList.remove('loading-overlay');
         jobsSection.classList.remove('loading-overlay');
         uploadedSection.classList.remove('loading-overlay');
@@ -1860,14 +2366,20 @@
       const ok = await attemptLogin();
       if (ok) await refresh();
     });
+    document.getElementById('btn-login').onclick = async () => {
+      const ok = await attemptLogin();
+      if (ok) await refresh();
+    };
 
     document.getElementById('btn-create-category').onclick = async () => {
       const input = document.getElementById('new-category-name');
+      const btn = document.getElementById('btn-create-category');
       const name = input.value.trim();
       if (!name) {
         toast('Enter a category name', true);
         return;
       }
+      setButtonLoading(btn, true, 'Adding…');
       try {
         const data = await api('/v1/categories', {
           method: 'POST',
@@ -1881,6 +2393,8 @@
         toast('Created category: ' + name);
       } catch (err) {
         toast(err.message, true);
+      } finally {
+        setButtonLoading(btn, false, 'Add');
       }
     };
 
@@ -1914,13 +2428,20 @@
     };
 
     document.getElementById('btn-connect').onclick = async () => {
+      const btn = document.getElementById('btn-connect');
       const category = document.getElementById('connect-category').value.trim();
-      const res = await api('/v1/oauth/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category }),
-      });
-      window.location.href = res.auth_url;
+      setButtonLoading(btn, true, 'Opening OAuth…');
+      try {
+        const res = await api('/v1/oauth/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category }),
+        });
+        window.location.href = res.auth_url;
+      } catch (err) {
+        setButtonLoading(btn, false, 'Connect channel');
+        toast(err.message, true);
+      }
     };
 
     document.getElementById('channel-filter').onchange = () => {
@@ -1952,11 +2473,17 @@
       if (t.dataset.saveCategory) saveChannelCategory(t.dataset.saveCategory);
       if (t.dataset.toggleSchedule) toggleChannelSchedule(t.dataset.toggleSchedule);
       if (t.dataset.saveSchedule) saveChannelSchedule(t.dataset.saveSchedule);
-      if (t.dataset.upload) startUpload(t.dataset.upload, 1);
-      if (t.dataset.uploadAll) startUpload(t.dataset.uploadAll, null);
+      if (t.dataset.upload) startUpload(t.dataset.upload, 1, t);
+      if (t.dataset.uploadAll) startUpload(t.dataset.uploadAll, null, t);
       if (t.dataset.reauth) {
-        const res = await api('/v1/channels/' + encodeURIComponent(t.dataset.reauth) + '/oauth/start', { method: 'POST' });
-        window.location.href = res.auth_url;
+        setButtonLoading(t, true, 'Opening…');
+        try {
+          const res = await api('/v1/channels/' + encodeURIComponent(t.dataset.reauth) + '/oauth/start', { method: 'POST' });
+          window.location.href = res.auth_url;
+        } catch (err) {
+          setButtonLoading(t, false, 'Reauth');
+          toast(err.message, true);
+        }
       }
       if (t.dataset.removeChannel) {
         const id = t.dataset.removeChannel;
@@ -2027,12 +2554,36 @@
 
     document.getElementById('btn-features').onclick = async () => {
       const sec = document.getElementById('features-section');
-      if (!sec.hidden) { sec.hidden = true; return; }
-      const cap = await api('/v1/capabilities');
-      document.getElementById('features-list').innerHTML = cap.youtube_features.map(f =>
-        '<li><strong>' + f.name + '</strong> — ' + f.description + '</li>').join('');
+      const list = document.getElementById('features-list');
+      const btn = document.getElementById('btn-features');
+      const settings = document.getElementById('settings-panel');
+      if (!sec.hidden) {
+        sec.hidden = true;
+        list.innerHTML = '';
+        setButtonLoading(btn, false, 'Show features');
+        return;
+      }
+      settings.open = true;
       sec.hidden = false;
+      list.innerHTML = renderFeaturesSkeleton();
+      setButtonLoading(btn, true, 'Loading…');
+      try {
+        const cap = await api('/v1/capabilities');
+        list.innerHTML = renderFeaturesList(cap.youtube_features || []);
+        setButtonLoading(btn, false, 'Hide features');
+      } catch (err) {
+        list.innerHTML = '<p class="bad">' + esc(err.message) + '</p>';
+        sec.hidden = true;
+        setButtonLoading(btn, false, 'Show features');
+        toast(err.message, true);
+      }
     };
+
+    document.querySelectorAll('.subnav a[href="#settings-panel"]').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('settings-panel').open = true;
+      });
+    });
 
     (async function init() {
       const params = new URLSearchParams(window.location.search);
@@ -2048,6 +2599,7 @@
         return;
       }
       showApp();
+      beginDashboardLoad();
       const action = params.get('oauth_action');
       const id = params.get('oauth_success');
       if (id && action === 'added_different_account') {

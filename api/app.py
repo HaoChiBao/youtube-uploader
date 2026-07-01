@@ -119,6 +119,7 @@ from uploader.scheduler import (
 from uploader.job_views import list_active_uploads
 from uploader.upload_reconcile import reconcile_uploads
 from uploader.state_store import ensure_bucket_structure
+from uploader.worker_dispatch import dispatch_parallel_uploads
 
 
 def create_app() -> FastAPI:
