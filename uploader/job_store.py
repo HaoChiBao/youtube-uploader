@@ -25,7 +25,14 @@ from uploader.object_storage import (
     storage_bucket,
     upload_file,
 )
-from uploader.registry import STATUS_PENDING, STATUS_UPLOADING, UploadEntry, UploadRegistry
+from uploader.registry import (
+    STATUS_FAILED,
+    STATUS_PENDING,
+    STATUS_UPLOADED,
+    STATUS_UPLOADING,
+    UploadEntry,
+    UploadRegistry,
+)
 
 
 def _utc_now_iso() -> str:
@@ -424,6 +431,91 @@ def _prefix_has_objects(prefix: str) -> bool:
         return bool(list_keys(prefix))
     root = Path(prefix.rstrip("/"))
     return root.is_dir() and any(root.iterdir())
+
+
+def requeue_job(
+    channel_id: str,
+    job_id: str,
+    *,
+    base: Path,
+    registry: UploadRegistry,
+) -> UploadEntry:
+    """Move an uploaded job back to queue/ and reset registry for re-upload."""
+    entry = registry.get(job_id)
+    if entry is None:
+        raise ValueError(f"Job not found in registry: {job_id}")
+    if entry.channel_id != channel_id:
+        raise ValueError("channel mismatch")
+    if entry.status == STATUS_UPLOADING:
+        raise ValueError(f"Job {job_id} is currently uploading")
+
+    if entry.extra.get("reference_uris"):
+        registry.prepare_for_reupload(job_id)
+        restored = registry.get(job_id)
+        if restored is None:
+            raise ValueError(f"Job {job_id} disappeared after requeue")
+        return restored
+
+    from uploader.job_views import detect_storage_folder
+
+    folder = detect_storage_folder(
+        channel_id,
+        job_id,
+        base=base,
+        status=entry.status,
+        video_uri=entry.resolved_video_uri(),
+    )
+    if folder == "uploaded":
+        dest_prefix = bucket_layout.queue_prefix_location(channel_id, job_id, base)
+        dest = dest_prefix if dest_prefix.endswith("/") else dest_prefix + "/"
+        for key_prefix in bucket_layout.uploaded_prefix_candidates(channel_id, job_id):
+            if storage_bucket():
+                src = bucket_layout.s3_uri(key_prefix)
+            else:
+                src = str(bucket_layout.local_path(base, key_prefix.rstrip("/"))) + "/"
+            if not _prefix_has_objects(src):
+                continue
+            move_prefix(src, dest)
+            break
+
+    video_uri = bucket_layout.job_location(channel_id, job_id, bucket_layout.JOB_VIDEO, base)
+    thumb_uri = ""
+    thumb_loc = bucket_layout.job_location(channel_id, job_id, bucket_layout.JOB_THUMBNAIL, base)
+    if exists(thumb_loc):
+        thumb_uri = thumb_loc
+
+    registry.prepare_for_reupload(job_id)
+    registry.update_storage_uris(job_id, video_uri=video_uri, thumbnail_uri=thumb_uri)
+    restored = registry.get(job_id)
+    if restored is None:
+        raise ValueError(f"Job {job_id} disappeared after requeue")
+    return restored
+
+
+def prepare_job_for_upload(
+    channel: ChannelConfig,
+    job_id: str,
+    *,
+    base: Path,
+    registry: UploadRegistry | None = None,
+) -> UploadEntry:
+    """Ensure a job is pending in queue/ and ready to dispatch an upload worker."""
+    reg = registry or UploadRegistry(channel.registry_path)
+    entry = reg.get(job_id)
+    if entry is None:
+        raise ValueError(f"Job not found in registry: {job_id}")
+    if entry.channel_id != channel.id:
+        raise ValueError("channel mismatch")
+    if entry.status == STATUS_UPLOADING:
+        raise ValueError(f"Job {job_id} is currently uploading")
+    if entry.status == STATUS_UPLOADED:
+        return requeue_job(channel.id, job_id, base=base, registry=reg)
+    if entry.status == STATUS_FAILED:
+        reg.prepare_for_reupload(job_id)
+    restored = reg.get(job_id)
+    if restored is None:
+        raise ValueError(f"Job {job_id} disappeared")
+    return restored
 
 
 def archive_job(channel_id: str, job_id: str, *, base: Path) -> list[str]:

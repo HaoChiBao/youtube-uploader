@@ -144,6 +144,10 @@ class RunRequest(BaseModel):
     )
     start: str | None = None
     tags: list[str] | None = None
+    job_ids: list[str] | None = Field(
+        default=None,
+        description="Upload only these job IDs (must be pending after optional requeue)",
+    )
 
 
 class RunResponse(BaseModel):

@@ -238,6 +238,30 @@ class UploadRegistry:
 
         self._update_entry(entry_id, _upd)
 
+    def prepare_for_reupload(self, entry_id: str) -> None:
+        """Reset a job to pending for a fresh upload (re-upload or retry)."""
+
+        def _upd(e: UploadEntry) -> None:
+            e.status = STATUS_PENDING
+            e.youtube_id = ""
+            e.youtube_url = ""
+            e.uploaded_at = ""
+            e.error = ""
+            e.publish_at = ""
+            extra = dict(e.extra or {})
+            for key in (
+                "upload_worker_id",
+                "upload_phase",
+                "upload_progress",
+                "upload_message",
+                "upload_started_at",
+                "upload_updated_at",
+            ):
+                extra.pop(key, None)
+            e.extra = extra
+
+        self._update_entry(entry_id, _upd)
+
     def clear_upload_progress(self, entry_id: str) -> None:
         def _upd(e: UploadEntry) -> None:
             extra = dict(e.extra or {})

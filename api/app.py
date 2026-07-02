@@ -91,7 +91,7 @@ from uploader.category_store import (
 )
 from uploader.job_metadata import load_job_metadata
 from uploader.job_claim import cancel_upload_job
-from uploader.job_store import remove_job
+from uploader.job_store import prepare_job_for_upload, remove_job
 from uploader.oauth import oauth_is_configured
 from uploader.oauth_web import (
     api_redirect_uri,
@@ -595,6 +595,27 @@ def create_app() -> FastAPI:
             content=out.model_dump(),
         )
 
+    @app.get("/v1/channels/{channel_ref}/jobs", response_model=list[JobOut], tags=["jobs"])
+    def list_channel_jobs(
+        channel_ref: str,
+        status: str | None = Query(default=None, description="pending | uploading | uploaded | failed"),
+        location: str | None = Query(
+            default="all",
+            description="queue | uploaded | all — filter by R2 folder",
+        ),
+    ):
+        """List jobs for one channel with optional status and storage filters."""
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        loc = location or "all"
+        if loc not in ("queue", "uploaded", "all"):
+            raise HTTPException(400, "location must be queue, uploaded, or all")
+        base = get_storage_base()
+        views = list_jobs_unified([ch], base=base, location=loc, status=status)
+        return [job_view_to_out(v) for v in views]
+
     @app.get("/v1/channels/{channel_ref}/jobs/{job_id}", response_model=JobDetailResponse)
     def get_job(
         channel_ref: str,
@@ -617,6 +638,60 @@ def create_app() -> FastAPI:
             job=job_out,
             metadata=meta.to_dict() if meta else None,
             media=media_out,
+        )
+
+    @app.post(
+        "/v1/channels/{channel_ref}/jobs/{job_id}/upload",
+        response_model=RunResponse,
+        status_code=202,
+        tags=["jobs"],
+    )
+    def upload_one_job(channel_ref: str, job_id: str, body: RunRequest | None = None):
+        """Upload (or re-upload) a single job. Re-queues uploaded/failed jobs automatically."""
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        if not _token_status(ch).valid:
+            raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
+        base = get_storage_base()
+        reg = UploadRegistry(ch.registry_path)
+        try:
+            prepare_job_for_upload(ch, job_id, base=base, registry=reg)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        opts = body or RunRequest(parallel=True, count=1)
+        if not opts.parallel:
+            raise HTTPException(400, "Single-job upload requires parallel=true")
+        config = get_app_config()
+        oauth = get_oauth_settings()
+        result = dispatch_parallel_uploads(
+            ch.id,
+            config,
+            base=base,
+            count=1,
+            job_ids=[job_id],
+            no_schedule=opts.no_schedule,
+            privacy=opts.privacy,
+            upload_retries=opts.upload_retries,
+            retry_delay=opts.retry_delay,
+            tags=opts.tags,
+            start=opts.start,
+            interval_hours=opts.interval_hours,
+            uploads_per_day=opts.uploads_per_day,
+            oauth_client_secret=oauth.client_secret_path,
+            oauth_client_config=oauth.client_config,
+            oauth_port=oauth.oauth_port,
+        )
+        bump("queue")
+        if not result.dispatched:
+            reason = result.skipped[0]["reason"] if result.skipped else "could not dispatch worker"
+            raise HTTPException(409, reason)
+        return RunResponse(
+            run_id=f"parallel_{secrets.token_hex(6)}",
+            channel_id=ch.id,
+            status="dispatched",
+            message=f"Upload started for {job_id}. Poll GET /v1/uploads/active",
         )
 
     @app.get("/v1/channels/{channel_ref}/jobs/{job_id}/media/{asset}")
@@ -822,7 +897,17 @@ def create_app() -> FastAPI:
             raise HTTPException(404, str(e)) from e
         if not _token_status(ch).valid:
             raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
-        pending = UploadRegistry(ch.registry_path).pending(channel_id=ch.id)
+        reg = UploadRegistry(ch.registry_path)
+        if body.job_ids:
+            for jid in body.job_ids:
+                try:
+                    prepare_job_for_upload(ch, jid, base=get_storage_base(), registry=reg)
+                except ValueError as e:
+                    raise HTTPException(400, str(e)) from e
+        pending = reg.pending(channel_id=ch.id)
+        if body.job_ids:
+            wanted = {j.strip() for j in body.job_ids if j and j.strip()}
+            pending = [e for e in pending if e.id in wanted]
         if not pending:
             raise HTTPException(400, "No pending jobs in queue")
 
@@ -835,6 +920,7 @@ def create_app() -> FastAPI:
                 config,
                 base=base,
                 count=body.count,
+                job_ids=body.job_ids,
                 no_schedule=body.no_schedule,
                 privacy=body.privacy,
                 upload_retries=body.upload_retries,

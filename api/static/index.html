@@ -35,10 +35,10 @@
       --text-heading-lg: 48px;
       --text-display: 64px;
       --page-max-width: 1200px;
-      --section-gap: 40px;
-      --section-gap-inner: 12px;
+      --section-gap: 48px;
+      --section-gap-inner: 16px;
       --card-padding: 24px;
-      --element-gap: 16px;
+      --element-gap: 12px;
       --radius-nav: 14px;
       --radius-cards: 32px;
       --radius-buttons: 14px;
@@ -75,8 +75,12 @@
 
     /* —— Nav header —— */
     .site-header {
-      background: transparent;
-      padding: var(--spacing-16, 16px) var(--spacing-32, 32px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: color-mix(in srgb, var(--color-cream-paper) 92%, transparent);
+      backdrop-filter: blur(8px);
+      padding: 12px 24px;
     }
     .site-header-inner {
       max-width: var(--page-max-width);
@@ -142,57 +146,66 @@
     .header-actions .btn-link:hover { color: var(--color-midnight-ink); text-decoration: underline; }
     .subnav {
       display: flex;
-      gap: 4px;
+      gap: 2px;
       flex-wrap: wrap;
+      padding: 3px;
+      background: var(--color-cream-paper);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
       margin-left: auto;
-      margin-right: 12px;
+      margin-right: 8px;
     }
     .subnav a {
-      padding: 6px 10px;
+      padding: 6px 12px;
       font-size: 13px;
       font-weight: 500;
       color: var(--color-smoke);
       text-decoration: none;
-      border-radius: var(--radius-small);
+      border-radius: 10px;
+      transition: background 0.12s, color 0.12s;
     }
     .subnav a:hover {
       color: var(--color-midnight-ink);
-      background: color-mix(in srgb, var(--color-stone-mist) 50%, transparent);
+      background: var(--color-white);
       text-decoration: none;
+    }
+    .subnav a.is-active {
+      color: var(--color-midnight-ink);
+      background: var(--color-white);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      font-weight: 600;
     }
 
     /* —— Page —— */
     .page {
       max-width: var(--page-max-width);
       margin: 0 auto;
-      padding: 24px 32px 64px;
-    }
-    .page-header { margin-bottom: 20px; }
-    .page-title {
-      font-family: var(--font-eb-garamond);
-      font-weight: 400;
-      font-size: 32px;
-      line-height: 1;
-      letter-spacing: -0.03em;
-      margin: 0 0 6px;
-    }
-    .page-subtitle {
-      margin: 0;
-      font-size: var(--text-body);
-      color: var(--color-smoke);
-      max-width: 32rem;
+      padding: 8px 24px 64px;
     }
     .stats-bar {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 32px;
+      gap: 10px;
+      margin-bottom: var(--section-gap);
     }
     .stat {
       background: var(--color-white);
       border: 1px solid var(--color-stone-mist);
       border-radius: var(--radius-nav);
-      padding: 14px 16px;
+      padding: 16px 18px;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    button.stat-btn {
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      font: inherit;
+      color: inherit;
+      margin: 0;
+    }
+    button.stat-btn:hover:not(:disabled) {
+      border-color: var(--color-graphite-veil);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
     .stat-value {
       display: block;
@@ -209,6 +222,9 @@
       margin-top: 4px;
     }
     .stat--active .stat-value { color: var(--color-deep-forest-teal); }
+    .stat.stat--active {
+      border-color: color-mix(in srgb, var(--color-deep-forest-teal) 35%, var(--color-stone-mist));
+    }
     .section-header {
       display: flex;
       align-items: flex-start;
@@ -230,10 +246,21 @@
       color: var(--color-smoke);
       max-width: 36rem;
     }
+    .library-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
     .section-toolbar {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      align-items: flex-end;
+    }
+    .upload-defaults {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
       align-items: flex-end;
     }
     .toolbar-field {
@@ -451,7 +478,7 @@
       cursor: pointer;
       border: none;
       background: none;
-      margin: 0 10px 8px 0;
+      margin: 0;
       transition: opacity 0.15s, background 0.15s, transform 0.1s;
     }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -689,18 +716,22 @@
     }
 
     /* —— Tables —— */
-    .table-wrap { overflow-x: auto; margin-top: var(--section-gap-inner); }
-    table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }
+    .table-wrap { overflow-x: auto; }
+    .panel > .filter-row + .table-wrap,
+    .panel > .library-pane .table-wrap { margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th {
       text-align: left;
-      padding: 10px 12px;
+      padding: 8px 12px 10px;
       border-bottom: 1px solid var(--color-stone-mist);
       color: var(--color-smoke);
-      font-size: var(--text-caption);
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     td {
-      padding: 10px 12px;
+      padding: 12px;
       border-bottom: 1px solid var(--color-stone-mist);
       vertical-align: top;
       color: var(--color-midnight-ink);
@@ -716,6 +747,71 @@
       padding: var(--card-padding);
       background: color-mix(in srgb, var(--color-lavender-whisper) 12%, var(--color-white));
     }
+
+    .channel-name-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-weight: 600;
+      color: var(--color-midnight-ink);
+      text-align: left;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .channel-name-btn:hover { color: var(--color-deep-forest-teal); }
+    .channel-name-btn:disabled {
+      cursor: default;
+      text-decoration: none;
+      color: var(--color-midnight-ink);
+    }
+
+    .channel-jobs-section { display: none; }
+    .channel-jobs-section.is-open { display: block; }
+    .channel-jobs-panel {
+      margin-top: 20px;
+      padding: 20px;
+      background: color-mix(in srgb, var(--color-cream-paper) 45%, var(--color-white));
+      border: 1px solid var(--color-stone-mist);
+      border-radius: 12px;
+    }
+    .channel-jobs-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--element-gap);
+      flex-wrap: wrap;
+      margin-bottom: var(--element-gap);
+    }
+    .channel-jobs-header h3 {
+      margin: 0;
+      font-size: var(--text-subheading);
+      font-weight: 600;
+    }
+    .channel-jobs-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: var(--element-gap);
+    }
+    .filter-chip {
+      border: 1px solid var(--color-stone-mist);
+      background: var(--color-white);
+      color: var(--color-smoke);
+      border-radius: var(--radius-badges);
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .filter-chip.is-active {
+      background: var(--color-lavender-whisper);
+      border-color: var(--color-midnight-ink);
+      color: var(--color-midnight-ink);
+    }
+    .filter-chip:hover:not(.is-active) { background: var(--color-stone-mist); }
 
     .folder-tag {
       display: inline-block;
@@ -916,7 +1012,7 @@
       font-style: normal;
       font-size: var(--text-body);
     }
-    .expand-hint { color: var(--color-graphite-veil); font-size: var(--text-caption); }
+    .expand-hint { color: var(--color-graphite-veil); font-size: 12px; }
     .click-title { text-decoration: underline dotted; text-underline-offset: 3px; }
 
     .features { font-size: var(--text-body); columns: 2; gap: 16px; }
@@ -992,16 +1088,22 @@
       width: min(420px, 100%);
       background: var(--color-white);
       border: 1px solid var(--color-stone-mist);
-      border-radius: var(--radius-cards);
+      border-radius: 16px;
       padding: var(--card-padding);
     }
-    .login-panel .display-headline { font-size: clamp(2rem, 7vw, 3rem); }
+    .login-panel .display-headline {
+      font-family: var(--font-figtree);
+      font-weight: 600;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+    .login-panel .display-muted { color: var(--color-graphite-veil); font-weight: 500; }
     .login-panel .lede {
       margin-bottom: 20px;
       color: var(--color-smoke);
-      font-style: normal;
-      font-family: var(--font-figtree);
-      font-size: var(--text-body);
+      font-size: 14px;
     }
     #login-password { width: 100%; margin-bottom: 16px; }
     #login-error { color: var(--color-charcoal); font-size: var(--text-caption); font-weight: 600; margin: 0; }
@@ -1017,9 +1119,8 @@
       .stats-bar { grid-template-columns: repeat(2, 1fr); }
       .subnav { display: none; }
       .site-header { padding: 10px 16px; }
-      .page { padding: 40px 16px 64px; }
-      .section { padding-top: 40px; }
-      .hero { padding-bottom: 40px; }
+      .page { padding: 24px 16px 64px; }
+      .section { padding-top: 32px; }
       .panel { padding: 24px; }
     }
   </style>
@@ -1028,8 +1129,8 @@
   <div id="login-gate" hidden>
     <div class="login-panel">
       <span class="tick" aria-hidden="true"></span>
-      <h1 class="display-headline"><span class="display-muted">YouTube</span><br>Uploader</h1>
-      <p class="lede">Enter your dashboard password to continue.</p>
+      <h1 class="display-headline"><span class="display-muted">YouTube</span> Uploader</h1>
+      <p class="lede">Sign in with your dashboard password.</p>
       <input type="password" id="login-password" autocomplete="current-password" spellcheck="false" placeholder="Password" />
       <p id="login-error" hidden></p>
       <button type="button" class="btn-voltage btn-login" id="btn-login">Sign in</button>
@@ -1043,8 +1144,7 @@
         <nav class="subnav" aria-label="Sections">
           <a href="#uploading-section">Live</a>
           <a href="#channels-section">Channels</a>
-          <a href="#jobs-section">Queue</a>
-          <a href="#uploaded-section">History</a>
+          <a href="#library-section">Library</a>
           <a href="#settings-panel">Settings</a>
         </nav>
         <div class="header-actions">
@@ -1056,16 +1156,19 @@
     </header>
 
     <main class="page">
-      <header class="page-header">
-        <h1 class="page-title">Upload dashboard</h1>
-        <p class="page-subtitle">Connect channels, queue videos, publish to YouTube.</p>
-      </header>
-
       <div class="stats-bar" id="stats-bar" aria-live="polite">
-        <div class="stat"><span class="stat-value" id="stat-channels">—</span><span class="stat-label">Channels</span></div>
-        <div class="stat"><span class="stat-value" id="stat-pending">—</span><span class="stat-label">Queued</span></div>
-        <div class="stat" id="stat-uploading-wrap"><span class="stat-value" id="stat-uploading">—</span><span class="stat-label">Uploading</span></div>
-        <div class="stat"><span class="stat-value" id="stat-uploaded">—</span><span class="stat-label">Published</span></div>
+        <button type="button" class="stat stat-btn" data-scroll-to="channels-section">
+          <span class="stat-value" id="stat-channels">—</span><span class="stat-label">Channels</span>
+        </button>
+        <button type="button" class="stat stat-btn" data-scroll-to="library-section" data-library-tab="queue">
+          <span class="stat-value" id="stat-pending">—</span><span class="stat-label">Queued</span>
+        </button>
+        <button type="button" class="stat stat-btn" data-scroll-to="uploading-section">
+          <span class="stat-value" id="stat-uploading">—</span><span class="stat-label">Uploading</span>
+        </button>
+        <button type="button" class="stat stat-btn" data-scroll-to="library-section" data-library-tab="history">
+          <span class="stat-value" id="stat-uploaded">—</span><span class="stat-label">Published</span>
+        </button>
       </div>
 
       <section class="section section-live is-idle" id="uploading-section">
@@ -1087,19 +1190,8 @@
             <p class="section-desc" id="storage-info"></p>
           </div>
           <div class="section-toolbar">
-            <label class="toolbar-field">New channel category
+            <label class="toolbar-field">Category for new channel
               <select id="connect-category" class="channel-category-select"><option value="">None</option></select>
-            </label>
-            <label class="toolbar-field">Upload spacing
-              <select id="upload-spacing">
-                <option value="auto">Auto</option>
-                <option value="12">12h</option>
-                <option value="24" selected>24h</option>
-                <option value="48">48h</option>
-              </select>
-            </label>
-            <label class="toolbar-field">Max / run
-              <input type="number" id="upload-max-per-run" min="1" placeholder="All" title="Max uploads per run" />
             </label>
             <button type="button" class="btn-voltage" id="btn-connect">Connect channel</button>
           </div>
@@ -1112,49 +1204,91 @@
             </table>
           </div>
           <div id="run-status"></div>
+          <div class="channel-jobs-panel" id="channel-jobs-panel" hidden>
+            <div class="channel-jobs-header">
+              <div>
+                <h3 id="channel-jobs-title">Channel videos</h3>
+                <p class="section-desc" id="channel-jobs-desc">Browse and upload videos for this channel.</p>
+              </div>
+              <div class="btn-group">
+                <button type="button" class="btn-voltage btn-voltage--compact" id="btn-channel-upload-pending" disabled>Upload pending</button>
+                <button type="button" class="btn-ghost btn-ghost--compact" id="btn-channel-jobs-close">Close</button>
+              </div>
+            </div>
+            <div class="channel-jobs-filters" id="channel-jobs-filters" role="tablist" aria-label="Filter videos">
+              <button type="button" class="filter-chip is-active" data-channel-job-filter="all">All</button>
+              <button type="button" class="filter-chip" data-channel-job-filter="pending">Queued</button>
+              <button type="button" class="filter-chip" data-channel-job-filter="uploading">Uploading</button>
+              <button type="button" class="filter-chip" data-channel-job-filter="uploaded">Published</button>
+              <button type="button" class="filter-chip" data-channel-job-filter="failed">Failed</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Title</th><th>Status</th><th>YouTube</th><th>Updated</th><th></th></tr></thead>
+                <tbody id="channel-jobs-body"><tr><td colspan="5">Select a channel to view videos.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section class="section" id="jobs-section">
+      <section class="section" id="library-section">
         <div class="section-header">
           <div>
-            <h2>Queue</h2>
-            <p class="section-desc">Videos waiting to upload</p>
+            <h2>Library</h2>
+            <p class="section-desc">Queued and published videos across all channels</p>
+          </div>
+          <div class="library-tabs" role="tablist" aria-label="Library view">
+            <button type="button" class="filter-chip is-active" data-library-tab="queue" role="tab" aria-selected="true">Queue</button>
+            <button type="button" class="filter-chip" data-library-tab="history" role="tab" aria-selected="false">Published</button>
           </div>
         </div>
         <div class="panel">
           <div class="filter-row">
-            <label>Channel <select id="channel-filter"><option value="">All channels</option></select></label>
+            <label class="toolbar-field">Channel
+              <select id="channel-filter"><option value="">All channels</option></select>
+            </label>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>#</th><th>Channel</th><th>Job</th><th>Title</th><th>Status</th><th></th></tr></thead>
-              <tbody id="queue-body"><tr><td colspan="6">Loading…</td></tr></tbody>
-            </table>
+          <div class="library-pane" data-library-pane="queue">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Channel</th><th>Job</th><th>Title</th><th>Status</th><th></th></tr></thead>
+                <tbody id="queue-body"><tr><td colspan="5">Loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <section class="section" id="uploaded-section">
-        <div class="section-header">
-          <div>
-            <h2>History</h2>
-            <p class="section-desc">Successfully published videos</p>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th></th><th>Channel</th><th>Job</th><th>Title</th><th>YouTube</th><th>Published</th></tr></thead>
-              <tbody id="uploaded-body"><tr><td colspan="6">Loading…</td></tr></tbody>
-            </table>
+          <div class="library-pane" data-library-pane="history" hidden>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Channel</th><th>Job</th><th>Title</th><th>YouTube</th><th>Published</th></tr></thead>
+                <tbody id="uploaded-body"><tr><td colspan="5">Loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
       <details class="settings-panel" id="settings-panel">
-        <summary>Settings &amp; manual upload</summary>
+        <summary>Settings</summary>
         <div class="settings-inner">
+          <div class="settings-block">
+            <h3>Upload defaults</h3>
+            <p class="settings-desc">Default spacing between scheduled publishes and max videos per upload run.</p>
+            <div class="upload-defaults">
+              <label class="toolbar-field">Upload spacing
+                <select id="upload-spacing">
+                  <option value="auto">Auto</option>
+                  <option value="12">12h</option>
+                  <option value="24" selected>24h</option>
+                  <option value="48">48h</option>
+                </select>
+              </label>
+              <label class="toolbar-field">Max per run
+                <input type="number" id="upload-max-per-run" min="1" placeholder="All" title="Max uploads per run" />
+              </label>
+            </div>
+          </div>
+
           <div class="settings-block" id="categories-section">
             <h3>Categories</h3>
             <p class="settings-desc">Organize channels by label (e.g. korean, ambient). Assign on each channel row.</p>
@@ -1296,8 +1430,8 @@
     function beginDashboardLoad() {
       setStatsLoading(true);
       setTableLoading('channels-body', 6, 'Loading channels…');
-      setTableLoading('queue-body', 6, 'Loading queue…');
-      setTableLoading('uploaded-body', 6, 'Loading history…');
+      setTableLoading('queue-body', 5, 'Loading queue…');
+      setTableLoading('uploaded-body', 5, 'Loading history…');
       const catList = document.getElementById('categories-list');
       if (catList) catList.innerHTML = '<div class="inline-loading"><span class="spinner"></span><span>Loading…</span></div>';
     }
@@ -1337,6 +1471,9 @@
     }
 
     const expandedChannelSchedule = new Set();
+    let selectedChannelId = null;
+    let channelJobFilter = 'all';
+    let channelJobsCache = [];
 
     function formatScheduleSummary(pub) {
       pub = pub || {};
@@ -1431,7 +1568,9 @@
           : `<div class="schedule-summary">${esc(formatScheduleSummary(ch.publish))}</div>
              <span class="muted">Reauth to edit</span>`;
         const mainRow = `<tr>
-          <td><strong>${ch.name}</strong><br><small>${ch.id}${ch.custom_url ? ' ' + ch.custom_url : ''}</small></td>
+          <td>${canEdit
+            ? `<button type="button" class="channel-name-btn" data-open-channel="${esc(ch.id)}" title="View videos">${esc(ch.name)}</button>`
+            : `<strong>${esc(ch.name)}</strong>`}<br><small>${ch.id}${ch.custom_url ? ' ' + ch.custom_url : ''}</small></td>
           <td>
             <div class="channel-category-cell">
               <select class="channel-category-select" data-set-category="${ch.id}" data-current="${esc(ch.category || '')}" data-channel-name="${esc(ch.name)}">${categoryOptionsHtml(ch.category || '')}</select>
@@ -1717,8 +1856,8 @@
       document.getElementById('stat-pending').textContent = String(pending);
       document.getElementById('stat-uploading').textContent = String(uploading);
       document.getElementById('stat-uploaded').textContent = String(totalPublished || uploaded);
-      const wrap = document.getElementById('stat-uploading-wrap');
-      wrap.classList.toggle('stat--active', uploading > 0);
+      const uploadingStat = document.querySelector('.stat-btn[data-scroll-to="uploading-section"]');
+      if (uploadingStat) uploadingStat.classList.toggle('stat--active', uploading > 0);
     }
 
     function setUploadingSectionVisible(active) {
@@ -2188,13 +2327,13 @@
       const detailRow = document.createElement('tr');
       detailRow.className = 'job-detail';
       detailRow.dataset.key = key;
-      detailRow.innerHTML = '<td colspan="6"><div class="inline-loading"><span class="spinner"></span><span>Loading details…</span></div></td>';
+        detailRow.innerHTML = '<td colspan="5"><div class="inline-loading"><span class="spinner"></span><span>Loading details…</span></div></td>';
       rowEl.after(detailRow);
       try {
         const detail = await loadJobDetail(channelId, jobId);
-        detailRow.innerHTML = '<td colspan="6">' + renderDetailPanel(detail) + '</td>';
+        detailRow.innerHTML = '<td colspan="5">' + renderDetailPanel(detail) + '</td>';
       } catch (err) {
-        detailRow.innerHTML = '<td colspan="6"><span class="bad">' + esc(err.message) + '</span></td>';
+        detailRow.innerHTML = '<td colspan="5"><span class="bad">' + esc(err.message) + '</span></td>';
       }
     }
 
@@ -2210,18 +2349,16 @@
       });
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Queue is empty. Stage a video in <strong>Settings</strong> or register via the API.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Queue is empty. Stage a video in <strong>Settings</strong> or register via the API.</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => {
-        const pos = (j.queue_position != null && j.queue_position !== undefined) ? j.queue_position : '—';
         const key = jobKey(j.channel_id, j.id);
         const expanded = expandedJobKeys.has(key) ? ' expanded' : '';
         return `<tr class="job-row${expanded}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
-          <td>${pos}</td>
           <td>${esc(j.channel_id)}</td>
           <td><code>${esc(j.id)}</code></td>
-          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint">details</span></td>
+          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint" aria-hidden="true">›</span></td>
           <td>${statusLabel(j.status)}</td>
           <td>${j.status === 'pending' ? '<button class="btn-ghost btn-ghost--compact" data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
         </tr>`;
@@ -2232,20 +2369,136 @@
       });
     }
 
+    function channelJobTimestamp(job) {
+      if (job.status === 'uploaded' && job.uploaded_at) return job.uploaded_at.replace('T', ' ').replace('Z', '');
+      if (job.created_at) return job.created_at.replace('T', ' ').replace('Z', '');
+      return '—';
+    }
+
+    function uploadButtonLabel(job) {
+      if (job.status === 'uploading') return null;
+      if (job.status === 'uploaded') return 'Re-upload';
+      if (job.status === 'failed') return 'Retry';
+      return 'Upload';
+    }
+
+    function renderChannelJobsPanel() {
+      const panel = document.getElementById('channel-jobs-panel');
+      const tbody = document.getElementById('channel-jobs-body');
+      const uploadPendingBtn = document.getElementById('btn-channel-upload-pending');
+      if (!selectedChannelId) {
+        panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+      const ch = (dashboardData && dashboardData.channels || []).find(c => c.id === selectedChannelId);
+      document.getElementById('channel-jobs-title').textContent = (ch && ch.name) || selectedChannelId;
+      document.getElementById('channel-jobs-desc').textContent = 'Filter and upload videos for this channel. Re-upload sends a new copy to YouTube.';
+
+      document.querySelectorAll('[data-channel-job-filter]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.channelJobFilter === channelJobFilter);
+      });
+
+      let jobs = channelJobsCache.slice();
+      if (channelJobFilter !== 'all') {
+        jobs = jobs.filter(j => j.status === channelJobFilter);
+      }
+      jobs.sort((a, b) => {
+        const ta = a.uploaded_at || a.created_at || '';
+        const tb = b.uploaded_at || b.created_at || '';
+        return tb.localeCompare(ta);
+      });
+
+      const pendingCount = channelJobsCache.filter(j => j.status === 'pending').length;
+      uploadPendingBtn.disabled = !pendingCount;
+      uploadPendingBtn.textContent = pendingCount ? ('Upload pending (' + pendingCount + ')') : 'Upload pending';
+
+      if (!jobs.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No videos match this filter.</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = jobs.map(j => {
+        const btnLabel = uploadButtonLabel(j);
+        const action = btnLabel
+          ? `<button type="button" class="btn-voltage btn-voltage--compact" data-upload-job="${esc(j.id)}">${btnLabel}</button>`
+          : '<span class="muted">In progress</span>';
+        const yt = j.youtube_url
+          ? `<a href="${esc(j.youtube_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>`
+          : '—';
+        return `<tr class="job-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td><span class="click-title">${esc(j.title || '(no title)')}</span><br><small><code>${esc(j.id)}</code></small></td>
+          <td>${statusLabel(j.status)}</td>
+          <td>${yt}</td>
+          <td>${esc(channelJobTimestamp(j))}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadChannelJobs(channelId, showLoading) {
+      if (showLoading) {
+        setTableLoading('channel-jobs-body', 5, 'Loading videos…');
+      }
+      try {
+        channelJobsCache = await api('/v1/channels/' + encodeURIComponent(channelId) + '/jobs?location=all');
+        renderChannelJobsPanel();
+      } catch (err) {
+        document.getElementById('channel-jobs-body').innerHTML =
+          '<tr><td colspan="5"><span class="bad">' + esc(err.message) + '</span></td></tr>';
+      }
+    }
+
+    async function openChannelJobs(channelId) {
+      selectedChannelId = channelId;
+      channelJobFilter = 'all';
+      const panel = document.getElementById('channel-jobs-panel');
+      panel.hidden = false;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      await loadChannelJobs(channelId, true);
+    }
+
+    function closeChannelJobs() {
+      selectedChannelId = null;
+      channelJobsCache = [];
+      document.getElementById('channel-jobs-panel').hidden = true;
+    }
+
+    async function uploadChannelJob(channelId, jobId, triggerBtn) {
+      if (triggerBtn) setButtonLoading(triggerBtn, true, 'Starting…');
+      try {
+        const body = getUploadRunOptions(1);
+        await api(
+          '/v1/channels/' + encodeURIComponent(channelId) + '/jobs/' + encodeURIComponent(jobId) + '/upload',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }
+        );
+        toast('Upload started');
+        pollActiveUploads();
+        await loadChannelJobs(channelId, false);
+        await loadDashboard(true);
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        if (triggerBtn) setButtonLoading(triggerBtn, false);
+      }
+    }
+
     function renderUploadedJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
       const filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs;
       const tbody = document.getElementById('uploaded-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No published videos yet.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No published videos yet.</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => `
         <tr class="job-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
-          <td><span class="expand-hint">›</span></td>
           <td>${esc(j.channel_id)}</td>
           <td><code>${esc(j.id)}</code></td>
-          <td><span class="click-title">${esc(j.title || '(no title)')}</span></td>
+          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint" aria-hidden="true">›</span></td>
           <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
           <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', '')) : '—'}</td>
         </tr>`).join('');
@@ -2308,24 +2561,22 @@
     async function refresh() {
       const btn = document.getElementById('btn-refresh');
       const channelsSection = document.getElementById('channels-section');
-      const jobsSection = document.getElementById('jobs-section');
-      const uploadedSection = document.getElementById('uploaded-section');
+      const librarySection = document.getElementById('library-section');
       btn.disabled = true;
       btn.classList.add('refreshing');
       btn.setAttribute('aria-busy', 'true');
       beginDashboardLoad();
       channelsSection.classList.add('loading-overlay');
-      jobsSection.classList.add('loading-overlay');
-      uploadedSection.classList.add('loading-overlay');
+      librarySection.classList.add('loading-overlay');
       try {
         await loadDashboard(true);
+        if (selectedChannelId) await loadChannelJobs(selectedChannelId, false);
       } finally {
         btn.disabled = false;
         btn.classList.remove('refreshing');
         btn.removeAttribute('aria-busy');
         channelsSection.classList.remove('loading-overlay');
-        jobsSection.classList.remove('loading-overlay');
-        uploadedSection.classList.remove('loading-overlay');
+        librarySection.classList.remove('loading-overlay');
       }
     }
 
@@ -2471,6 +2722,7 @@
       const t = e.target.closest('button') || e.target;
       if (!t || !t.dataset) return;
       if (t.dataset.saveCategory) saveChannelCategory(t.dataset.saveCategory);
+      if (t.dataset.openChannel) openChannelJobs(t.dataset.openChannel);
       if (t.dataset.toggleSchedule) toggleChannelSchedule(t.dataset.toggleSchedule);
       if (t.dataset.saveSchedule) saveChannelSchedule(t.dataset.saveSchedule);
       if (t.dataset.upload) startUpload(t.dataset.upload, 1, t);
@@ -2524,6 +2776,34 @@
       } catch (err) {
         toast('Cancel failed: ' + (err.message || err), true);
         btn.disabled = false;
+      }
+    };
+
+    document.getElementById('btn-channel-jobs-close').onclick = closeChannelJobs;
+
+    document.getElementById('channel-jobs-filters').onclick = (e) => {
+      const btn = e.target.closest('[data-channel-job-filter]');
+      if (!btn || !selectedChannelId) return;
+      channelJobFilter = btn.dataset.channelJobFilter;
+      renderChannelJobsPanel();
+    };
+
+    document.getElementById('btn-channel-upload-pending').onclick = async (e) => {
+      if (!selectedChannelId) return;
+      await startUpload(selectedChannelId, null, e.currentTarget);
+      await loadChannelJobs(selectedChannelId, false);
+    };
+
+    document.getElementById('channel-jobs-body').onclick = async (e) => {
+      const uploadBtn = e.target.closest('[data-upload-job]');
+      if (uploadBtn && selectedChannelId) {
+        e.stopPropagation();
+        await uploadChannelJob(selectedChannelId, uploadBtn.dataset.uploadJob, uploadBtn);
+        return;
+      }
+      const row = e.target.closest('tr.job-row');
+      if (row && row.dataset.channel && row.dataset.job) {
+        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
       }
     };
 
@@ -2582,6 +2862,55 @@
     document.querySelectorAll('.subnav a[href="#settings-panel"]').forEach(link => {
       link.addEventListener('click', () => {
         document.getElementById('settings-panel').open = true;
+      });
+    });
+
+    function switchLibraryTab(tab) {
+      document.querySelectorAll('[data-library-tab]').forEach(btn => {
+        const active = btn.dataset.libraryTab === tab;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-library-pane]').forEach(pane => {
+        pane.hidden = pane.dataset.libraryPane !== tab;
+      });
+    }
+
+    function setActiveNav(hash) {
+      document.querySelectorAll('.subnav a[href^="#"]').forEach(link => {
+        link.classList.toggle('is-active', link.getAttribute('href') === hash);
+      });
+    }
+
+    function scrollToSection(sectionId, opts) {
+      const el = document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (opts && opts.libraryTab) switchLibraryTab(opts.libraryTab);
+      setActiveNav('#' + sectionId);
+    }
+
+    document.querySelectorAll('[data-library-tab]').forEach(btn => {
+      btn.addEventListener('click', () => switchLibraryTab(btn.dataset.libraryTab));
+    });
+
+    document.querySelectorAll('.stat-btn[data-scroll-to]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.libraryTab;
+        scrollToSection(btn.dataset.scrollTo, tab ? { libraryTab: tab } : undefined);
+      });
+    });
+
+    document.querySelectorAll('.subnav a[href^="#"]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const href = link.getAttribute('href');
+        if (href === '#settings-panel') {
+          setActiveNav(href);
+          return;
+        }
+        e.preventDefault();
+        const sectionId = href.slice(1);
+        const libraryTab = sectionId === 'library-section' ? 'queue' : undefined;
+        scrollToSection(sectionId, libraryTab ? { libraryTab } : undefined);
       });
     });
 

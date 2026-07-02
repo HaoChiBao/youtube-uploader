@@ -64,12 +64,18 @@ def dispatch_parallel_uploads(
     oauth_client_secret: Path | None = None,
     oauth_client_config: dict | None = None,
     oauth_port: int | None = None,
+    job_ids: list[str] | None = None,
 ) -> ParallelDispatchResult:
     """Claim up to `count` pending jobs and start one worker each."""
     channel = get_channel(config, channel_id)
     registry = UploadRegistry(channel.registry_path)
     pending = registry.pending(channel_id=channel.id)
-    if not pending:
+    if job_ids:
+        wanted = {j.strip() for j in job_ids if j and j.strip()}
+        pending = [e for e in pending if e.id in wanted]
+        if not pending:
+            return ParallelDispatchResult(channel_id=channel.id)
+    elif not pending:
         return ParallelDispatchResult(channel_id=channel.id)
 
     daily_cap = uploads_per_day if uploads_per_day is not None else channel.publish.uploads_per_day

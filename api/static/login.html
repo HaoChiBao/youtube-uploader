@@ -19,7 +19,7 @@
       --color-lavender-whisper: #f0d7ff;
       --font-figtree: 'Figtree', ui-sans-serif, system-ui, sans-serif;
       --font-eb-garamond: 'EB Garamond', Georgia, serif;
-      --radius-cards: 32px;
+      --radius-cards: 16px;
       --radius-buttons: 14px;
       --radius-nav: 14px;
     }
@@ -47,24 +47,24 @@
     }
     .tick {
       display: block;
-      width: 48px;
-      height: 5px;
+      width: 40px;
+      height: 4px;
       background: var(--color-lavender-whisper);
-      border-radius: 3px;
+      border-radius: 2px;
       margin-bottom: 16px;
     }
     h1 {
-      font-family: var(--font-eb-garamond);
-      font-weight: 400;
-      font-size: clamp(2rem, 7vw, 2.5rem);
-      line-height: 0.95;
-      letter-spacing: -0.03em;
-      margin: 0 0 12px;
+      font-family: var(--font-figtree);
+      font-weight: 600;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
     }
-    h1 .muted { color: var(--color-graphite-veil); }
+    h1 .muted { color: var(--color-graphite-veil); font-weight: 500; }
     p {
       color: var(--color-smoke);
-      font-size: 16px;
+      font-size: 14px;
       margin: 0 0 20px;
     }
     label {
@@ -107,13 +107,13 @@
 <body>
   <section>
     <span class="tick" aria-hidden="true"></span>
-    <h1><span class="muted">Sign in to</span> Uploader</h1>
-    <p>Enter your dashboard password or API token to access the uploader.</p>
+    <h1><span class="muted">YouTube</span> Uploader</h1>
+    <p>Sign in with your dashboard password.</p>
     <div id="error" class="error"></div>
     <form id="login-form">
-      <label for="secret">Password or API token</label>
+      <label for="secret">Password</label>
       <input id="secret" name="secret" type="password" autocomplete="current-password" required autofocus />
-      <button type="submit" id="submit">Sign in →</button>
+      <button type="submit" id="submit">Sign in</button>
     </form>
   </section>
   <script>
