@@ -20,6 +20,7 @@ Query params:
 
 ```env
 UPLOADER_RECONCILE_STALE_SECONDS=180   # no progress → eligible (default 3 min)
+UPLOADER_RECONCILE_COMPLETE_SECONDS=90 # looks complete but lock held → finalize (default 90s)
 UPLOADER_RECONCILE_FAIL_SECONDS=7200   # mark failed after 2 h with no recovery
 ```
 
@@ -27,7 +28,7 @@ UPLOADER_RECONCILE_FAIL_SECONDS=7200   # mark failed after 2 h with no recovery
 
 ```bash
 export PROJECT_ID=youtube-uploader-499603
-export REGION=northamerica-northeast2
+export REGION=us-central1
 export API_URL=https://youtuber-uploader-app-17161979106.northamerica-northeast2.run.app
 export SCHEDULER_SA=reconcile-cron@$PROJECT_ID.iam.gserviceaccount.com
 
@@ -59,3 +60,13 @@ uploader reconcile-uploads --channel justcavefire
 3. **Uploaded in registry but still in `queue/`** → archive move
 4. **Uploading + stale + no YouTube match** → reset to pending (retry)
 5. **Uploading + very stale (2h+)** → mark failed
+
+## Manual dismiss (dashboard)
+
+Stuck rows in **Uploading now** show **Dismiss** / **Return to queue**:
+
+```http
+POST /v1/channels/{ref}/jobs/{job_id}/dismiss-upload?action=auto|retry|fail
+```
+
+Cloud Scheduler location must be a [supported region](https://cloud.google.com/scheduler/docs/locations) (e.g. `us-central1` or `northamerica-northeast1`), not the Cloud Run region.

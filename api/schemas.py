@@ -96,6 +96,8 @@ class StagedJobOut(BaseModel):
     privacy: str = "private"
     is_short: bool = False
     tags: list[str] = Field(default_factory=list)
+    publish_at: str = ""
+    upload_at: str = ""
 
 
 class JobRegisterRequest(BaseModel):
@@ -113,6 +115,34 @@ class JobRegisterRequest(BaseModel):
     made_for_kids: bool | None = None
     language: str | None = None
     metadata: dict | None = None
+    publish_at: str | None = Field(
+        default=None,
+        description="YouTube publishAt (RFC3339 UTC). Video uploads as private until this time.",
+    )
+    upload_at: str | None = Field(
+        default=None,
+        description="Do not dispatch from queue until this time (RFC3339). Cron/runs skips until then.",
+    )
+    upload_now: bool = Field(
+        default=False,
+        description="After register, immediately dispatch upload (requires OAuth). Ignores upload_at.",
+    )
+    no_schedule: bool = Field(
+        default=False,
+        description="When upload_now is true, publish immediately using privacy (no YouTube publishAt).",
+    )
+
+
+class DirectUploadOut(BaseModel):
+    """Response after uploading directly to YouTube (no queue)."""
+
+    channel_id: str
+    youtube_id: str
+    youtube_url: str
+    title: str
+    privacy: str = "private"
+    publish_at: str = ""
+    status: str = "uploaded"
 
 
 class PlanItemOut(BaseModel):
@@ -147,6 +177,14 @@ class RunRequest(BaseModel):
     job_ids: list[str] | None = Field(
         default=None,
         description="Upload only these job IDs (must be pending after optional requeue)",
+    )
+    publish_at: str | None = Field(
+        default=None,
+        description="Override YouTube publishAt for this run (RFC3339 UTC). Per-job queue presets win unless set.",
+    )
+    ignore_upload_at: bool = Field(
+        default=False,
+        description="Upload pending jobs even if upload_at is in the future",
     )
 
 
@@ -190,6 +228,13 @@ class ActiveUploadsResponse(BaseModel):
 class CancelUploadResponse(BaseModel):
     channel_id: str
     job_id: str
+
+
+class DismissUploadResponse(BaseModel):
+    channel_id: str
+    job_id: str
+    action: str
+    detail: str = ""
 
 
 class ReconcileActionOut(BaseModel):

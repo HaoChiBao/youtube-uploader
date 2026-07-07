@@ -1,5 +1,6 @@
 """Tests for FastAPI app."""
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -405,3 +406,187 @@ def test_bearer_token_auth(client, tmp_path: Path, monkeypatch: pytest.MonkeyPat
         headers={"Authorization": "Bearer bearer-token"},
     )
     assert r.status_code == 201
+
+
+def test_upload_one_job_retries_failed(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from api.schemas import TokenStatus
+    from uploader.worker_dispatch import DispatchedUpload, ParallelDispatchResult
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-mp4")
+    staged = client.post(
+        "/v1/channels/testchan/jobs",
+        data={"title": "Retry via API"},
+        files={"video": ("clip.mp4", video.read_bytes(), "video/mp4")},
+    )
+    assert staged.status_code == 201
+    job_id = staged.json()["job_id"]
+
+    from uploader.registry import UploadRegistry
+    from uploader.channels import load_config
+    import os
+
+    config_path = Path(os.environ["UPLOADER_CONFIG"])
+    config = load_config(config_path)
+    ch = config.channels[0]
+    reg = UploadRegistry(ch.registry_path)
+    reg.mark_failed(job_id, error="simulated failure")
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda channel_id, token_path, oauth: TokenStatus(
+            has_token=True, valid=True, status="ok"
+        ),
+    )
+
+    def fake_dispatch(channel_id, config, **kwargs):
+        assert kwargs.get("job_ids") == [job_id]
+        return ParallelDispatchResult(
+            channel_id=channel_id,
+            dispatched=[
+                DispatchedUpload(
+                    channel_id=channel_id,
+                    job_id=job_id,
+                    worker_id="test-worker",
+                    backend="local",
+                )
+            ],
+        )
+
+    monkeypatch.setattr("api.app.dispatch_parallel_uploads", fake_dispatch)
+
+    r = client.post(
+        f"/v1/channels/testchan/jobs/{job_id}/upload",
+        json={"parallel": True, "count": 1},
+    )
+    assert r.status_code == 202, r.text
+    assert reg.get(job_id).status == "pending"
+
+
+def test_upload_one_job_requeues_uploaded(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from api.schemas import TokenStatus
+    from uploader.job_store import archive_job
+    from uploader.registry import UploadRegistry, STATUS_PENDING
+    from uploader.worker_dispatch import DispatchedUpload, ParallelDispatchResult
+    from uploader.channels import load_config
+    import os
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-mp4")
+    staged = client.post(
+        "/v1/channels/testchan/jobs",
+        data={"title": "Re-upload via API"},
+        files={"video": ("clip.mp4", video.read_bytes(), "video/mp4")},
+    )
+    job_id = staged.json()["job_id"]
+    config_path = Path(os.environ["UPLOADER_CONFIG"])
+    config = load_config(config_path)
+    ch = config.channels[0]
+    base = config_path.parent.parent
+    archive_job(ch.id, job_id, base=base)
+    reg = UploadRegistry(ch.registry_path)
+    reg.mark_uploaded(job_id, youtube_id="old123")
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda channel_id, token_path, oauth: TokenStatus(
+            has_token=True, valid=True, status="ok"
+        ),
+    )
+    monkeypatch.setattr(
+        "api.app.dispatch_parallel_uploads",
+        lambda channel_id, config, **kwargs: ParallelDispatchResult(
+            channel_id=channel_id,
+            dispatched=[
+                DispatchedUpload(
+                    channel_id=channel_id,
+                    job_id=job_id,
+                    worker_id="test-worker",
+                    backend="local",
+                )
+            ],
+        ),
+    )
+
+    r = client.post(
+        f"/v1/channels/testchan/jobs/{job_id}/upload",
+        json={"parallel": True},
+    )
+    assert r.status_code == 202, r.text
+    entry = reg.get(job_id)
+    assert entry.status == STATUS_PENDING
+    assert entry.youtube_id == ""
+
+
+def test_register_stores_upload_at(client, tmp_path: Path) -> None:
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    future = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    r = client.post(
+        "/v1/channels/testchan/jobs/register",
+        json={
+            "title": "Scheduled queue job",
+            "video_uri": str(video),
+            "upload_at": future,
+            "publish_at": "2026-08-01T12:00:00Z",
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["upload_at"] == future
+    assert body["publish_at"] == "2026-08-01T12:00:00Z"
+
+
+def test_runs_skips_future_upload_at(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from api.schemas import TokenStatus
+    from uploader.worker_dispatch import ParallelDispatchResult
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    future = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    staged = client.post(
+        "/v1/channels/testchan/jobs/register",
+        json={"title": "Later", "video_uri": str(video), "upload_at": future},
+    )
+    assert staged.status_code == 201
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda channel_id, token_path, oauth: TokenStatus(has_token=True, valid=True, status="ok"),
+    )
+    calls = []
+
+    def fake_dispatch(*args, **kwargs):
+        calls.append(kwargs)
+        return ParallelDispatchResult(channel_id="testchan")
+
+    monkeypatch.setattr("api.app.dispatch_parallel_uploads", fake_dispatch)
+    r = client.post("/v1/channels/testchan/runs", json={"parallel": True})
+    assert r.status_code == 400
+    assert "ready for upload" in r.text
+    assert calls == []
+
+
+def test_upload_direct(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from api.schemas import TokenStatus
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda channel_id, token_path, oauth: TokenStatus(has_token=True, valid=True, status="ok"),
+    )
+
+    def fake_upload(video_path, **kwargs):
+        return {"id": "yt123", "_thumbnail_warning": None}
+
+    monkeypatch.setattr("api.direct_upload.upload_video_with_retry", fake_upload)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-mp4")
+    r = client.post(
+        "/v1/channels/testchan/upload/direct",
+        data={"title": "Direct upload", "privacy": "unlisted", "no_schedule": "true"},
+        files={"video": ("clip.mp4", video.read_bytes(), "video/mp4")},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["youtube_id"] == "yt123"
+    assert body["youtube_url"] == "https://youtu.be/yt123"
+    assert body["privacy"] == "unlisted"

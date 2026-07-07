@@ -282,12 +282,13 @@
       display: inline-block;
       font-size: 12px;
       font-weight: 500;
-      padding: 3px 10px;
+      padding: 2px 8px;
       border-radius: var(--radius-badges);
       white-space: nowrap;
       background: color-mix(in srgb, var(--color-stone-mist) 40%, var(--color-white));
       color: var(--color-smoke);
       border: 1px solid var(--color-stone-mist);
+      line-height: 1.4;
     }
     .badge-ok {
       background: color-mix(in srgb, var(--color-deep-forest-teal) 12%, var(--color-white));
@@ -300,20 +301,35 @@
       border: 1px solid color-mix(in srgb, var(--color-amber-pulse) 40%, transparent);
     }
     .badge-bad {
-      background: color-mix(in srgb, var(--color-stone-mist) 60%, var(--color-white));
-      color: var(--color-smoke);
-      border: 1px solid var(--color-stone-mist);
+      background: color-mix(in srgb, var(--color-amber-pulse) 18%, var(--color-white));
+      color: var(--color-charcoal);
+      border: 1px solid color-mix(in srgb, var(--color-amber-pulse) 45%, transparent);
     }
     .count-pill { font-variant-numeric: tabular-nums; font-weight: 600; }
     .count-pill.has-pending { color: var(--color-deep-forest-teal); }
     .btn-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
+      display: inline-flex;
       align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
     }
     .btn-group .btn-voltage--compact,
-    .btn-group .btn-ghost--compact { margin: 0; }
+    .btn-group .btn-ghost--compact,
+    .btn-group .btn-icon--bordered { margin: 0; flex-shrink: 0; }
+    .btn-group--row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+    .btn-group--row .btn-text { margin-left: 2px; }
+    .btn-group__sep {
+      width: 1px;
+      height: 22px;
+      background: var(--color-stone-mist);
+      flex-shrink: 0;
+    }
     .empty-state {
       padding: 24px 16px;
       text-align: center;
@@ -373,10 +389,11 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
       font-size: var(--text-caption);
       color: var(--color-smoke);
     }
+    .filter-row .toolbar-field select { min-width: 12rem; }
     .filter-row select { font-size: 13px; padding: 7px 10px; }
 
     /* —— Sections —— */
@@ -413,8 +430,13 @@
     .panel {
       background: var(--color-white);
       border: 1px solid var(--color-stone-mist);
-      border-radius: 16px;
+      border-radius: 12px;
       padding: var(--card-padding);
+    }
+    #run-status {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--color-smoke);
     }
 
     .muted { color: var(--color-smoke); font-size: var(--text-caption); font-family: var(--font-figtree); font-style: normal; }
@@ -504,8 +526,9 @@
       background: color-mix(in srgb, var(--color-lavender-whisper) 85%, var(--color-white));
     }
     .btn-voltage--compact {
-      padding: 8px 14px;
+      padding: 7px 12px;
       font-size: 13px;
+      min-height: 32px;
     }
 
     .btn-ghost {
@@ -525,22 +548,44 @@
     }
     .btn-ghost--padded { padding: 10px 18px; }
     .btn-ghost--compact {
-      padding: 6px 12px;
+      padding: 7px 12px;
       font-size: 13px;
+      min-height: 32px;
     }
 
-    .btn-icon {
-      color: var(--color-graphite-veil);
-      padding: 6px;
-      line-height: 0;
-      vertical-align: middle;
-      margin: 0;
-      border-radius: var(--radius-small);
+    .btn-text {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-smoke);
+      background: none;
       border: none;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+    .btn-text:hover:not(:disabled) { color: var(--color-midnight-ink); }
+
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-graphite-veil);
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      line-height: 0;
+      margin: 0;
+      border-radius: var(--radius-nav);
+      border: 1px solid var(--color-stone-mist);
+      background: var(--color-white);
     }
     .btn-icon:hover:not(:disabled) {
       color: var(--color-midnight-ink);
-      background: var(--color-stone-mist);
+      background: var(--color-cream-paper);
+      border-color: var(--color-graphite-veil);
     }
     .btn-icon svg { display: block; }
 
@@ -720,6 +765,23 @@
     .panel > .filter-row + .table-wrap,
     .panel > .library-pane .table-wrap { margin-top: 0; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .table-data th {
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--color-stone-mist);
+      color: var(--color-smoke);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .table-data td {
+      padding: 14px;
+      border-bottom: 1px solid var(--color-stone-mist);
+      vertical-align: middle;
+      color: var(--color-midnight-ink);
+    }
     th {
       text-align: left;
       padding: 8px 12px 10px;
@@ -733,10 +795,109 @@
     td {
       padding: 12px;
       border-bottom: 1px solid var(--color-stone-mist);
-      vertical-align: top;
+      vertical-align: middle;
       color: var(--color-midnight-ink);
     }
     tr:last-child td { border-bottom: none; }
+    tr.data-row:hover td { background: color-mix(in srgb, var(--color-cream-paper) 55%, var(--color-white)); }
+    td.cell-actions { text-align: right; white-space: nowrap; width: 1%; }
+    .cell-actions .btn-group--row .btn-text {
+      opacity: 0;
+      transition: opacity 0.12s ease;
+    }
+    tr.data-row:hover .cell-actions .btn-group--row .btn-text,
+    tr.job-row:hover .cell-actions .btn-group--row .btn-text,
+    tr.job-row.expanded .cell-actions .btn-group--row .btn-text {
+      opacity: 1;
+    }
+    .row-status { font-size: 12px; white-space: nowrap; }
+    tr.job-row--failed td { background: color-mix(in srgb, var(--color-amber-pulse) 6%, var(--color-white)); }
+    tr.job-row--failed td:first-child { box-shadow: inset 3px 0 0 var(--color-amber-pulse); }
+    tr.job-row--failed:hover td { background: color-mix(in srgb, var(--color-amber-pulse) 10%, var(--color-white)); }
+    .click-title { cursor: pointer; }
+    .click-title:hover { color: var(--color-deep-forest-teal); }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    th.th-actions { width: 1%; padding-left: 8px; padding-right: 8px; }
+    td.cell-channel { min-width: 11rem; }
+    td.cell-schedule { max-width: 12rem; }
+    td.cell-title { max-width: 22rem; }
+    .channel-primary { line-height: 1.35; }
+    .cell-channel > small {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--color-smoke);
+    }
+    .channel-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .channel-meta .channel-category-select {
+      flex: 1;
+      min-width: 0;
+      max-width: 10rem;
+      font-size: 13px;
+      padding: 6px 8px;
+    }
+    .category-save-btn {
+      display: none;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      font-size: 15px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .category-save-btn:not(:disabled) { display: inline-flex; align-items: center; justify-content: center; }
+    .category-save-status:empty { display: none; }
+    .schedule-line {
+      display: block;
+      font-size: 13px;
+      color: var(--color-smoke);
+      line-height: 1.35;
+      margin-bottom: 4px;
+    }
+    .cell-title-main {
+      display: block;
+      font-weight: 500;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 28rem;
+    }
+    .cell-title-sub {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--color-smoke);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 28rem;
+    }
+    .cell-title-sub code {
+      font-size: 11px;
+      background: color-mix(in srgb, var(--color-stone-mist) 35%, transparent);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .row-action { opacity: 0.92; }
+    tr.data-row:hover .row-action,
+    tr.job-row:hover .row-action,
+    tr.job-row.expanded .row-action { opacity: 1; }
     td strong { font-weight: 600; }
     td small { color: var(--color-smoke); font-size: var(--text-caption); }
 
@@ -770,11 +931,11 @@
     .channel-jobs-section { display: none; }
     .channel-jobs-section.is-open { display: block; }
     .channel-jobs-panel {
-      margin-top: 20px;
-      padding: 20px;
-      background: color-mix(in srgb, var(--color-cream-paper) 45%, var(--color-white));
+      margin-top: 16px;
+      padding: 16px 18px;
+      background: color-mix(in srgb, var(--color-cream-paper) 35%, var(--color-white));
       border: 1px solid var(--color-stone-mist);
-      border-radius: 12px;
+      border-radius: var(--radius-nav);
     }
     .channel-jobs-header {
       display: flex;
@@ -844,9 +1005,9 @@
       border-bottom: 1px solid var(--color-stone-mist);
     }
     .category-list li:last-child { border-bottom: none; }
-    .channel-category-select { max-width: 11rem; font-size: var(--text-body); }
-    .channel-category-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-    .category-save-status { font-size: var(--text-caption); flex-basis: 100%; min-height: 1rem; color: var(--color-smoke); }
+    .channel-category-select { max-width: 11rem; font-size: 13px; }
+    .channel-category-cell { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+    .category-save-status { font-size: 12px; color: var(--color-smoke); }
     .category-save-status.ok { color: var(--color-deep-forest-teal); font-weight: 600; }
     .category-save-status.bad { color: var(--color-charcoal); font-weight: 600; }
     .category-save-status.pending { color: var(--color-smoke); }
@@ -881,10 +1042,8 @@
       font-style: normal;
     }
     .schedule-summary {
-      font-size: var(--text-caption);
+      font-size: 13px;
       color: var(--color-smoke);
-      margin-bottom: 6px;
-      max-width: 14rem;
       line-height: 1.35;
     }
     .channel-schedule-row td {
@@ -979,6 +1138,35 @@
 
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--element-gap); }
     @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-stone-mist);
+    }
+    .detail-actions .btn-group--row { justify-content: flex-start; }
+    .detail-actions .btn-text { opacity: 1; }
+    .detail-error {
+      margin-bottom: 14px;
+      padding: 10px 14px;
+      background: color-mix(in srgb, var(--color-amber-pulse) 12%, var(--color-white));
+      border: 1px solid color-mix(in srgb, var(--color-amber-pulse) 35%, transparent);
+      border-radius: var(--radius-nav);
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--color-charcoal);
+    }
+    .detail-error strong {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-smoke);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
     .detail-meta dl { margin: 0; font-size: var(--text-body); }
     .detail-meta h3 {
       font-family: var(--font-eb-garamond);
@@ -1177,6 +1365,9 @@
             <h2>Uploading now</h2>
             <p class="section-desc">Live progress from parallel workers</p>
           </div>
+          <div class="section-toolbar">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-reconcile-uploads">Reconcile stuck</button>
+          </div>
         </div>
         <div class="panel">
           <div id="uploading-list" class="upload-progress-list"></div>
@@ -1198,9 +1389,9 @@
         </div>
         <div class="panel">
           <div class="table-wrap">
-            <table>
-              <thead><tr><th>Channel</th><th>Category</th><th>Status</th><th>Queue</th><th>Schedule</th><th></th></tr></thead>
-              <tbody id="channels-body"><tr><td colspan="6">Loading…</td></tr></tbody>
+            <table class="table-data">
+              <thead><tr><th>Channel</th><th>Status</th><th>Queue</th><th>Schedule</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
+              <tbody id="channels-body"><tr><td colspan="5">Loading…</td></tr></tbody>
             </table>
           </div>
           <div id="run-status"></div>
@@ -1208,7 +1399,7 @@
             <div class="channel-jobs-header">
               <div>
                 <h3 id="channel-jobs-title">Channel videos</h3>
-                <p class="section-desc" id="channel-jobs-desc">Browse and upload videos for this channel.</p>
+            <p class="section-desc" id="channel-jobs-desc">Upload, retry failed, or re-publish individual videos.</p>
               </div>
               <div class="btn-group">
                 <button type="button" class="btn-voltage btn-voltage--compact" id="btn-channel-upload-pending" disabled>Upload pending</button>
@@ -1223,8 +1414,8 @@
               <button type="button" class="filter-chip" data-channel-job-filter="failed">Failed</button>
             </div>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Title</th><th>Status</th><th>YouTube</th><th>Updated</th><th></th></tr></thead>
+              <table class="table-data">
+                <thead><tr><th>Title</th><th>Status</th><th>YouTube</th><th>Updated</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
                 <tbody id="channel-jobs-body"><tr><td colspan="5">Select a channel to view videos.</td></tr></tbody>
               </table>
             </div>
@@ -1236,7 +1427,7 @@
         <div class="section-header">
           <div>
             <h2>Library</h2>
-            <p class="section-desc">Queued and published videos across all channels</p>
+            <p class="section-desc">Queued and published videos — expand a row for preview and actions</p>
           </div>
           <div class="library-tabs" role="tablist" aria-label="Library view">
             <button type="button" class="filter-chip is-active" data-library-tab="queue" role="tab" aria-selected="true">Queue</button>
@@ -1251,16 +1442,16 @@
           </div>
           <div class="library-pane" data-library-pane="queue">
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Channel</th><th>Job</th><th>Title</th><th>Status</th><th></th></tr></thead>
-                <tbody id="queue-body"><tr><td colspan="5">Loading…</td></tr></tbody>
+              <table class="table-data">
+                <thead><tr><th>Title</th><th>Channel</th><th>Status</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
+                <tbody id="queue-body"><tr><td colspan="4">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
           <div class="library-pane" data-library-pane="history" hidden>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Channel</th><th>Job</th><th>Title</th><th>YouTube</th><th>Published</th></tr></thead>
+              <table class="table-data">
+                <thead><tr><th>Title</th><th>Channel</th><th>YouTube</th><th>Published</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
                 <tbody id="uploaded-body"><tr><td colspan="5">Loading…</td></tr></tbody>
               </table>
             </div>
@@ -1429,8 +1620,8 @@
 
     function beginDashboardLoad() {
       setStatsLoading(true);
-      setTableLoading('channels-body', 6, 'Loading channels…');
-      setTableLoading('queue-body', 5, 'Loading queue…');
+      setTableLoading('channels-body', 5, 'Loading channels…');
+      setTableLoading('queue-body', 4, 'Loading queue…');
       setTableLoading('uploaded-body', 5, 'Loading history…');
       const catList = document.getElementById('categories-list');
       if (catList) catList.innerHTML = '<div class="inline-loading"><span class="spinner"></span><span>Loading…</span></div>';
@@ -1478,12 +1669,15 @@
     function formatScheduleSummary(pub) {
       pub = pub || {};
       const ivl = pub.interval_hours != null ? pub.interval_hours : 24;
-      const parts = [ivl + 'h between uploads'];
-      if (pub.uploads_per_day) parts.push('max ' + pub.uploads_per_day + ' per run');
-      const tz = pub.timezone || 'America/New_York';
-      const hr = pub.hour != null ? pub.hour : 9;
-      parts.push('fallback ' + hr + ':00 ' + tz);
-      return parts.join(' · ');
+      let s = ivl + 'h spacing';
+      if (pub.uploads_per_day) s += ' · ' + pub.uploads_per_day + '/run';
+      return s;
+    }
+
+    function shortJobId(id) {
+      if (!id) return '—';
+      const s = String(id);
+      return s.length > 28 ? s.slice(0, 12) + '…' + s.slice(-8) : s;
     }
 
     function scheduleFormRowHtml(ch) {
@@ -1493,7 +1687,7 @@
       const ivl = pub.interval_hours != null ? pub.interval_hours : 24;
       const maxRun = pub.uploads_per_day != null ? pub.uploads_per_day : '';
       return `<tr class="channel-schedule-row" data-schedule-row="${esc(ch.id)}">
-        <td colspan="6">
+        <td colspan="5">
           <div class="channel-schedule-form" data-schedule-form="${esc(ch.id)}"
             data-current-timezone="${tz}"
             data-current-hour="${hour}"
@@ -1555,7 +1749,7 @@
       const prev = filter.value;
       filter.innerHTML = '<option value="">All channels</option>';
       if (!channels.length) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No channels yet. Click <strong>Connect channel</strong> above.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No channels yet. Click <strong>Connect channel</strong> above.</div></td></tr>';
         syncStageChannelDropdown([]);
         return;
       }
@@ -1563,29 +1757,34 @@
         const expanded = expandedChannelSchedule.has(ch.id);
         const canEdit = ch.auth && ch.auth.valid;
         const scheduleCell = canEdit
-          ? `<div class="schedule-summary">${esc(formatScheduleSummary(ch.publish))}</div>
-             <button type="button" class="btn-ghost btn-ghost--compact" data-toggle-schedule="${esc(ch.id)}">${expanded ? 'Hide schedule' : 'Edit schedule'}</button>`
-          : `<div class="schedule-summary">${esc(formatScheduleSummary(ch.publish))}</div>
+          ? `<span class="schedule-line">${esc(formatScheduleSummary(ch.publish))}</span>
+             <button type="button" class="btn-text" data-toggle-schedule="${esc(ch.id)}">${expanded ? 'Hide' : 'Edit'}</button>`
+          : `<span class="schedule-line">${esc(formatScheduleSummary(ch.publish))}</span>
              <span class="muted">Reauth to edit</span>`;
-        const mainRow = `<tr>
-          <td>${canEdit
-            ? `<button type="button" class="channel-name-btn" data-open-channel="${esc(ch.id)}" title="View videos">${esc(ch.name)}</button>`
-            : `<strong>${esc(ch.name)}</strong>`}<br><small>${ch.id}${ch.custom_url ? ' ' + ch.custom_url : ''}</small></td>
-          <td>
-            <div class="channel-category-cell">
+        const categoryRow = canEdit || ch.category
+          ? `<div class="channel-meta">
               <select class="channel-category-select" data-set-category="${ch.id}" data-current="${esc(ch.category || '')}" data-channel-name="${esc(ch.name)}">${categoryOptionsHtml(ch.category || '')}</select>
-              <button type="button" class="btn-voltage btn-voltage--compact category-save-btn" data-save-category="${ch.id}" disabled title="Save category">Save</button>
+              <button type="button" class="btn-voltage btn-voltage--compact category-save-btn" data-save-category="${ch.id}" disabled title="Save category" aria-label="Save category">✓</button>
               <span class="category-save-status" data-category-status="${ch.id}" aria-live="polite"></span>
-            </div>
+            </div>`
+          : '';
+        const mainRow = `<tr class="data-row">
+          <td class="cell-channel">
+            <div class="channel-primary">${canEdit
+            ? `<button type="button" class="channel-name-btn" data-open-channel="${esc(ch.id)}" title="View videos">${esc(ch.name)}</button>`
+            : `<strong>${esc(ch.name)}</strong>`}</div>
+            <small>${esc(ch.id)}${ch.custom_url ? ' · ' + esc(ch.custom_url) : ''}</small>
+            ${categoryRow}
           </td>
           <td>${authBadge(ch.auth)}</td>
           <td><span class="count-pill${ch.pending_count ? ' has-pending' : ''}">${ch.pending_count}</span> queued${ch.failed_count ? ' · <span class="bad">' + ch.failed_count + ' failed</span>' : ''}</td>
-          <td>${scheduleCell}</td>
-          <td>
+          <td class="cell-schedule">${scheduleCell}</td>
+          <td class="cell-actions">
             <div class="btn-group">
-            <button class="btn-voltage btn-voltage--compact" data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>Upload 1</button>
-            <button class="btn-ghost btn-ghost--compact" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''}>All</button>
-            <button class="btn-ghost btn-ghost--compact" data-reauth="${ch.id}" title="Reconnect OAuth">Reauth</button>
+            <button class="btn-voltage btn-voltage--compact" data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''} title="Upload next video">Upload</button>
+            <button class="btn-ghost btn-ghost--compact" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''} title="Upload all queued">All</button>
+            <span class="btn-group__sep" aria-hidden="true"></span>
+            <button class="btn-icon" data-reauth="${ch.id}" title="Reconnect OAuth">↻</button>
             <button type="button" class="btn-icon" data-remove-channel="${ch.id}" data-channel-name="${esc(ch.name)}" title="Remove channel">${TRASH_ICON}</button>
             </div>
           </td>
@@ -1683,7 +1882,7 @@
     }
 
     function updateCategorySaveButton(selectEl) {
-      const cell = selectEl.closest('.channel-category-cell');
+      const cell = selectEl.closest('.channel-meta') || selectEl.closest('.channel-category-cell');
       if (!cell) return;
       const btn = cell.querySelector('[data-save-category]');
       if (!btn) return;
@@ -1705,7 +1904,6 @@
       btn.dataset.saving = '1';
       btn.classList.add('btn-loading');
       btn.textContent = 'Saving…';
-      setCategorySaveStatus(channelId, 'Saving…', 'pending');
       try {
         const updated = await api('/v1/channels/' + encodeURIComponent(channelId), {
           method: 'PATCH',
@@ -1714,7 +1912,7 @@
         });
         select.dataset.current = updated.category || '';
         fillCategorySelect(select, select.dataset.current);
-        setCategorySaveStatus(channelId, 'Saved: ' + (updated.category || '—'), 'ok');
+        setCategorySaveStatus(channelId, '', '');
         toast('Category saved for ' + channelName + ': ' + label);
         if (dashboardData && dashboardData.channels) {
           const ch = dashboardData.channels.find(c => c.id === channelId);
@@ -1727,7 +1925,7 @@
       } finally {
         delete btn.dataset.saving;
         btn.classList.remove('btn-loading');
-        btn.textContent = 'Save';
+        btn.textContent = '✓';
         updateCategorySaveButton(select);
       }
     }
@@ -1740,6 +1938,7 @@
     }
 
     function showLoginGate() {
+      stopActiveUploadPoll();
       document.getElementById('app').hidden = true;
       document.getElementById('login-gate').hidden = false;
       const input = document.getElementById('login-password');
@@ -2036,14 +2235,15 @@
         toast('Staged to queue: ' + staged.job_id);
         videoInput.value = '';
         thumbInput.value = '';
-        await loadDashboard(true);
+        setStageStatus('', '');
+        loadDashboard(true).catch(() => {});
         if (andUpload) {
           const ch = (dashboardData && dashboardData.channels || []).find(c => c.id === channelId);
           if (!ch || !ch.auth || !ch.auth.valid) {
             toast('Staged — connect OAuth on this channel before uploading to YouTube', true);
-            return;
+          } else {
+            await startUpload(channelId, 1);
           }
-          await startUpload(channelId, 1);
         }
       } catch (err) {
         setStageStatus(err.message || 'Stage failed', 'bad');
@@ -2123,9 +2323,10 @@
     }
 
     function statusLabel(status) {
-      if (status === 'pending') return '<span class="badge badge-ok">Pending</span>';
+      if (status === 'pending') return '<span class="badge badge-ok">Queued</span>';
       if (status === 'failed') return '<span class="badge badge-bad">Failed</span>';
       if (status === 'uploading') return '<span class="badge badge-warn">Uploading</span>';
+      if (status === 'uploaded') return '<span class="badge badge-ok">Published</span>';
       return '<span class="badge">' + esc(status || '—') + '</span>';
     }
 
@@ -2188,7 +2389,12 @@
           : '';
         const cancelBtn = done
           ? ''
-          : '<button type="button" class="btn-ghost btn-ghost--padded" data-cancel-upload="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Cancel</button>';
+          : '<button type="button" class="btn-text" data-cancel-upload="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Cancel</button>';
+        const dismissBtn = done
+          ? '<button type="button" class="btn-text" data-dismiss-upload="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Dismiss</button>'
+            + ' · <button type="button" class="btn-text" data-dismiss-upload="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '" data-dismiss-action="retry">Return to queue</button>'
+          : '';
+        const actionBtns = (cancelBtn + dismissBtn).replace(/^ · /, '');
         return `<div class="upload-progress-item${doneClass}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
           <div class="upload-progress-head">
             <span class="upload-progress-title">${esc(j.title || j.id)}${done ? ' ✓' : ''}</span>
@@ -2196,7 +2402,7 @@
           </div>
           <div class="progress-track" aria-hidden="true"><div class="progress-fill" style="width:${done ? 100 : pct}%"></div></div>
           <div class="upload-progress-phase">${esc(msg)} · ${done ? 100 : pct}%${link}</div>
-          <div class="upload-progress-actions">${cancelBtn}</div>
+          <div class="upload-progress-actions">${actionBtns}</div>
         </div>`;
       }).join('');
     }
@@ -2204,10 +2410,34 @@
     let activeUploadPollTimer = null;
     const activeUploadCompletedToasted = new Set();
     let activeUploadGracePolls = 0;
+    let activeUploadPollInFlight = false;
+    let activeUploadPollErrors = 0;
+    let activeUploadStalePolls = 0;
+    const activeUploadLastProgress = new Map();
+
+    function stopActiveUploadPoll() {
+      if (activeUploadPollTimer) {
+        clearInterval(activeUploadPollTimer);
+        activeUploadPollTimer = null;
+      }
+      activeUploadGracePolls = 0;
+      activeUploadPollErrors = 0;
+      activeUploadStalePolls = 0;
+      activeUploadPollInFlight = false;
+    }
+
+    async function reconcileStuckUploads() {
+      try {
+        await api('/v1/uploads/reconcile', { method: 'POST' });
+      } catch (_) { /* best effort */ }
+    }
 
     async function pollActiveUploads() {
+      if (activeUploadPollInFlight) return;
+      activeUploadPollInFlight = true;
       try {
         const data = await api('/v1/uploads/active');
+        activeUploadPollErrors = 0;
         const uploads = data.uploads || [];
         renderUploadingJobs(uploads.map(u => ({
           id: u.job_id,
@@ -2234,25 +2464,56 @@
           }
         });
         const activeCount = uploads.filter(u => !u.completed).length;
+        const stuckCompleteCount = uploads.filter(u => {
+          const pct = Math.round(Number(u.upload_progress || 0));
+          return u.completed || pct >= 93;
+        }).length;
         const totalCount = data.count || uploads.length;
+
+        uploads.filter(u => !u.completed).forEach(u => {
+          const key = u.channel_id + ':' + u.job_id;
+          const pct = Math.round(Number(u.upload_progress || 0));
+          const prev = activeUploadLastProgress.get(key);
+          if (prev === undefined || prev.pct !== pct || prev.phase !== u.upload_phase) {
+            activeUploadLastProgress.set(key, { pct, phase: u.upload_phase });
+            activeUploadStalePolls = 0;
+          }
+        });
+        if (activeCount > 0) activeUploadStalePolls += 1;
+
         if (totalCount > 0) {
           activeUploadGracePolls = uploads.every(u => u.completed) ? activeUploadGracePolls + 1 : 0;
           if (!activeUploadPollTimer) {
             activeUploadPollTimer = setInterval(pollActiveUploads, 800);
           }
           if (activeCount === 0 && activeUploadGracePolls >= 3) {
-            clearInterval(activeUploadPollTimer);
-            activeUploadPollTimer = null;
-            activeUploadGracePolls = 0;
+            stopActiveUploadPoll();
+            activeUploadLastProgress.clear();
+            if (totalCount > 0) await reconcileStuckUploads();
             loadDashboard(false);
+          } else if (
+            (activeCount > 0 && activeUploadStalePolls >= 45)
+            || (stuckCompleteCount > 0 && activeUploadStalePolls >= 8)
+          ) {
+            stopActiveUploadPoll();
+            activeUploadStalePolls = 0;
+            await reconcileStuckUploads();
+            activeUploadLastProgress.clear();
+            loadDashboard(true);
+            pollActiveUploads();
           }
-        } else if (activeUploadPollTimer) {
-          clearInterval(activeUploadPollTimer);
-          activeUploadPollTimer = null;
-          activeUploadGracePolls = 0;
+        } else {
+          stopActiveUploadPoll();
+          activeUploadLastProgress.clear();
+          setUploadingSectionVisible(false);
           loadDashboard(false);
         }
-      } catch (_) { /* ignore poll errors */ }
+      } catch (_) {
+        activeUploadPollErrors += 1;
+        if (activeUploadPollErrors >= 5) stopActiveUploadPoll();
+      } finally {
+        activeUploadPollInFlight = false;
+      }
     }
 
     let dashboardData = null;
@@ -2277,7 +2538,10 @@
         ['Registry status', job.status || '—'],
       ];
       if (job.error) rows.push(['Error', job.error]);
-      return '<dl>' + rows.map(([k,v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
+      return '<dl>' + rows.map(([k,v]) => {
+        if (k === 'Error') return '';
+        return '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>';
+      }).join('') + '</dl>';
     }
 
     function renderDetailPanel(detail) {
@@ -2291,15 +2555,24 @@
       const videoHtml = media.video_available
         ? '<video controls preload="none" src="' + esc(media.video) + '"></video>'
         : '<p class="placeholder">No video file in storage</p>';
-      return '<div class="detail-grid">'
+      const errorHtml = job.error && job.status === 'failed'
+        ? '<div class="detail-error"><strong>Upload failed</strong>' + esc(job.error) + '</div>'
+        : '';
+      const actionsHtml = uploadButtonLabel(job)
+        ? '<div class="detail-actions">' + jobActionButtons(job) + '</div>'
+        : '';
+      return errorHtml
+        + '<div class="detail-grid">'
         + '<div class="detail-meta"><h3>Metadata</h3>' + renderMetaList(meta, job)
         + '<dl><dt>Description</dt><dd>' + (desc ? esc(desc) : '—') + '</dd>'
         + '<dt>Folder</dt><dd>' + storageBadge(job) + ' <span class="detail-path">' + shortPath(jobStoragePrefix(job)) + '</span></dd>'
         + (job.video_uri ? '<dt>Video URI</dt><dd class="detail-path">' + esc(job.video_uri) + '</dd>' : '')
+        + (job.youtube_url ? '<dt>YouTube</dt><dd><a href="' + esc(job.youtube_url) + '" target="_blank" rel="noopener">' + esc(job.youtube_url) + '</a></dd>' : '')
         + '</dl></div>'
         + '<div class="detail-preview"><h3>Preview</h3>' + thumbHtml
         + '<p class="muted" style="margin:8px 0 4px">Video</p>' + videoHtml + '</div>'
-        + '</div>';
+        + '</div>'
+        + actionsHtml;
     }
 
     async function loadJobDetail(channelId, jobId) {
@@ -2313,6 +2586,7 @@
     async function toggleJobRow(channelId, jobId, rowEl) {
       const key = jobKey(channelId, jobId);
       const tbody = rowEl.parentElement;
+      const colCount = tbody.closest('table')?.querySelectorAll('thead th').length || 4;
       const existing = tbody.querySelector('tr.job-detail[data-key="' + key + '"]');
       if (existing) {
         existing.remove();
@@ -2327,13 +2601,13 @@
       const detailRow = document.createElement('tr');
       detailRow.className = 'job-detail';
       detailRow.dataset.key = key;
-        detailRow.innerHTML = '<td colspan="5"><div class="inline-loading"><span class="spinner"></span><span>Loading details…</span></div></td>';
+        detailRow.innerHTML = '<td colspan="' + colCount + '"><div class="inline-loading"><span class="spinner"></span><span>Loading details…</span></div></td>';
       rowEl.after(detailRow);
       try {
         const detail = await loadJobDetail(channelId, jobId);
-        detailRow.innerHTML = '<td colspan="5">' + renderDetailPanel(detail) + '</td>';
+        detailRow.innerHTML = '<td colspan="' + colCount + '">' + renderDetailPanel(detail) + '</td>';
       } catch (err) {
-        detailRow.innerHTML = '<td colspan="5"><span class="bad">' + esc(err.message) + '</span></td>';
+        detailRow.innerHTML = '<td colspan="' + colCount + '"><span class="bad">' + esc(err.message) + '</span></td>';
       }
     }
 
@@ -2349,18 +2623,21 @@
       });
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Queue is empty. Stage a video in <strong>Settings</strong> or register via the API.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">Queue is empty. Stage a video in <strong>Settings</strong> or register via the API.</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => {
         const key = jobKey(j.channel_id, j.id);
         const expanded = expandedJobKeys.has(key) ? ' expanded' : '';
-        return `<tr class="job-row${expanded}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+        const failedClass = j.status === 'failed' ? ' job-row--failed' : '';
+        return `<tr class="job-row data-row${failedClass}${expanded}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td class="cell-title">
+            <span class="cell-title-main click-title">${esc(j.title || '(no title)')}</span>
+            <span class="cell-title-sub"><code>${esc(shortJobId(j.id))}</code></span>
+          </td>
           <td>${esc(j.channel_id)}</td>
-          <td><code>${esc(j.id)}</code></td>
-          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint" aria-hidden="true">›</span></td>
           <td>${statusLabel(j.status)}</td>
-          <td>${j.status === 'pending' ? '<button class="btn-ghost btn-ghost--compact" data-remove="' + esc(j.channel_id) + '" data-job="' + esc(j.id) + '">Remove</button>' : ''}</td>
+          <td class="cell-actions">${jobActionButtons(j)}</td>
         </tr>`;
       }).join('');
       filtered.filter(j => expandedJobKeys.has(jobKey(j.channel_id, j.id))).forEach(j => {
@@ -2382,6 +2659,86 @@
       return 'Upload';
     }
 
+    function jobActionButtons(job) {
+      const label = uploadButtonLabel(job);
+      const parts = [];
+      if (label) {
+        const isReupload = label === 'Re-upload';
+        const btnCls = isReupload
+          ? 'btn-ghost btn-ghost--compact row-action'
+          : 'btn-voltage btn-voltage--compact row-action';
+        const reupload = isReupload ? ' data-reupload="1"' : '';
+        parts.push(
+          '<button type="button" class="' + btnCls + '" data-upload-job="' + esc(job.id)
+          + '" data-channel="' + esc(job.channel_id) + '"' + reupload + '>' + label + '</button>'
+        );
+      } else if (job.status === 'uploading') {
+        parts.push('<span class="muted row-status">In progress</span>');
+      }
+      if (job.status === 'pending') {
+        parts.push(
+          '<button type="button" class="btn-text row-action" data-remove="' + esc(job.channel_id)
+          + '" data-job="' + esc(job.id) + '">Remove</button>'
+        );
+      }
+      if (!parts.length) return '<span class="muted">—</span>';
+      return '<div class="btn-group btn-group--row">' + parts.join('') + '</div>';
+    }
+
+    async function uploadJob(channelId, jobId, triggerBtn, options) {
+      const opts = options || {};
+      if (opts.confirmReupload) {
+        const confirmed = await toastConfirm(
+          '<strong>Re-upload to YouTube?</strong>'
+          + '<span class="muted">Creates a <em>new</em> YouTube video. The previous link stays on YouTube.</span>',
+          { confirmLabel: 'Re-upload' }
+        );
+        if (!confirmed) return;
+      }
+      const ch = (dashboardData && dashboardData.channels || []).find(c => c.id === channelId);
+      if (!ch || !ch.auth || !ch.auth.valid) {
+        toast('Connect OAuth on this channel before uploading to YouTube', true);
+        return;
+      }
+      if (triggerBtn) setButtonLoading(triggerBtn, true, 'Starting…');
+      try {
+        const body = getUploadRunOptions(1);
+        await api(
+          '/v1/channels/' + encodeURIComponent(channelId) + '/jobs/' + encodeURIComponent(jobId) + '/upload',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }
+        );
+        toast(opts.confirmReupload ? 'Re-upload started' : 'Upload started');
+        jobDetailCache.delete(jobKey(channelId, jobId));
+        pollActiveUploads();
+        if (triggerBtn) setButtonLoading(triggerBtn, false);
+        const refreshJobs = async () => {
+          if (selectedChannelId === channelId) await loadChannelJobs(channelId, false);
+          await loadDashboard(true);
+        };
+        refreshJobs().catch(err => toast(err.message || 'Refresh failed', true));
+      } catch (err) {
+        toast(err.message || 'Upload failed', true);
+        if (triggerBtn) setButtonLoading(triggerBtn, false);
+      }
+    }
+
+    async function onJobUploadButtonClick(e) {
+      const uploadBtn = e.target.closest('[data-upload-job]');
+      if (!uploadBtn) return false;
+      e.stopPropagation();
+      const channelId = uploadBtn.dataset.channel;
+      const jobId = uploadBtn.dataset.uploadJob;
+      if (!channelId || !jobId) return true;
+      await uploadJob(channelId, jobId, uploadBtn, {
+        confirmReupload: uploadBtn.dataset.reupload === '1',
+      });
+      return true;
+    }
+
     function renderChannelJobsPanel() {
       const panel = document.getElementById('channel-jobs-panel');
       const tbody = document.getElementById('channel-jobs-body');
@@ -2393,10 +2750,14 @@
       panel.hidden = false;
       const ch = (dashboardData && dashboardData.channels || []).find(c => c.id === selectedChannelId);
       document.getElementById('channel-jobs-title').textContent = (ch && ch.name) || selectedChannelId;
-      document.getElementById('channel-jobs-desc').textContent = 'Filter and upload videos for this channel. Re-upload sends a new copy to YouTube.';
+      document.getElementById('channel-jobs-desc').textContent = 'Upload, retry failed, or re-publish individual videos.';
 
       document.querySelectorAll('[data-channel-job-filter]').forEach(btn => {
-        btn.classList.toggle('is-active', btn.dataset.channelJobFilter === channelJobFilter);
+        const f = btn.dataset.channelJobFilter;
+        btn.classList.toggle('is-active', f === channelJobFilter);
+        const labels = { all: 'All', pending: 'Queued', uploading: 'Uploading', uploaded: 'Published', failed: 'Failed' };
+        const n = f === 'all' ? channelJobsCache.length : channelJobsCache.filter(j => j.status === f).length;
+        btn.textContent = (labels[f] || f) + (n ? ' · ' + n : '');
       });
 
       let jobs = channelJobsCache.slice();
@@ -2418,19 +2779,16 @@
         return;
       }
       tbody.innerHTML = jobs.map(j => {
-        const btnLabel = uploadButtonLabel(j);
-        const action = btnLabel
-          ? `<button type="button" class="btn-voltage btn-voltage--compact" data-upload-job="${esc(j.id)}">${btnLabel}</button>`
-          : '<span class="muted">In progress</span>';
-        const yt = j.youtube_url
-          ? `<a href="${esc(j.youtube_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>`
-          : '—';
-        return `<tr class="job-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
-          <td><span class="click-title">${esc(j.title || '(no title)')}</span><br><small><code>${esc(j.id)}</code></small></td>
+        const failedClass = j.status === 'failed' ? ' job-row--failed' : '';
+        return `<tr class="job-row data-row${failedClass}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td class="cell-title">
+            <span class="cell-title-main click-title">${esc(j.title || '(no title)')}</span>
+            <span class="cell-title-sub"><code>${esc(shortJobId(j.id))}</code></span>
+          </td>
           <td>${statusLabel(j.status)}</td>
-          <td>${yt}</td>
+          <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
           <td>${esc(channelJobTimestamp(j))}</td>
-          <td>${action}</td>
+          <td class="cell-actions">${jobActionButtons(j)}</td>
         </tr>`;
       }).join('');
     }
@@ -2464,26 +2822,9 @@
     }
 
     async function uploadChannelJob(channelId, jobId, triggerBtn) {
-      if (triggerBtn) setButtonLoading(triggerBtn, true, 'Starting…');
-      try {
-        const body = getUploadRunOptions(1);
-        await api(
-          '/v1/channels/' + encodeURIComponent(channelId) + '/jobs/' + encodeURIComponent(jobId) + '/upload',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          }
-        );
-        toast('Upload started');
-        pollActiveUploads();
-        await loadChannelJobs(channelId, false);
-        await loadDashboard(true);
-      } catch (err) {
-        toast(err.message, true);
-      } finally {
-        if (triggerBtn) setButtonLoading(triggerBtn, false);
-      }
+      await uploadJob(channelId, jobId, triggerBtn, {
+        confirmReupload: triggerBtn && triggerBtn.dataset.reupload === '1',
+      });
     }
 
     function renderUploadedJobs(jobs) {
@@ -2495,12 +2836,15 @@
         return;
       }
       tbody.innerHTML = filtered.map((j) => `
-        <tr class="job-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+        <tr class="job-row data-row" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td class="cell-title">
+            <span class="cell-title-main click-title">${esc(j.title || '(no title)')}</span>
+            <span class="cell-title-sub"><code>${esc(shortJobId(j.id))}</code></span>
+          </td>
           <td>${esc(j.channel_id)}</td>
-          <td><code>${esc(j.id)}</code></td>
-          <td><span class="click-title">${esc(j.title || '(no title)')}</span> <span class="expand-hint" aria-hidden="true">›</span></td>
           <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
-          <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', '')) : '—'}</td>
+          <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', '').slice(0, 16)) : '—'}</td>
+          <td class="cell-actions">${jobActionButtons(j)}</td>
         </tr>`).join('');
     }
 
@@ -2553,6 +2897,9 @@
         document.getElementById('run-status').textContent = res.message || 'Upload workers dispatched';
         toast('Parallel upload started');
         pollActiveUploads();
+        loadDashboard(true).catch(() => {});
+      } catch (err) {
+        toast(err.message || 'Upload failed', true);
       } finally {
         if (triggerBtn) setButtonLoading(triggerBtn, false);
       }
@@ -2571,6 +2918,14 @@
       try {
         await loadDashboard(true);
         if (selectedChannelId) await loadChannelJobs(selectedChannelId, false);
+      } catch (err) {
+        toast(err.message || 'Refresh failed', true);
+        if (dashboardData) {
+          renderChannelsTable(dashboardData.channels || []);
+          renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+          renderUploadedJobs(dashboardData.uploaded_jobs || []);
+          setStatsLoading(false);
+        }
       } finally {
         btn.disabled = false;
         btn.classList.remove('refreshing');
@@ -2581,6 +2936,22 @@
     }
 
     document.getElementById('btn-refresh').onclick = refresh;
+
+    document.getElementById('btn-reconcile-uploads').onclick = async (e) => {
+      const btn = e.currentTarget;
+      setButtonLoading(btn, true, 'Reconciling…');
+      try {
+        const result = await api('/v1/uploads/reconcile', { method: 'POST' });
+        const n = (result.actions || []).length;
+        toast(n ? ('Reconciled ' + n + ' job(s)') : 'No stuck uploads found');
+        pollActiveUploads();
+        loadDashboard(true);
+      } catch (err) {
+        toast('Reconcile failed: ' + (err.message || err), true);
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    };
 
     document.getElementById('stage-video').addEventListener('change', (e) => {
       const titleEl = document.getElementById('stage-title');
@@ -2607,6 +2978,7 @@
     document.getElementById('btn-stage-plan').onclick = () => previewStagePlan();
 
     document.getElementById('btn-logout').onclick = async () => {
+      stopActiveUploadPoll();
       await fetch('/logout', { method: 'POST', credentials: 'include' });
       showLoginGate();
     };
@@ -2728,12 +3100,12 @@
       if (t.dataset.upload) startUpload(t.dataset.upload, 1, t);
       if (t.dataset.uploadAll) startUpload(t.dataset.uploadAll, null, t);
       if (t.dataset.reauth) {
-        setButtonLoading(t, true, 'Opening…');
+        t.disabled = true;
         try {
           const res = await api('/v1/channels/' + encodeURIComponent(t.dataset.reauth) + '/oauth/start', { method: 'POST' });
           window.location.href = res.auth_url;
         } catch (err) {
-          setButtonLoading(t, false, 'Reauth');
+          t.disabled = false;
           toast(err.message, true);
         }
       }
@@ -2753,6 +3125,37 @@
     };
 
     document.getElementById('uploading-list').onclick = async (e) => {
+      const dismissBtn = e.target.closest('[data-dismiss-upload]');
+      if (dismissBtn) {
+        e.stopPropagation();
+        const channelId = dismissBtn.dataset.dismissUpload;
+        const jobId = dismissBtn.dataset.job;
+        const action = dismissBtn.dataset.dismissAction || 'auto';
+        const actionLabel = action === 'retry' ? 'Return to queue' : 'Dismiss';
+        const confirmed = await toastConfirm(
+          '<strong>' + esc(actionLabel) + ' for <code>' + esc(jobId) + '</code>?</strong>'
+          + '<span class="muted">' + (action === 'retry'
+            ? 'Clears the stuck upload and puts the video back in the pending queue.'
+            : 'Finalizes the upload if YouTube has the video, otherwise returns it to the queue.') + '</span>',
+          { confirmLabel: actionLabel }
+        );
+        if (!confirmed) return;
+        dismissBtn.disabled = true;
+        try {
+          const qs = action !== 'auto' ? '?action=' + encodeURIComponent(action) : '';
+          const result = await api(
+            '/v1/channels/' + encodeURIComponent(channelId) + '/jobs/' + encodeURIComponent(jobId) + '/dismiss-upload' + qs,
+            { method: 'POST' }
+          );
+          toast((result.action || actionLabel) + ': ' + (result.detail || jobId));
+          pollActiveUploads();
+          loadDashboard(true);
+        } catch (err) {
+          toast(actionLabel + ' failed: ' + (err.message || err), true);
+          dismissBtn.disabled = false;
+        }
+        return;
+      }
       const btn = e.target.closest('[data-cancel-upload]');
       if (!btn) return;
       e.stopPropagation();
@@ -2795,10 +3198,24 @@
     };
 
     document.getElementById('channel-jobs-body').onclick = async (e) => {
-      const uploadBtn = e.target.closest('[data-upload-job]');
-      if (uploadBtn && selectedChannelId) {
+      if (await onJobUploadButtonClick(e)) return;
+      const row = e.target.closest('tr.job-row');
+      if (row && row.dataset.channel && row.dataset.job) {
+        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
+      }
+    };
+
+    document.getElementById('queue-body').onclick = async (e) => {
+      if (await onJobUploadButtonClick(e)) return;
+      const removeBtn = e.target.closest('[data-remove]');
+      if (removeBtn) {
         e.stopPropagation();
-        await uploadChannelJob(selectedChannelId, uploadBtn.dataset.uploadJob, uploadBtn);
+        if (!confirm('Remove job ' + removeBtn.dataset.job + '?')) return;
+        await api('/v1/channels/' + encodeURIComponent(removeBtn.dataset.remove) + '/jobs/' + encodeURIComponent(removeBtn.dataset.job), { method: 'DELETE' });
+        jobDetailCache.delete(jobKey(removeBtn.dataset.remove, removeBtn.dataset.job));
+        expandedJobKeys.delete(jobKey(removeBtn.dataset.remove, removeBtn.dataset.job));
+        toast('Removed');
+        refresh();
         return;
       }
       const row = e.target.closest('tr.job-row');
@@ -2807,25 +3224,8 @@
       }
     };
 
-    document.getElementById('queue-body').onclick = async (e) => {
-      const t = e.target;
-      if (t.dataset.remove) {
-        e.stopPropagation();
-        if (!confirm('Remove job ' + t.dataset.job + '?')) return;
-        await api('/v1/channels/' + encodeURIComponent(t.dataset.remove) + '/jobs/' + encodeURIComponent(t.dataset.job), { method: 'DELETE' });
-        jobDetailCache.delete(jobKey(t.dataset.remove, t.dataset.job));
-        expandedJobKeys.delete(jobKey(t.dataset.remove, t.dataset.job));
-        toast('Removed');
-        refresh();
-        return;
-      }
-      const row = t.closest('tr.job-row');
-      if (row && row.dataset.channel && row.dataset.job) {
-        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
-      }
-    };
-
     document.getElementById('uploaded-body').onclick = async (e) => {
+      if (await onJobUploadButtonClick(e)) return;
       const row = e.target.closest('tr.job-row');
       if (row && row.dataset.channel && row.dataset.job) {
         await toggleJobRow(row.dataset.channel, row.dataset.job, row);

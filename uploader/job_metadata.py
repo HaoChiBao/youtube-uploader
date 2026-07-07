@@ -42,6 +42,8 @@ class JobMetadata:
     thumbnail_file: str = bucket_layout.JOB_THUMBNAIL
     staged_at: str = ""
     status: str = "pending"
+    publish_at: str = ""
+    upload_at: str = ""
 
     def validate(self) -> None:
         if self.privacy not in VALID_PRIVACY:

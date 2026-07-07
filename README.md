@@ -178,6 +178,26 @@ Use **Refresh** in the UI (calls `?refresh=true`) to force reload from R2. Routi
 
 Full endpoint catalog: [`api/endpoint_docs.py`](api/endpoint_docs.py) (also returned by `GET /v1/capabilities`).
 
+### Documentation for LLM / AI agents
+
+Give another LLM the full API in one fetch:
+
+| Format | URL | Auth |
+|--------|-----|------|
+| **Markdown (recommended)** | `GET /v1/docs/llm` | `X-API-Key` |
+| JSON catalog | `GET /v1/capabilities` | `X-API-Key` |
+| OpenAPI schema | `GET /openapi.json` | `X-API-Key` (when auth enabled) |
+| Swagger UI | `/docs` | session or API key |
+
+**Production example:**
+
+```bash
+curl -s "https://youtuber-uploader-app-17161979106.northamerica-northeast2.run.app/v1/docs/llm" \
+  -H "X-API-Key: $UPLOADER_API_KEY" -o API-REFERENCE.md
+```
+
+Paste `API-REFERENCE.md` into the other LLM's context, or attach it as a file.
+
 ### HTTP API reference
 
 Canonical descriptions live in `api/endpoint_docs.py` and appear in OpenAPI at **`/docs`** (Swagger UI) and **`/redoc`**. Each operation includes purpose, curl usage, and example JSON responses. Machine-readable catalog: `GET /v1/capabilities`.

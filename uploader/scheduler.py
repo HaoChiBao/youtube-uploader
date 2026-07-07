@@ -10,6 +10,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from uploader.channels import AppConfig, ChannelConfig, get_channel
+from uploader.job_schedule import apply_plan_publish_overrides, filter_pending_ready
 from uploader.registry import UploadEntry, UploadRegistry
 from uploader.state_store import config_base_from_path
 from uploader.upload_worker import upload_single_job
@@ -272,6 +273,8 @@ def run_channel(
     oauth_client_secret: Path | None = None,
     oauth_client_config: dict | None = None,
     oauth_port: int | None = None,
+    publish_at: str | None = None,
+    ignore_upload_at: bool = False,
 ) -> RunResult:
     """Process pending uploads sequentially in-process (one job at a time)."""
     import os
@@ -279,6 +282,7 @@ def run_channel(
     channel = get_channel(config, channel_id)
     registry = UploadRegistry(channel.registry_path)
     pending = registry.pending(channel_id=channel.id)
+    pending = filter_pending_ready(pending, ignore_upload_at=ignore_upload_at)
     daily_cap = uploads_per_day if uploads_per_day is not None else channel.publish.uploads_per_day
     if daily_cap is not None:
         cap = daily_cap if limit is None else min(limit, daily_cap)
@@ -301,7 +305,12 @@ def run_channel(
         oauth_client_config=oauth_client_config,
         oauth_port=oauth_port,
     )
-    plan = upload_plan.items
+    plan = apply_plan_publish_overrides(
+        upload_plan.items,
+        no_schedule=no_schedule,
+        publish_at_override=publish_at,
+        timezone_name=channel.publish.timezone,
+    )
 
     if dry_run:
         return result

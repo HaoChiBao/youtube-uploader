@@ -9,8 +9,8 @@ import pytest
 
 from uploader import bucket_layout
 from uploader.channels import ChannelConfig
-from uploader.job_store import archive_job, generate_job_id, remove_job, stage_job
-from uploader.registry import UploadRegistry
+from uploader.job_store import archive_job, generate_job_id, prepare_job_for_upload, remove_job, requeue_job, stage_job
+from uploader.registry import STATUS_FAILED, STATUS_PENDING, STATUS_UPLOADED, UploadRegistry
 
 
 @pytest.fixture
@@ -119,3 +119,71 @@ def test_remove_job_unknown_raises(tmp_path: Path, channel: ChannelConfig, monke
     monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
     with pytest.raises(ValueError, match="not found"):
         remove_job(channel, "missing-job", base=tmp_path)
+
+
+def test_prepare_job_for_upload_retries_failed(tmp_path: Path, channel: ChannelConfig, monkeypatch) -> None:
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-video")
+    stage_job(
+        channel,
+        video_path=video,
+        title="Retry me",
+        description="",
+        job_id="job-failed",
+        base=tmp_path,
+    )
+    registry = UploadRegistry(channel.registry_path)
+    registry.mark_failed("job-failed", error="timeout")
+
+    restored = prepare_job_for_upload(channel, "job-failed", base=tmp_path, registry=registry)
+    assert restored.status == STATUS_PENDING
+    assert restored.error == ""
+    assert registry.get("job-failed").status == STATUS_PENDING
+
+
+def test_prepare_job_for_upload_requeues_uploaded(tmp_path: Path, channel: ChannelConfig, monkeypatch) -> None:
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-video")
+    stage_job(
+        channel,
+        video_path=video,
+        title="Re-upload me",
+        description="",
+        job_id="job-done",
+        base=tmp_path,
+    )
+    archive_job(channel.id, "job-done", base=tmp_path)
+    registry = UploadRegistry(channel.registry_path)
+    registry.mark_uploaded("job-done", youtube_id="abc123", publish_at="2026-07-02T12:00:00Z")
+
+    restored = prepare_job_for_upload(channel, "job-done", base=tmp_path, registry=registry)
+    assert restored.status == STATUS_PENDING
+    assert restored.youtube_id == ""
+    assert restored.youtube_url == ""
+    assert (tmp_path / "queue" / "justcavefire" / "job-done" / "video.mp4").is_file()
+    assert not (tmp_path / "uploaded" / "justcavefire" / "job-done").exists()
+
+
+def test_requeue_job_moves_uploaded_prefix_back_to_queue(
+    tmp_path: Path, channel: ChannelConfig, monkeypatch
+) -> None:
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-video")
+    stage_job(
+        channel,
+        video_path=video,
+        title="Move back",
+        description="",
+        job_id="job-move",
+        base=tmp_path,
+    )
+    archive_job(channel.id, "job-move", base=tmp_path)
+    registry = UploadRegistry(channel.registry_path)
+    registry.mark_uploaded("job-move", youtube_id="yt999")
+
+    entry = requeue_job(channel.id, "job-move", base=tmp_path, registry=registry)
+    assert entry.status == STATUS_PENDING
+    assert registry.get("job-move").youtube_id == ""

@@ -351,9 +351,15 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             "privacy": "private",
             "is_short": False,
             "tags": ["ai", "generated"],
+            "publish_at": "",
+            "upload_at": "",
         },
         status_code=201,
-        details="Does not upload to YouTube. Call `POST .../runs` to upload. Cloud Run: prefer register endpoint for large files (>32 MB).",
+        details=(
+            "Does not upload to YouTube unless followed by `POST .../runs`. "
+            "Optional form fields: `publish_at`, `upload_at` (RFC3339 scheduling). "
+            "Cloud Run: prefer register endpoint for files >32 MB."
+        ),
     ),
     _ep(
         "POST",
@@ -413,7 +419,69 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             "description": "Chapter timestamps…",
             "video_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_video.mp4",
             "thumbnail_uri": "s3://music-assembly-data/music-video/nappabeats/mv_20260624_061500/mv_20260624_061500_thumbnail.png",
+            "publish_at": "2026-08-01T12:00:00Z",
+            "upload_at": "2026-08-01T06:00:00Z",
+            "upload_now": False,
         },
+        details=(
+            "Scheduling: `publish_at` = YouTube publishAt preset; `upload_at` = queue pickup gate; "
+            "`upload_now` = register + dispatch worker immediately (requires OAuth). "
+            "Idempotent on `job_id`. Does not upload unless `upload_now` is true."
+        ),
+    ),
+    _ep(
+        "POST",
+        "/v1/channels/{channel_ref}/upload/direct",
+        "uploads",
+        "Direct upload to YouTube (no queue)",
+        "Upload a video straight to YouTube without creating a queue/registry job. Requires channel OAuth.",
+        (
+            f'curl -X POST {_BASE}/v1/channels/justcavefire/upload/direct \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY" \\\n'
+            '  -F "video=@./output.mp4" \\\n'
+            '  -F "title=My Video" \\\n'
+            '  -F "description=Optional" \\\n'
+            '  -F "privacy=private" \\\n'
+            '  -F "publish_at=2026-08-01T12:00:00Z" \\\n'
+            '  -F "no_schedule=false"'
+        ),
+        {
+            "channel_id": "justcavefire",
+            "youtube_id": "dQw4w9WgXcQ",
+            "youtube_url": "https://youtu.be/dQw4w9WgXcQ",
+            "title": "My Video",
+            "privacy": "private",
+            "publish_at": "2026-08-01T12:00:00Z",
+            "status": "uploaded",
+        },
+        status_code=201,
+        details=(
+            "Multipart form. Required: `video`, `title`. Optional: `description`, `thumbnail`, `privacy`, "
+            "`tags`, `is_short`, `category_id`, `made_for_kids`, `language`, `metadata` (JSON string), "
+            "`publish_at`, `no_schedule=true` (immediate publish using privacy), `upload_retries`, `retry_delay`. "
+            "Cloud Run body limit 32 MB — use register + runs for large files."
+        ),
+    ),
+    _ep(
+        "GET",
+        "/v1/channels/{channel_ref}/jobs",
+        "jobs",
+        "List jobs for one channel",
+        "List queue, uploading, uploaded, and failed jobs for a channel with optional filters.",
+        (
+            f"{_KEY} '{_BASE}/v1/channels/justcavefire/jobs?location=all&status=pending'\n"
+            f"{_KEY} '{_BASE}/v1/channels/justcavefire/jobs?status=failed'"
+        ),
+        [
+            {
+                "id": "job_abc123",
+                "channel_id": "justcavefire",
+                "status": "pending",
+                "title": "My Video",
+                "storage_folder": "queue",
+            }
+        ],
+        details="Query: `status` (pending|uploading|uploaded|failed), `location` (queue|uploaded|all).",
     ),
     _ep(
         "GET",
@@ -486,7 +554,7 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             f'curl -X POST {_BASE}/v1/channels/justcavefire/runs \\\n'
             '  -H "X-API-Key: $UPLOADER_API_KEY" \\\n'
             '  -H "Content-Type: application/json" \\\n'
-            '  -d \'{"count": 1, "upload_retries": 5, "no_schedule": false}\''
+            '  -d \'{"count": 1, "parallel": true, "upload_retries": 5, "ignore_upload_at": false}\''
         ),
         {
             "run_id": "run_a1b2c3d4e5f6",
@@ -495,8 +563,42 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             "message": "Uploading 1 job(s). Poll GET /v1/runs/run_a1b2c3d4e5f6",
         },
         status_code=202,
-        example_request={"count": 1, "upload_retries": 5, "no_schedule": False},
-        details="Poll `GET /v1/runs/{run_id}` until status is completed or failed.",
+        example_request={
+            "count": 1,
+            "parallel": True,
+            "upload_retries": 5,
+            "no_schedule": False,
+            "job_ids": ["job_abc123"],
+            "publish_at": "2026-08-01T12:00:00Z",
+            "ignore_upload_at": False,
+        },
+        details=(
+            "Production uploads use `\"parallel\": true` (one worker per job). "
+            "Skips jobs with future `upload_at` unless `ignore_upload_at` is true. "
+            "Poll `GET /v1/runs/{run_id}` or `GET /v1/uploads/active` when parallel."
+        ),
+    ),
+    _ep(
+        "POST",
+        "/v1/channels/{channel_ref}/jobs/{job_id}/upload",
+        "jobs",
+        "Upload or re-upload one job",
+        "Dispatch a parallel worker for a single job. Re-queues uploaded/failed jobs automatically.",
+        (
+            f'curl -X POST {_BASE}/v1/channels/justcavefire/jobs/job_abc123/upload \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY" \\\n'
+            '  -H "Content-Type: application/json" \\\n'
+            '  -d \'{"parallel": true}\''
+        ),
+        {
+            "run_id": "parallel_a1b2c3",
+            "channel_id": "justcavefire",
+            "status": "dispatched",
+            "message": "Upload started for job_abc123. Poll GET /v1/uploads/active",
+        },
+        status_code=202,
+        example_request={"parallel": True},
+        details="Body optional (defaults to parallel upload). Same RunRequest fields supported.",
     ),
     _ep(
         "GET",
@@ -565,9 +667,53 @@ API_ENDPOINTS: list[dict[str, Any]] = [
         },
         details=(
             "Run via Cloud Scheduler every 10 minutes (see deploy/cloud-scheduler-reconcile.md). "
-            "Env: UPLOADER_RECONCILE_STALE_SECONDS (default 180), UPLOADER_RECONCILE_FAIL_SECONDS (default 7200). "
+            "Env: UPLOADER_RECONCILE_STALE_SECONDS (180), UPLOADER_RECONCILE_COMPLETE_SECONDS (90), "
+            "UPLOADER_RECONCILE_FAIL_SECONDS (7200). "
             "CLI: `uploader reconcile-uploads [--dry-run] [--channel ID]`."
         ),
+    ),
+    _ep(
+        "POST",
+        "/v1/channels/{channel_ref}/jobs/{job_id}/cancel-upload",
+        "uploads",
+        "Cancel in-flight upload",
+        "Stop an active upload worker and return the job to pending queue.",
+        f'curl -X POST {_BASE}/v1/channels/justcavefire/jobs/job_abc123/cancel-upload -H "X-API-Key: $UPLOADER_API_KEY"',
+        {"channel_id": "justcavefire", "job_id": "job_abc123"},
+        details="Only for jobs with status `uploading`. Releases worker lock and resets to pending.",
+    ),
+    _ep(
+        "POST",
+        "/v1/channels/{channel_ref}/jobs/{job_id}/dismiss-upload",
+        "uploads",
+        "Dismiss stuck Uploading now row",
+        "Manually clear a stuck upload: finalize on YouTube, return to queue, or mark failed.",
+        (
+            f'curl -X POST "{_BASE}/v1/channels/justcavefire/jobs/job_abc123/dismiss-upload" \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY"\n'
+            f'curl -X POST "{_BASE}/v1/channels/justcavefire/jobs/job_abc123/dismiss-upload?action=retry" \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY"'
+        ),
+        {
+            "channel_id": "justcavefire",
+            "job_id": "job_abc123",
+            "action": "finalized",
+            "detail": "ytabc123",
+        },
+        details=(
+            "Query `action`: `auto` (default) = finalize if possible else reset pending; "
+            "`retry` = force back to queue; `fail` = mark failed."
+        ),
+    ),
+    _ep(
+        "GET",
+        "/v1/docs/llm",
+        "health",
+        "LLM / agent API reference (Markdown)",
+        "Single self-contained Markdown document with all endpoints, workflows, and schemas for AI agents.",
+        f"{_KEY} {_BASE}/v1/docs/llm",
+        {"note": "Returns text/markdown body — paste into an LLM context or save to a file"},
+        details="Preferred handoff format for another LLM. Also available as JSON catalog at GET /v1/capabilities.",
     ),
     _ep(
         "POST",
@@ -698,5 +844,6 @@ AUTH_NOTE = (
     "API clients send `X-API-Key: <token>` or `Authorization: Bearer <token>`. "
     "Dashboard users enter the password on `/` (session cookie). "
     "Public routes: `GET /`, `GET /v1/auth/session`, `/v1/health`, `POST /login`, `/v1/oauth/callback`.\n\n"
-    "Interactive docs: `/docs` (Swagger UI) and `/redoc` — each operation includes purpose, usage, and example responses."
+    "Docs for LLM agents: `GET /v1/docs/llm` (Markdown). "
+    "Interactive: `/docs` (Swagger) and `/redoc`. Machine JSON: `GET /v1/capabilities`. Schema: `/openapi.json`."
 )

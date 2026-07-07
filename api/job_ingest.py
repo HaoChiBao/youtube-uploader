@@ -33,6 +33,8 @@ def staged_job_to_out(staged: StagedJob) -> StagedJobOut:
         privacy=meta.privacy,
         is_short=meta.is_short,
         tags=meta.tags,
+        publish_at=meta.publish_at,
+        upload_at=meta.upload_at,
     )
 
 
@@ -101,6 +103,8 @@ async def stage_job_from_upload(
     made_for_kids: bool | None = None,
     language: str | None = None,
     metadata: JobMetadata | None = None,
+    publish_at: str | None = None,
+    upload_at: str | None = None,
 ) -> StagedJobOut:
     if not title.strip():
         raise HTTPException(422, "title is required")
@@ -134,6 +138,8 @@ async def stage_job_from_upload(
                 made_for_kids=made_for_kids,
                 language=language or "",
                 metadata=metadata,
+                publish_at=publish_at,
+                upload_at=upload_at,
             )
         except Exception as e:
             raise _ingest_http_error(e) from e
@@ -169,6 +175,8 @@ def register_job_from_request(
             made_for_kids=body.made_for_kids,
             language=body.language or "",
             metadata=metadata,
+            publish_at=body.publish_at,
+            upload_at=body.upload_at,
         )
     except Exception as e:
         raise _ingest_http_error(e) from e

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.auth import (
@@ -21,11 +21,13 @@ from api.auth import (
     verify_login_secret,
 )
 from api.endpoint_docs import API_ENDPOINTS, API_TAGS, AUTH_NOTE
+from api.llm_docs import render_llm_api_docs
 from api.middleware import AuthMiddleware
 from api.openapi_enrich import install_openapi_enrichment
 from api.cache import build_dashboard, clear_all_caches, get_token_status, job_view_to_out
 from api.capabilities import CLI_COMMANDS, YOUTUBE_FEATURES, ASSEMBLY_INTEGRATION_NOTES
 from uploader.object_storage import assembly_r2_status
+from api.direct_upload import direct_upload_from_multipart, parse_direct_upload_form
 from api.job_ingest import (
     parse_stage_form_fields,
     register_job_from_request,
@@ -74,8 +76,10 @@ from api.schemas import (
     ActiveUploadOut,
     ActiveUploadsResponse,
     CancelUploadResponse,
+    DismissUploadResponse,
     ParallelRunResponse,
     StagedJobOut,
+    DirectUploadOut,
     TokenStatus,
     YouTubeVideoOut,
     ScheduledVideosResponse,
@@ -90,6 +94,7 @@ from uploader.category_store import (
     remove_category,
 )
 from uploader.job_metadata import load_job_metadata
+from uploader.job_schedule import filter_pending_ready
 from uploader.job_claim import cancel_upload_job
 from uploader.job_store import prepare_job_for_upload, remove_job
 from uploader.oauth import oauth_is_configured
@@ -109,7 +114,7 @@ from uploader.job_views import (
     resolve_job_asset_uri,
 )
 from uploader.object_storage import exists, guess_media_type, is_s3_uri, presigned_get_url
-from uploader.registry import UploadRegistry
+from uploader.registry import STATUS_UPLOADING, UploadEntry, UploadRegistry
 from uploader.cache_signals import bump
 from uploader.scheduler import (
     build_channel_upload_plan,
@@ -117,9 +122,26 @@ from uploader.scheduler import (
     run_channel,
 )
 from uploader.job_views import list_active_uploads
-from uploader.upload_reconcile import reconcile_uploads
+from uploader.upload_reconcile import _looks_complete, dismiss_stuck_upload, reconcile_uploads
 from uploader.state_store import ensure_bucket_structure
 from uploader.worker_dispatch import dispatch_parallel_uploads
+
+
+def _active_upload_completed(view) -> bool:
+    if view.status == "uploaded" or view.upload_phase == "done":
+        return True
+    if view.status == STATUS_UPLOADING:
+        entry = UploadEntry(
+            id=view.id,
+            channel_id=view.channel_id,
+            extra={
+                "upload_phase": view.upload_phase,
+                "upload_progress": view.upload_progress,
+                "upload_message": view.upload_message,
+            },
+        )
+        return _looks_complete(entry)
+    return False
 
 
 def create_app() -> FastAPI:
@@ -225,6 +247,20 @@ def create_app() -> FastAPI:
                 "assembly_r2": assembly_r2_status(),
                 "notes": ASSEMBLY_INTEGRATION_NOTES,
             },
+        )
+
+    @app.get(
+        "/v1/docs/llm",
+        response_class=PlainTextResponse,
+        tags=["health"],
+        summary="LLM / agent API reference (Markdown)",
+    )
+    def llm_api_docs():
+        """Self-contained Markdown API reference for AI agents and LLM clients."""
+        base = api_public_base() or "https://your-uploader-host"
+        return PlainTextResponse(
+            render_llm_api_docs(base_url=base),
+            media_type="text/markdown; charset=utf-8",
         )
 
     def _token_status(channel) -> TokenStatus:
@@ -463,6 +499,8 @@ def create_app() -> FastAPI:
         metadata_json: str | None = None,
         is_short: str | None = None,
         made_for_kids: str | None = None,
+        publish_at: str | None = Form(default=None, description="YouTube publishAt RFC3339"),
+        upload_at: str | None = Form(default=None, description="Queue pickup time RFC3339"),
     ) -> StagedJobOut:
         try:
             ch = resolve_channel_ref(channel_ref)
@@ -492,6 +530,8 @@ def create_app() -> FastAPI:
             made_for_kids=parsed_mfk,
             language=language,
             metadata=metadata,
+            publish_at=publish_at,
+            upload_at=upload_at,
         )
         bump("queue")
         return out
@@ -516,6 +556,8 @@ def create_app() -> FastAPI:
         made_for_kids: str | None = Form(default=None, description="true|false"),
         language: str | None = Form(default=None),
         metadata: str | None = Form(default=None, description="JSON metadata object"),
+        publish_at: str | None = Form(default=None, description="YouTube publishAt RFC3339"),
+        upload_at: str | None = Form(default=None, description="Queue pickup time RFC3339"),
     ):
         """Stage a video into queue/ via multipart upload (primary AI pipeline ingest endpoint)."""
         return await _stage_job_multipart(
@@ -532,6 +574,8 @@ def create_app() -> FastAPI:
             metadata_json=metadata,
             is_short=is_short,
             made_for_kids=made_for_kids,
+            publish_at=publish_at,
+            upload_at=upload_at,
         )
 
     @app.post(
@@ -590,9 +634,96 @@ def create_app() -> FastAPI:
             base=get_storage_base(),
             config_defaults=config.job_defaults,
         )
+        if body.upload_now:
+            if not _token_status(ch).valid:
+                raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
+            oauth = get_oauth_settings()
+            result = dispatch_parallel_uploads(
+                ch.id,
+                config,
+                base=get_storage_base(),
+                count=1,
+                job_ids=[out.job_id],
+                no_schedule=body.no_schedule,
+                publish_at=body.publish_at,
+                ignore_upload_at=True,
+                oauth_client_secret=oauth.client_secret_path,
+                oauth_client_config=oauth.client_config,
+                oauth_port=oauth.oauth_port,
+            )
+            bump("queue")
+            if not result.dispatched:
+                reason = result.skipped[0]["reason"] if result.skipped else "could not dispatch worker"
+                raise HTTPException(409, reason)
         return JSONResponse(
             status_code=201 if created else 200,
             content=out.model_dump(),
+        )
+
+    @app.post(
+        "/v1/channels/{channel_ref}/upload/direct",
+        response_model=DirectUploadOut,
+        status_code=201,
+        tags=["uploads"],
+    )
+    async def upload_direct(
+        channel_ref: str,
+        video: UploadFile = File(..., description="Video file (.mp4)"),
+        title: str = Form(...),
+        description: str = Form(default=""),
+        thumbnail: UploadFile | None = File(default=None),
+        privacy: str | None = Form(default=None),
+        is_short: str | None = Form(default=None, description="true|false"),
+        category_id: str | None = Form(default=None),
+        tags: str | None = Form(default=None, description="Comma-separated tags"),
+        made_for_kids: str | None = Form(default=None, description="true|false"),
+        language: str | None = Form(default=None),
+        metadata: str | None = Form(default=None, description="JSON metadata object"),
+        publish_at: str | None = Form(
+            default=None,
+            description="YouTube publishAt RFC3339 — video stays private until then",
+        ),
+        no_schedule: str | None = Form(
+            default=None,
+            description="true = publish immediately using privacy (ignore publish_at)",
+        ),
+        upload_retries: int = Form(default=3, ge=1, le=10),
+        retry_delay: float = Form(default=30.0, ge=0),
+    ):
+        """Upload a video directly to YouTube (no queue/registry). Requires OAuth."""
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        if not _token_status(ch).valid:
+            raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
+        metadata_obj, parsed_tags, parsed_short, parsed_mfk = parse_direct_upload_form(
+            metadata_json=metadata,
+            tags=tags,
+            is_short=is_short,
+            made_for_kids=made_for_kids,
+        )
+        no_sched = no_schedule is not None and no_schedule.strip().lower() in ("1", "true", "yes", "y", "on")
+        config = get_app_config()
+        return await direct_upload_from_multipart(
+            ch,
+            video=video,
+            title=title,
+            description=description,
+            thumbnail=thumbnail,
+            privacy=privacy,
+            is_short=parsed_short,
+            category_id=category_id,
+            tags=parsed_tags,
+            made_for_kids=parsed_mfk,
+            language=language,
+            metadata=metadata_obj,
+            publish_at=publish_at,
+            no_schedule=no_sched,
+            config_defaults=config.job_defaults,
+            upload_retries=upload_retries,
+            retry_delay=retry_delay,
+            oauth=get_oauth_settings(),
         )
 
     @app.get("/v1/channels/{channel_ref}/jobs", response_model=list[JobOut], tags=["jobs"])
@@ -679,6 +810,8 @@ def create_app() -> FastAPI:
             start=opts.start,
             interval_hours=opts.interval_hours,
             uploads_per_day=opts.uploads_per_day,
+            publish_at=opts.publish_at,
+            ignore_upload_at=opts.ignore_upload_at,
             oauth_client_secret=oauth.client_secret_path,
             oauth_client_config=oauth.client_config,
             oauth_port=oauth.oauth_port,
@@ -798,7 +931,7 @@ def create_app() -> FastAPI:
                 upload_message=v.upload_message,
                 upload_worker_id=v.upload_worker_id,
                 publish_at=v.publish_at,
-                completed=(v.status == "uploaded" or v.upload_phase == "done"),
+                completed=_active_upload_completed(v),
                 youtube_url=v.youtube_url or "",
             )
             for v in views
@@ -856,6 +989,47 @@ def create_app() -> FastAPI:
         bump("queue")
         return CancelUploadResponse(channel_id=ch.id, job_id=job_id)
 
+    @app.post(
+        "/v1/channels/{channel_ref}/jobs/{job_id}/dismiss-upload",
+        response_model=DismissUploadResponse,
+        tags=["uploads"],
+    )
+    def dismiss_upload(
+        channel_ref: str,
+        job_id: str,
+        action: str = Query(
+            default="auto",
+            description="auto = finalize if possible else retry; retry = back to queue; fail = mark failed",
+        ),
+    ):
+        """Clear a stuck Uploading now row (finalize, return to queue, or mark failed)."""
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        if action not in ("auto", "retry", "fail"):
+            raise HTTPException(400, "action must be auto, retry, or fail")
+        oauth = get_oauth_settings()
+        try:
+            result = dismiss_stuck_upload(
+                ch,
+                job_id,
+                base=get_storage_base(),
+                oauth=oauth,
+                action=action,
+            )
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        clear_all_caches()
+        return DismissUploadResponse(
+            channel_id=result.channel_id,
+            job_id=result.job_id,
+            action=result.action,
+            detail=result.detail,
+        )
+
     def _execute_run(tracked, body: RunRequest):
         set_running(tracked)
         try:
@@ -879,6 +1053,8 @@ def create_app() -> FastAPI:
                 start=body.start,
                 interval_hours=body.interval_hours,
                 uploads_per_day=body.uploads_per_day,
+                publish_at=body.publish_at,
+                ignore_upload_at=body.ignore_upload_at,
                 oauth_client_secret=oauth.client_secret_path,
                 oauth_client_config=oauth.client_config,
                 oauth_port=oauth.oauth_port,
@@ -908,8 +1084,9 @@ def create_app() -> FastAPI:
         if body.job_ids:
             wanted = {j.strip() for j in body.job_ids if j and j.strip()}
             pending = [e for e in pending if e.id in wanted]
+        pending = filter_pending_ready(pending, ignore_upload_at=body.ignore_upload_at)
         if not pending:
-            raise HTTPException(400, "No pending jobs in queue")
+            raise HTTPException(400, "No pending jobs ready for upload")
 
         if body.parallel:
             base = get_storage_base()
@@ -929,6 +1106,8 @@ def create_app() -> FastAPI:
                 start=body.start,
                 interval_hours=body.interval_hours,
                 uploads_per_day=body.uploads_per_day,
+                publish_at=body.publish_at,
+                ignore_upload_at=body.ignore_upload_at,
                 oauth_client_secret=oauth.client_secret_path,
                 oauth_client_config=oauth.client_config,
                 oauth_port=oauth.oauth_port,

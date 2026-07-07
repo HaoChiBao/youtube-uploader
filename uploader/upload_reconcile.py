@@ -61,6 +61,11 @@ def reconcile_fail_seconds() -> int:
     return _env_int("UPLOADER_RECONCILE_FAIL_SECONDS", 7200)
 
 
+def reconcile_complete_seconds() -> int:
+    """Looks complete but registry still uploading → finalize even if lock held."""
+    return _env_int("UPLOADER_RECONCILE_COMPLETE_SECONDS", 90)
+
+
 def _progress_age_seconds(entry: UploadEntry) -> float | None:
     extra = entry.extra or {}
     updated = extra.get("upload_updated_at") or extra.get("upload_started_at") or ""
@@ -79,7 +84,7 @@ def _looks_complete(entry: UploadEntry) -> bool:
     progress = float(extra.get("upload_progress", 0) or 0)
     if phase == "done" or progress >= 99.0:
         return True
-    if phase in ("archiving", "thumbnail") and progress >= 95.0:
+    if phase in ("archiving", "thumbnail") and progress >= 90.0:
         return True
     if phase == "uploading" and progress >= 93.0:
         msg = str(extra.get("upload_message", "") or "").lower()
@@ -176,10 +181,12 @@ def _reconcile_uploading_entry(
     channel_videos: list | None,
     dry_run: bool,
     result: ReconcileResult,
+    force: bool = False,
 ) -> None:
     age = _progress_age_seconds(entry)
     stale_sec = reconcile_stale_seconds()
     fail_sec = reconcile_fail_seconds()
+    complete_sec = reconcile_complete_seconds()
     lock_free = lock_is_expired_or_missing(channel.id, entry.id, base=base)
     complete = _looks_complete(entry)
     folder = detect_storage_folder(
@@ -211,12 +218,19 @@ def _reconcile_uploading_entry(
             result.add(channel.id, entry.id, "marked_uploaded_no_yt_id", "assets in uploaded/")
         return
 
-    should_act = lock_free and (
-        (age is not None and age >= stale_sec)
-        or (complete and age is not None and age >= 60)
+    should_act = force or (
+        lock_free
+        and (
+            (age is not None and age >= stale_sec)
+            or (complete and age is not None and age >= 60)
+        )
+    ) or (
+        complete
+        and age is not None
+        and age >= complete_sec
     )
     if not should_act:
-        if lock_free and age is not None and age >= stale_sec and dry_run:
+        if (lock_free or complete) and age is not None and age >= stale_sec and dry_run:
             result.add(channel.id, entry.id, "would_check", f"stale {int(age)}s")
         return
 
@@ -370,3 +384,98 @@ def reconcile_uploads(
         bump("queue")
 
     return result
+
+
+def dismiss_stuck_upload(
+    channel: ChannelConfig,
+    job_id: str,
+    *,
+    base: Path,
+    oauth: OAuthSettings,
+    action: str = "auto",
+    dry_run: bool = False,
+) -> ReconcileAction:
+    """Manually clear a stuck Uploading now row (finalize, retry, or fail)."""
+    registry = UploadRegistry(channel.registry_path)
+    entry = registry.get(job_id)
+    if entry is None:
+        raise KeyError(f"Job not found: {job_id}")
+    if entry.channel_id != channel.id:
+        raise ValueError("channel mismatch")
+
+    result = ReconcileResult()
+
+    if entry.status == STATUS_UPLOADED:
+        _reconcile_uploaded_entry(
+            channel, entry, base=base, registry=registry, dry_run=dry_run, result=result
+        )
+        if result.actions:
+            if not dry_run:
+                from uploader.cache_signals import bump
+
+                bump("queue")
+            return result.actions[0]
+        return ReconcileAction(channel.id, job_id, "already_uploaded", "")
+
+    if entry.status != STATUS_UPLOADING:
+        raise ValueError(f"Job {job_id} is not uploading (status={entry.status})")
+
+    if action == "retry":
+        if dry_run:
+            return ReconcileAction(channel.id, job_id, "would_reset_pending", "manual dismiss")
+        release_job_claim(
+            registry,
+            channel.id,
+            job_id,
+            str((entry.extra or {}).get("upload_worker_id", "") or ""),
+            base=base,
+            reset_to_pending=True,
+        )
+        release_upload_lock(channel.id, job_id, base=base, worker_id=None)
+        from uploader.cache_signals import bump
+
+        bump("queue")
+        return ReconcileAction(channel.id, job_id, "reset_pending", "manual dismiss")
+
+    if action == "fail":
+        if dry_run:
+            return ReconcileAction(channel.id, job_id, "would_fail", "manual dismiss")
+        release_upload_lock(channel.id, job_id, base=base, worker_id=None)
+        registry.mark_failed(job_id, error="Upload dismissed manually from dashboard")
+        from uploader.cache_signals import bump
+
+        bump("queue")
+        return ReconcileAction(channel.id, job_id, "failed", "manual dismiss")
+
+    channel_videos = None
+    if not dry_run:
+        try:
+            channel_videos = list_channel_videos(
+                channel.token_path,
+                client_secret=oauth.client_secret_path,
+                client_config=oauth.client_config,
+                oauth_port=oauth.oauth_port,
+            )
+        except Exception:
+            channel_videos = []
+
+    _reconcile_uploading_entry(
+        channel,
+        entry,
+        base=base,
+        registry=registry,
+        oauth=oauth,
+        channel_videos=channel_videos,
+        dry_run=dry_run,
+        result=result,
+        force=True,
+    )
+    if not result.actions:
+        raise ValueError(
+            f"Could not dismiss {job_id}: no recovery action available (try action=retry or action=fail)"
+        )
+    if not dry_run:
+        from uploader.cache_signals import bump
+
+        bump("queue")
+    return result.actions[0]

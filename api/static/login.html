@@ -19,7 +19,7 @@
       --color-lavender-whisper: #f0d7ff;
       --font-figtree: 'Figtree', ui-sans-serif, system-ui, sans-serif;
       --font-eb-garamond: 'EB Garamond', Georgia, serif;
-      --radius-cards: 16px;
+      --radius-cards: 12px;
       --radius-buttons: 14px;
       --radius-nav: 14px;
     }
@@ -54,14 +54,14 @@
       margin-bottom: 16px;
     }
     h1 {
-      font-family: var(--font-figtree);
-      font-weight: 600;
-      font-size: 22px;
-      line-height: 1.2;
-      letter-spacing: -0.02em;
+      font-family: var(--font-eb-garamond);
+      font-weight: 400;
+      font-size: clamp(1.75rem, 5vw, 2rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
       margin: 0 0 8px;
     }
-    h1 .muted { color: var(--color-graphite-veil); font-weight: 500; }
+    h1 .muted { color: var(--color-graphite-veil); font-weight: 400; }
     p {
       color: var(--color-smoke);
       font-size: 14px;

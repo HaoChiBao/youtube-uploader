@@ -117,8 +117,6 @@ def detect_storage_folder(
         inferred = _infer_folder_from_uri(video_uri)
         if exists(video_uri):
             return inferred or ("uploaded" if status == STATUS_UPLOADED else "queue")
-        if inferred:
-            return inferred
 
     uploaded_loc = _first_existing_prefix(
         bucket_layout.uploaded_prefix_candidates(channel_id, job_id), base

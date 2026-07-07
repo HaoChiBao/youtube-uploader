@@ -12,11 +12,13 @@ from pathlib import Path
 from uploader import bucket_layout
 from uploader.channels import ChannelConfig
 from uploader.job_metadata import JobMetadata, write_job_metadata_files
+from uploader.job_schedule import normalize_schedule_at
 from uploader.job_defaults import JobDefaults
 from uploader.object_storage import (
     assert_object_readable,
     copy_object,
     delete_prefix,
+    exists,
     is_s3_uri,
     list_keys,
     move_prefix,
@@ -74,6 +76,23 @@ class StagedJob:
     metadata: JobMetadata
 
 
+def _scheduling_fields(
+    *,
+    publish_at: str | None,
+    upload_at: str | None,
+    timezone_name: str,
+) -> tuple[str, dict]:
+    """Return (registry publish_at, extra scheduling keys) for a new pending job."""
+    pub = normalize_schedule_at(publish_at, timezone_name=timezone_name) if publish_at else ""
+    upl = normalize_schedule_at(upload_at, timezone_name=timezone_name) if upload_at else ""
+    extra: dict = {}
+    if upl:
+        extra["upload_at"] = upl
+    if pub:
+        extra["scheduled_publish_at"] = pub
+    return pub, extra
+
+
 def stage_job(
     channel: ChannelConfig,
     *,
@@ -92,6 +111,8 @@ def stage_job(
     made_for_kids: bool | None = None,
     language: str = "",
     metadata: JobMetadata | None = None,
+    publish_at: str | None = None,
+    upload_at: str | None = None,
 ) -> StagedJob:
     """Upload a video job folder to the channel queue and append a pending registry row.
 
@@ -143,8 +164,16 @@ def stage_job(
         made_for_kids=made_for_kids,
         language=language,
         metadata=metadata,
+        publish_at=publish_at,
+        upload_at=upload_at,
     )
     write_job_metadata_files(meta, channel_id=channel.id, job_id=job_id, base=base)
+
+    reg_pub, sched_extra = _scheduling_fields(
+        publish_at=publish_at or meta.publish_at or None,
+        upload_at=upload_at or meta.upload_at or None,
+        timezone_name=channel.publish.timezone,
+    )
 
     entry = UploadEntry(
         id=job_id,
@@ -153,6 +182,7 @@ def stage_job(
         description=meta.description,
         video_uri=uris["video_uri"],
         thumbnail_uri=thumbnail_uri,
+        publish_at=reg_pub,
         extra={
             "metadata_uri": uris["metadata_uri"],
             "privacy": meta.privacy,
@@ -160,6 +190,7 @@ def stage_job(
             "category_id": meta.category_id,
             "tags": meta.tags,
             "made_for_kids": meta.made_for_kids,
+            **sched_extra,
         },
     )
     reg.append(entry)
@@ -264,6 +295,8 @@ def _build_job_metadata(
     made_for_kids: bool | None,
     language: str,
     metadata: JobMetadata | None,
+    publish_at: str | None = None,
+    upload_at: str | None = None,
 ) -> JobMetadata:
     if metadata is not None:
         meta = metadata
@@ -283,6 +316,10 @@ def _build_job_metadata(
             meta.made_for_kids = made_for_kids
         if language is not None:
             meta.language = language
+        if publish_at is not None:
+            meta.publish_at = normalize_schedule_at(publish_at, timezone_name=channel.publish.timezone)
+        if upload_at is not None:
+            meta.upload_at = normalize_schedule_at(upload_at, timezone_name=channel.publish.timezone)
         meta.id = job_id
         if not meta.channel_id:
             meta.channel_id = channel.id
@@ -300,6 +337,10 @@ def _build_job_metadata(
             made_for_kids=made_for_kids,
             language=language,
         )
+        if publish_at is not None:
+            meta.publish_at = normalize_schedule_at(publish_at, timezone_name=channel.publish.timezone)
+        if upload_at is not None:
+            meta.upload_at = normalize_schedule_at(upload_at, timezone_name=channel.publish.timezone)
     meta.staged_at = _utc_now_iso()
     meta.status = STATUS_PENDING
     meta.validate()
@@ -324,6 +365,8 @@ def register_job_from_uris(
     made_for_kids: bool | None = None,
     language: str = "",
     metadata: JobMetadata | None = None,
+    publish_at: str | None = None,
+    upload_at: str | None = None,
 ) -> tuple[StagedJob, bool]:
     """Register a pending job when video files already exist in storage (R2 or local).
 
@@ -385,8 +428,16 @@ def register_job_from_uris(
         made_for_kids=made_for_kids,
         language=language,
         metadata=metadata,
+        publish_at=publish_at,
+        upload_at=upload_at,
     )
     write_job_metadata_files(meta, channel_id=channel.id, job_id=job_id, base=base)
+
+    reg_pub, sched_extra = _scheduling_fields(
+        publish_at=publish_at or meta.publish_at or None,
+        upload_at=upload_at or meta.upload_at or None,
+        timezone_name=channel.publish.timezone,
+    )
 
     entry = UploadEntry(
         id=job_id,
@@ -395,6 +446,7 @@ def register_job_from_uris(
         description=meta.description,
         video_uri=stored_video_uri,
         thumbnail_uri=thumb_out,
+        publish_at=reg_pub,
         extra={
             "metadata_uri": uris["metadata_uri"],
             "privacy": meta.privacy,
@@ -405,6 +457,7 @@ def register_job_from_uris(
             "source": "assembler" if reference_uris else "register",
             "reference_uris": reference_uris,
             "source_video_uri": video_uri,
+            **sched_extra,
         },
     )
     reg.append(entry)
@@ -466,7 +519,7 @@ def requeue_job(
         video_uri=entry.resolved_video_uri(),
     )
     if folder == "uploaded":
-        dest_prefix = bucket_layout.queue_prefix_location(channel_id, job_id, base)
+        dest_prefix = bucket_layout.job_prefix_location(channel_id, job_id, base)
         dest = dest_prefix if dest_prefix.endswith("/") else dest_prefix + "/"
         for key_prefix in bucket_layout.uploaded_prefix_candidates(channel_id, job_id):
             if storage_bucket():

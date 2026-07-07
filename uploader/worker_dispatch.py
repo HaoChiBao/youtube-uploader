@@ -12,6 +12,7 @@ from typing import Any
 
 from uploader.channels import AppConfig, get_channel
 from uploader.job_claim import release_job_claim, try_claim_job
+from uploader.job_schedule import apply_plan_publish_overrides, filter_pending_ready
 from uploader.registry import UploadRegistry
 from uploader.scheduler import build_channel_upload_plan
 from uploader.state_store import config_base_from_path
@@ -65,6 +66,8 @@ def dispatch_parallel_uploads(
     oauth_client_config: dict | None = None,
     oauth_port: int | None = None,
     job_ids: list[str] | None = None,
+    publish_at: str | None = None,
+    ignore_upload_at: bool = False,
 ) -> ParallelDispatchResult:
     """Claim up to `count` pending jobs and start one worker each."""
     channel = get_channel(config, channel_id)
@@ -77,6 +80,8 @@ def dispatch_parallel_uploads(
             return ParallelDispatchResult(channel_id=channel.id)
     elif not pending:
         return ParallelDispatchResult(channel_id=channel.id)
+
+    pending = filter_pending_ready(pending, ignore_upload_at=ignore_upload_at)
 
     daily_cap = uploads_per_day if uploads_per_day is not None else channel.publish.uploads_per_day
     limit = count if count is not None else len(pending)
@@ -96,7 +101,12 @@ def dispatch_parallel_uploads(
         oauth_client_config=oauth_client_config,
         oauth_port=oauth_port,
     )
-    plan = upload_plan.items
+    plan = apply_plan_publish_overrides(
+        upload_plan.items,
+        no_schedule=no_schedule,
+        publish_at_override=publish_at,
+        timezone_name=channel.publish.timezone,
+    )
 
     result = ParallelDispatchResult(channel_id=channel.id)
     opts = run_options or {}

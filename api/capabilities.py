@@ -99,7 +99,7 @@ CLI_COMMANDS: list[dict] = [
         "command": "uploader test / upload",
         "description": "Direct upload bypassing queue",
         "api": "POST /v1/channels/{id}/upload/direct",
-        "implemented": False,
+        "implemented": True,
     },
     {
         "group": "registry",
@@ -113,6 +113,13 @@ CLI_COMMANDS: list[dict] = [
         "command": "uploader reconcile-uploads [--channel] [--dry-run]",
         "description": "Repair stuck uploading jobs; archive completed jobs left in queue/",
         "api": "POST /v1/uploads/reconcile",
+        "implemented": True,
+    },
+    {
+        "group": "queue",
+        "command": "dismiss stuck upload (dashboard / API)",
+        "description": "Clear stuck Uploading now row — finalize, retry, or fail",
+        "api": "POST /v1/channels/{id}/jobs/{job_id}/dismiss-upload",
         "implemented": True,
     },
 ]
