@@ -182,23 +182,28 @@
       margin: 0 auto;
       padding: 8px 24px 64px;
     }
+    .tab-panel { display: none; }
+    .tab-panel.is-active { display: block; }
     .stats-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-bottom: var(--section-gap);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
     }
     .stat {
       background: var(--color-white);
       border: 1px solid var(--color-stone-mist);
       border-radius: var(--radius-nav);
-      padding: 16px 18px;
+      padding: 8px 14px;
       transition: border-color 0.12s, box-shadow 0.12s;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
     }
     button.stat-btn {
       cursor: pointer;
       text-align: left;
-      width: 100%;
       font: inherit;
       color: inherit;
       margin: 0;
@@ -208,18 +213,15 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
     .stat-value {
-      display: block;
-      font-size: 24px;
+      font-size: 16px;
       font-weight: 600;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
     }
     .stat-label {
-      display: block;
       font-size: 12px;
       font-weight: 500;
       color: var(--color-smoke);
-      margin-top: 4px;
     }
     .stat--active .stat-value { color: var(--color-deep-forest-teal); }
     .stat.stat--active {
@@ -336,35 +338,12 @@
       color: var(--color-smoke);
       font-size: var(--text-caption);
     }
-    .settings-panel {
-      margin-top: var(--section-gap);
-      border: 1px solid var(--color-stone-mist);
-      border-radius: var(--radius-cards);
-      background: var(--color-white);
-      overflow: hidden;
-    }
-    .settings-panel > summary {
-      padding: 16px 24px;
-      font-size: var(--text-body);
-      font-weight: 600;
-      cursor: pointer;
-      list-style: none;
-      user-select: none;
-    }
-    .settings-panel > summary::-webkit-details-marker { display: none; }
-    .settings-panel > summary::after {
-      content: '+';
-      float: right;
-      font-weight: 400;
-      color: var(--color-smoke);
-    }
-    .settings-panel[open] > summary::after { content: '−'; }
-    .settings-panel > summary:hover { background: color-mix(in srgb, var(--color-stone-mist) 30%, transparent); }
     .settings-inner {
-      padding: 0 24px 24px;
-      border-top: 1px solid var(--color-stone-mist);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
-    .settings-block { padding-top: 24px; }
+    .settings-block { padding: 0; }
     .settings-block + .settings-block {
       margin-top: 24px;
       padding-top: 24px;
@@ -380,27 +359,61 @@
       font-size: var(--text-caption);
       color: var(--color-smoke);
     }
-    .section-live.is-idle { display: none; }
-    .section-live.is-active { display: block; margin-bottom: 8px; }
-    .section-live.is-active .panel {
+    .upload-dock {
+      position: sticky;
+      top: 72px;
+      z-index: 90;
+      max-width: var(--page-max-width);
+      margin: 0 auto 12px;
+      padding: 0 24px;
+    }
+    .upload-dock.is-idle { display: none; }
+    .upload-dock.is-active { display: block; }
+    .upload-dock.is-active .panel {
       border-color: color-mix(in srgb, var(--color-deep-forest-teal) 30%, var(--color-stone-mist));
+      box-shadow: var(--shadow-nav);
+      padding: 16px;
     }
-    .filter-row {
+    .upload-dock .section-header { margin-bottom: 12px; }
+    .upload-dock .section-header h2 { font-size: 16px; }
+    .upload-dock.dock-pulse {
+      animation: dock-pulse 0.9s ease;
+    }
+    @keyframes dock-pulse {
+      0%, 100% { transform: translateY(0); }
+      40% { transform: translateY(2px); }
+    }
+    .library-toolbar {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
       margin-bottom: 14px;
-      font-size: var(--text-caption);
-      color: var(--color-smoke);
     }
-    .filter-row .toolbar-field select { min-width: 12rem; }
-    .filter-row select { font-size: 13px; padding: 7px 10px; }
+    .library-toolbar .toolbar-field select { min-width: 12rem; }
+    .cell-time {
+      font-size: 13px;
+      color: var(--color-smoke);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .count-link {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      text-align: left;
+    }
+    .count-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 
     /* —— Sections —— */
     .section {
       margin: 0;
-      padding: var(--section-gap) 0 0;
-      scroll-margin-top: 80px;
+      padding: 8px 0 0;
     }
     .section-tag { display: none; }
     .section-title { display: none; }
@@ -1304,12 +1317,16 @@
     .section--band { display: none; }
 
     @media (max-width: 720px) {
-      .stats-bar { grid-template-columns: repeat(2, 1fr); }
-      .subnav { display: none; }
+      .stats-bar { gap: 6px; }
+      .subnav { margin-left: 0; margin-right: auto; order: 3; width: 100%; }
       .site-header { padding: 10px 16px; }
-      .page { padding: 24px 16px 64px; }
-      .section { padding-top: 32px; }
-      .panel { padding: 24px; }
+      .site-header-inner { gap: 8px; }
+      .page { padding: 16px 16px 64px; }
+      .section { padding-top: 8px; }
+      .panel { padding: 16px; }
+      .upload-dock { top: auto; bottom: 0; position: fixed; left: 0; right: 0; margin: 0; padding: 0 12px 12px; z-index: 95; }
+      .upload-dock.is-active .panel { padding: 12px; border-radius: 12px; }
+      .page { padding-bottom: 120px; }
     }
   </style>
 </head>
@@ -1328,12 +1345,11 @@
   <div id="app" hidden>
     <header class="site-header">
       <div class="site-header-inner">
-        <a class="wordmark" href="/"><span class="wordmark-a">YouTube</span> <span class="wordmark-b">Uploader</span></a>
-        <nav class="subnav" aria-label="Sections">
-          <a href="#uploading-section">Live</a>
-          <a href="#channels-section">Channels</a>
-          <a href="#library-section">Library</a>
-          <a href="#settings-panel">Settings</a>
+        <a class="wordmark" href="#channels"><span class="wordmark-a">YouTube</span> <span class="wordmark-b">Uploader</span></a>
+        <nav class="subnav" aria-label="Main">
+          <a href="#channels" data-nav-tab="channels">Channels</a>
+          <a href="#library" data-nav-tab="library">Library</a>
+          <a href="#settings" data-nav-tab="settings">Settings</a>
         </nav>
         <div class="header-actions">
           <button type="button" class="btn-icon-refresh" id="btn-refresh" title="Refresh" aria-label="Refresh">↻</button>
@@ -1343,23 +1359,8 @@
       </div>
     </header>
 
-    <main class="page">
-      <div class="stats-bar" id="stats-bar" aria-live="polite">
-        <button type="button" class="stat stat-btn" data-scroll-to="channels-section">
-          <span class="stat-value" id="stat-channels">—</span><span class="stat-label">Channels</span>
-        </button>
-        <button type="button" class="stat stat-btn" data-scroll-to="library-section" data-library-tab="queue">
-          <span class="stat-value" id="stat-pending">—</span><span class="stat-label">Queued</span>
-        </button>
-        <button type="button" class="stat stat-btn" data-scroll-to="uploading-section">
-          <span class="stat-value" id="stat-uploading">—</span><span class="stat-label">Uploading</span>
-        </button>
-        <button type="button" class="stat stat-btn" data-scroll-to="library-section" data-library-tab="history">
-          <span class="stat-value" id="stat-uploaded">—</span><span class="stat-label">Published</span>
-        </button>
-      </div>
-
-      <section class="section section-live is-idle" id="uploading-section">
+    <div class="upload-dock is-idle" id="uploading-section" aria-live="polite">
+      <div class="panel">
         <div class="section-header">
           <div>
             <h2>Uploading now</h2>
@@ -1369,12 +1370,27 @@
             <button type="button" class="btn btn-ghost btn-sm" id="btn-reconcile-uploads">Reconcile stuck</button>
           </div>
         </div>
-        <div class="panel">
-          <div id="uploading-list" class="upload-progress-list"></div>
-        </div>
-      </section>
+        <div id="uploading-list" class="upload-progress-list"></div>
+      </div>
+    </div>
 
-      <section class="section" id="channels-section">
+    <main class="page">
+      <div class="stats-bar" id="stats-bar" aria-live="polite">
+        <button type="button" class="stat stat-btn" data-nav="channels">
+          <span class="stat-value" id="stat-channels">—</span><span class="stat-label">Channels</span>
+        </button>
+        <button type="button" class="stat stat-btn" data-nav="library" data-library-tab="queue">
+          <span class="stat-value" id="stat-pending">—</span><span class="stat-label">Queued</span>
+        </button>
+        <button type="button" class="stat stat-btn" data-nav="dock">
+          <span class="stat-value" id="stat-uploading">—</span><span class="stat-label">Uploading</span>
+        </button>
+        <button type="button" class="stat stat-btn" data-nav="library" data-library-tab="history">
+          <span class="stat-value" id="stat-uploaded">—</span><span class="stat-label">Published</span>
+        </button>
+      </div>
+
+      <section class="section tab-panel is-active" id="channels-section" data-tab="channels">
         <div class="section-header">
           <div>
             <h2>Channels</h2>
@@ -1395,56 +1411,31 @@
             </table>
           </div>
           <div id="run-status"></div>
-          <div class="channel-jobs-panel" id="channel-jobs-panel" hidden>
-            <div class="channel-jobs-header">
-              <div>
-                <h3 id="channel-jobs-title">Channel videos</h3>
-            <p class="section-desc" id="channel-jobs-desc">Upload, retry failed, or re-publish individual videos.</p>
-              </div>
-              <div class="btn-group">
-                <button type="button" class="btn-voltage btn-voltage--compact" id="btn-channel-upload-pending" disabled>Upload pending</button>
-                <button type="button" class="btn-ghost btn-ghost--compact" id="btn-channel-jobs-close">Close</button>
-              </div>
-            </div>
-            <div class="channel-jobs-filters" id="channel-jobs-filters" role="tablist" aria-label="Filter videos">
-              <button type="button" class="filter-chip is-active" data-channel-job-filter="all">All</button>
-              <button type="button" class="filter-chip" data-channel-job-filter="pending">Queued</button>
-              <button type="button" class="filter-chip" data-channel-job-filter="uploading">Uploading</button>
-              <button type="button" class="filter-chip" data-channel-job-filter="uploaded">Published</button>
-              <button type="button" class="filter-chip" data-channel-job-filter="failed">Failed</button>
-            </div>
-            <div class="table-wrap">
-              <table class="table-data">
-                <thead><tr><th>Title</th><th>Status</th><th>YouTube</th><th>Updated</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
-                <tbody id="channel-jobs-body"><tr><td colspan="5">Select a channel to view videos.</td></tr></tbody>
-              </table>
-            </div>
-          </div>
         </div>
       </section>
 
-      <section class="section" id="library-section">
+      <section class="section tab-panel" id="library-section" data-tab="library" hidden>
         <div class="section-header">
           <div>
             <h2>Library</h2>
             <p class="section-desc">Queued and published videos — expand a row for preview and actions</p>
           </div>
-          <div class="library-tabs" role="tablist" aria-label="Library view">
-            <button type="button" class="filter-chip is-active" data-library-tab="queue" role="tab" aria-selected="true">Queue</button>
-            <button type="button" class="filter-chip" data-library-tab="history" role="tab" aria-selected="false">Published</button>
-          </div>
         </div>
         <div class="panel">
-          <div class="filter-row">
+          <div class="library-toolbar">
             <label class="toolbar-field">Channel
               <select id="channel-filter"><option value="">All channels</option></select>
             </label>
+            <div class="library-tabs" role="tablist" aria-label="Library view">
+              <button type="button" class="filter-chip is-active" data-library-tab="queue" role="tab" aria-selected="true">Queue</button>
+              <button type="button" class="filter-chip" data-library-tab="history" role="tab" aria-selected="false">Published</button>
+            </div>
           </div>
           <div class="library-pane" data-library-pane="queue">
             <div class="table-wrap">
               <table class="table-data">
-                <thead><tr><th>Title</th><th>Channel</th><th>Status</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
-                <tbody id="queue-body"><tr><td colspan="4">Loading…</td></tr></tbody>
+                <thead><tr><th>Title</th><th>Channel</th><th>Status</th><th>Queued</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
+                <tbody id="queue-body"><tr><td colspan="5">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1459,9 +1450,14 @@
         </div>
       </section>
 
-      <details class="settings-panel" id="settings-panel">
-        <summary>Settings</summary>
-        <div class="settings-inner">
+      <section class="section tab-panel" id="settings-section" data-tab="settings" hidden>
+        <div class="section-header">
+          <div>
+            <h2>Settings</h2>
+            <p class="section-desc">Upload defaults, categories, and manual staging</p>
+          </div>
+        </div>
+        <div class="panel settings-inner" id="settings-panel">
           <div class="settings-block">
             <h3>Upload defaults</h3>
             <p class="settings-desc">Default spacing between scheduled publishes and max videos per upload run.</p>
@@ -1552,7 +1548,7 @@
             </div>
           </div>
         </div>
-      </details>
+      </section>
     </main>
 
     <div id="toast"></div>
@@ -1621,8 +1617,8 @@
     function beginDashboardLoad() {
       setStatsLoading(true);
       setTableLoading('channels-body', 5, 'Loading channels…');
-      setTableLoading('queue-body', 4, 'Loading queue…');
-      setTableLoading('uploaded-body', 5, 'Loading history…');
+      setTableLoading('queue-body', 5, 'Loading queue…');
+      setTableLoading('uploaded-body', 5, 'Loading published…');
       const catList = document.getElementById('categories-list');
       if (catList) catList.innerHTML = '<div class="inline-loading"><span class="spinner"></span><span>Loading…</span></div>';
     }
@@ -1662,9 +1658,6 @@
     }
 
     const expandedChannelSchedule = new Set();
-    let selectedChannelId = null;
-    let channelJobFilter = 'all';
-    let channelJobsCache = [];
 
     function formatScheduleSummary(pub) {
       pub = pub || {};
@@ -1771,13 +1764,18 @@
         const mainRow = `<tr class="data-row">
           <td class="cell-channel">
             <div class="channel-primary">${canEdit
-            ? `<button type="button" class="channel-name-btn" data-open-channel="${esc(ch.id)}" title="View videos">${esc(ch.name)}</button>`
+            ? `<button type="button" class="channel-name-btn" data-open-library="${esc(ch.id)}" data-library-tab="queue" title="View queue">${esc(ch.name)}</button>`
             : `<strong>${esc(ch.name)}</strong>`}</div>
             <small>${esc(ch.id)}${ch.custom_url ? ' · ' + esc(ch.custom_url) : ''}</small>
             ${categoryRow}
           </td>
           <td>${authBadge(ch.auth)}</td>
-          <td><span class="count-pill${ch.pending_count ? ' has-pending' : ''}">${ch.pending_count}</span> queued${ch.failed_count ? ' · <span class="bad">' + ch.failed_count + ' failed</span>' : ''}</td>
+          <td>
+            <button type="button" class="count-link" data-open-library="${esc(ch.id)}" data-library-tab="queue">
+              <span class="count-pill${ch.pending_count ? ' has-pending' : ''}">${ch.pending_count}</span> queued
+            </button>${ch.failed_count ? ' · <button type="button" class="count-link bad" data-open-library="' + esc(ch.id) + '" data-library-tab="queue"><span class="bad">' + ch.failed_count + ' failed</span></button>' : ''}
+            ${ch.uploaded_count ? ' · <button type="button" class="count-link" data-open-library="' + esc(ch.id) + '" data-library-tab="history">' + ch.uploaded_count + ' published</button>' : ''}
+          </td>
           <td class="cell-schedule">${scheduleCell}</td>
           <td class="cell-actions">
             <div class="btn-group">
@@ -2055,7 +2053,7 @@
       document.getElementById('stat-pending').textContent = String(pending);
       document.getElementById('stat-uploading').textContent = String(uploading);
       document.getElementById('stat-uploaded').textContent = String(totalPublished || uploaded);
-      const uploadingStat = document.querySelector('.stat-btn[data-scroll-to="uploading-section"]');
+      const uploadingStat = document.querySelector('.stat-btn[data-nav="dock"]');
       if (uploadingStat) uploadingStat.classList.toggle('stat--active', uploading > 0);
     }
 
@@ -2063,6 +2061,105 @@
       const sec = document.getElementById('uploading-section');
       sec.classList.toggle('is-active', active);
       sec.classList.toggle('is-idle', !active);
+    }
+
+    function formatJobTimestamp(iso) {
+      if (!iso) return '—';
+      return String(iso).replace('T', ' ').replace('Z', '').slice(0, 16);
+    }
+
+    function focusUploadDock() {
+      const dock = document.getElementById('uploading-section');
+      if (!dock.classList.contains('is-active')) {
+        toast('No uploads in progress');
+        return;
+      }
+      dock.classList.remove('dock-pulse');
+      void dock.offsetWidth;
+      dock.classList.add('dock-pulse');
+      dock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(() => dock.classList.remove('dock-pulse'), 1000);
+    }
+
+    function switchLibraryTab(tab) {
+      const next = tab === 'history' ? 'history' : 'queue';
+      document.querySelectorAll('.library-tabs [data-library-tab]').forEach(btn => {
+        const active = btn.dataset.libraryTab === next;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-library-pane]').forEach(pane => {
+        pane.hidden = pane.dataset.libraryPane !== next;
+      });
+    }
+
+    function setActiveNav(tab) {
+      document.querySelectorAll('.subnav [data-nav-tab]').forEach(link => {
+        link.classList.toggle('is-active', link.dataset.navTab === tab);
+      });
+    }
+
+    function writeNavHash(opts) {
+      const tab = opts.tab || 'channels';
+      let hash = '#' + tab;
+      if (tab === 'library') {
+        const lib = opts.libraryTab === 'history' ? 'published' : 'queue';
+        hash = '#library/' + lib;
+        if (opts.channelId) hash += '?channel=' + encodeURIComponent(opts.channelId);
+      }
+      if (location.hash !== hash) history.replaceState(null, '', hash);
+    }
+
+    function navigateTo(opts) {
+      const options = opts || {};
+      if (options.focusDock) {
+        focusUploadDock();
+        return;
+      }
+      const tab = options.tab || 'channels';
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        const active = panel.dataset.tab === tab;
+        panel.classList.toggle('is-active', active);
+        panel.hidden = !active;
+      });
+      setActiveNav(tab);
+      if (tab === 'library') {
+        const libraryTab = options.libraryTab === 'history' ? 'history' : 'queue';
+        switchLibraryTab(libraryTab);
+        const filter = document.getElementById('channel-filter');
+        if (options.channelId !== undefined) {
+          filter.value = options.channelId || '';
+        }
+        if (dashboardData) {
+          renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+          renderUploadedJobs(dashboardData.uploaded_jobs || []);
+        }
+      }
+      writeNavHash({
+        tab,
+        libraryTab: options.libraryTab,
+        channelId: options.channelId !== undefined
+          ? options.channelId
+          : (tab === 'library' ? document.getElementById('channel-filter').value : ''),
+      });
+    }
+
+    function parseHashRoute() {
+      const raw = (location.hash || '#channels').replace(/^#/, '');
+      const [pathPart, queryPart] = raw.split('?');
+      const parts = pathPart.split('/').filter(Boolean);
+      const qs = new URLSearchParams(queryPart || '');
+      const channelId = qs.get('channel') || '';
+      if (parts[0] === 'settings') return { tab: 'settings' };
+      if (parts[0] === 'library') {
+        const libraryTab = parts[1] === 'published' || parts[1] === 'history' ? 'history' : 'queue';
+        return { tab: 'library', libraryTab, channelId };
+      }
+      return { tab: 'channels' };
+    }
+
+    function applyHashRoute() {
+      navigateTo(parseHashRoute());
     }
 
     async function api(path, opts) {
@@ -2232,7 +2329,6 @@
           'Staged ' + staged.job_id + ' → ' + (staged.queue_prefix || staged.video_uri || 'queue/'),
           'ok'
         );
-        toast('Staged to queue: ' + staged.job_id);
         videoInput.value = '';
         thumbInput.value = '';
         setStageStatus('', '');
@@ -2242,8 +2338,11 @@
           if (!ch || !ch.auth || !ch.auth.valid) {
             toast('Staged — connect OAuth on this channel before uploading to YouTube', true);
           } else {
+            toast('Staged — starting upload');
             await startUpload(channelId, 1);
           }
+        } else {
+          toast('Staged to queue — open Library to review');
         }
       } catch (err) {
         setStageStatus(err.message || 'Stage failed', 'bad');
@@ -2614,6 +2713,17 @@
     function renderQueueJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
       let filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs.slice();
+      const pending = filtered.filter(j => j.status === 'pending');
+      const failed = filtered.filter(j => j.status === 'failed');
+      const other = filtered.filter(j => j.status !== 'pending' && j.status !== 'failed');
+      pending.sort((a, b) => {
+        const pa = a.queue_position != null ? a.queue_position : 9999;
+        const pb = b.queue_position != null ? b.queue_position : 9999;
+        if (pa !== pb) return pa - pb;
+        return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+      });
+      failed.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      filtered = pending.concat(failed, other);
       let pos = 1;
       filtered = filtered.map(j => {
         if (j.status === 'pending' && (j.queue_position == null || j.queue_position === undefined)) {
@@ -2623,7 +2733,12 @@
       });
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">Queue is empty. Stage a video in <strong>Settings</strong> or register via the API.</div></td></tr>';
+        const emptyMsg = channel
+          ? 'No queued videos for <strong>' + esc(channel) + '</strong>.'
+          : 'Queue is empty. Stage a video in Settings or register via the API.';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">' + emptyMsg
+          + (channel ? '' : ' <button type="button" class="btn-text" data-goto-settings>Open Settings</button>')
+          + '</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => {
@@ -2637,6 +2752,7 @@
           </td>
           <td>${esc(j.channel_id)}</td>
           <td>${statusLabel(j.status)}</td>
+          <td class="cell-time">${esc(formatJobTimestamp(j.created_at))}</td>
           <td class="cell-actions">${jobActionButtons(j)}</td>
         </tr>`;
       }).join('');
@@ -2644,12 +2760,6 @@
         const row = tbody.querySelector('tr.job-row[data-job="' + j.id + '"][data-channel="' + j.channel_id + '"]');
         if (row) toggleJobRow(j.channel_id, j.id, row);
       });
-    }
-
-    function channelJobTimestamp(job) {
-      if (job.status === 'uploaded' && job.uploaded_at) return job.uploaded_at.replace('T', ' ').replace('Z', '');
-      if (job.created_at) return job.created_at.replace('T', ' ').replace('Z', '');
-      return '—';
     }
 
     function uploadButtonLabel(job) {
@@ -2715,11 +2825,7 @@
         jobDetailCache.delete(jobKey(channelId, jobId));
         pollActiveUploads();
         if (triggerBtn) setButtonLoading(triggerBtn, false);
-        const refreshJobs = async () => {
-          if (selectedChannelId === channelId) await loadChannelJobs(channelId, false);
-          await loadDashboard(true);
-        };
-        refreshJobs().catch(err => toast(err.message || 'Refresh failed', true));
+        loadDashboard(true).catch(err => toast(err.message || 'Refresh failed', true));
       } catch (err) {
         toast(err.message || 'Upload failed', true);
         if (triggerBtn) setButtonLoading(triggerBtn, false);
@@ -2739,100 +2845,16 @@
       return true;
     }
 
-    function renderChannelJobsPanel() {
-      const panel = document.getElementById('channel-jobs-panel');
-      const tbody = document.getElementById('channel-jobs-body');
-      const uploadPendingBtn = document.getElementById('btn-channel-upload-pending');
-      if (!selectedChannelId) {
-        panel.hidden = true;
-        return;
-      }
-      panel.hidden = false;
-      const ch = (dashboardData && dashboardData.channels || []).find(c => c.id === selectedChannelId);
-      document.getElementById('channel-jobs-title').textContent = (ch && ch.name) || selectedChannelId;
-      document.getElementById('channel-jobs-desc').textContent = 'Upload, retry failed, or re-publish individual videos.';
-
-      document.querySelectorAll('[data-channel-job-filter]').forEach(btn => {
-        const f = btn.dataset.channelJobFilter;
-        btn.classList.toggle('is-active', f === channelJobFilter);
-        const labels = { all: 'All', pending: 'Queued', uploading: 'Uploading', uploaded: 'Published', failed: 'Failed' };
-        const n = f === 'all' ? channelJobsCache.length : channelJobsCache.filter(j => j.status === f).length;
-        btn.textContent = (labels[f] || f) + (n ? ' · ' + n : '');
-      });
-
-      let jobs = channelJobsCache.slice();
-      if (channelJobFilter !== 'all') {
-        jobs = jobs.filter(j => j.status === channelJobFilter);
-      }
-      jobs.sort((a, b) => {
-        const ta = a.uploaded_at || a.created_at || '';
-        const tb = b.uploaded_at || b.created_at || '';
-        return tb.localeCompare(ta);
-      });
-
-      const pendingCount = channelJobsCache.filter(j => j.status === 'pending').length;
-      uploadPendingBtn.disabled = !pendingCount;
-      uploadPendingBtn.textContent = pendingCount ? ('Upload pending (' + pendingCount + ')') : 'Upload pending';
-
-      if (!jobs.length) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No videos match this filter.</div></td></tr>';
-        return;
-      }
-      tbody.innerHTML = jobs.map(j => {
-        const failedClass = j.status === 'failed' ? ' job-row--failed' : '';
-        return `<tr class="job-row data-row${failedClass}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
-          <td class="cell-title">
-            <span class="cell-title-main click-title">${esc(j.title || '(no title)')}</span>
-            <span class="cell-title-sub"><code>${esc(shortJobId(j.id))}</code></span>
-          </td>
-          <td>${statusLabel(j.status)}</td>
-          <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
-          <td>${esc(channelJobTimestamp(j))}</td>
-          <td class="cell-actions">${jobActionButtons(j)}</td>
-        </tr>`;
-      }).join('');
-    }
-
-    async function loadChannelJobs(channelId, showLoading) {
-      if (showLoading) {
-        setTableLoading('channel-jobs-body', 5, 'Loading videos…');
-      }
-      try {
-        channelJobsCache = await api('/v1/channels/' + encodeURIComponent(channelId) + '/jobs?location=all');
-        renderChannelJobsPanel();
-      } catch (err) {
-        document.getElementById('channel-jobs-body').innerHTML =
-          '<tr><td colspan="5"><span class="bad">' + esc(err.message) + '</span></td></tr>';
-      }
-    }
-
-    async function openChannelJobs(channelId) {
-      selectedChannelId = channelId;
-      channelJobFilter = 'all';
-      const panel = document.getElementById('channel-jobs-panel');
-      panel.hidden = false;
-      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      await loadChannelJobs(channelId, true);
-    }
-
-    function closeChannelJobs() {
-      selectedChannelId = null;
-      channelJobsCache = [];
-      document.getElementById('channel-jobs-panel').hidden = true;
-    }
-
-    async function uploadChannelJob(channelId, jobId, triggerBtn) {
-      await uploadJob(channelId, jobId, triggerBtn, {
-        confirmReupload: triggerBtn && triggerBtn.dataset.reupload === '1',
-      });
-    }
-
     function renderUploadedJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
-      const filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs;
+      let filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs.slice();
+      filtered.sort((a, b) => String(b.uploaded_at || b.created_at || '').localeCompare(String(a.uploaded_at || a.created_at || '')));
       const tbody = document.getElementById('uploaded-body');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No published videos yet.</div></td></tr>';
+        const emptyMsg = channel
+          ? 'No published videos for <strong>' + esc(channel) + '</strong>.'
+          : 'No published videos yet.';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">' + emptyMsg + '</div></td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map((j) => `
@@ -2843,7 +2865,7 @@
           </td>
           <td>${esc(j.channel_id)}</td>
           <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
-          <td>${j.uploaded_at ? esc(j.uploaded_at.replace('T', ' ').replace('Z', '').slice(0, 16)) : '—'}</td>
+          <td class="cell-time">${esc(formatJobTimestamp(j.uploaded_at))}</td>
           <td class="cell-actions">${jobActionButtons(j)}</td>
         </tr>`).join('');
     }
@@ -2917,7 +2939,6 @@
       librarySection.classList.add('loading-overlay');
       try {
         await loadDashboard(true);
-        if (selectedChannelId) await loadChannelJobs(selectedChannelId, false);
       } catch (err) {
         toast(err.message || 'Refresh failed', true);
         if (dashboardData) {
@@ -3072,6 +3093,11 @@
         renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
         renderUploadedJobs(dashboardData.uploaded_jobs || []);
       } else loadJobs();
+      writeNavHash({
+        tab: 'library',
+        libraryTab: document.querySelector('.library-tabs [data-library-tab].is-active')?.dataset.libraryTab || 'queue',
+        channelId: document.getElementById('channel-filter').value,
+      });
     };
 
     document.getElementById('channels-body').addEventListener('change', (e) => {
@@ -3091,10 +3117,19 @@
     });
 
     document.getElementById('channels-body').onclick = async (e) => {
+      const openLib = e.target.closest('[data-open-library]');
+      if (openLib) {
+        e.preventDefault();
+        navigateTo({
+          tab: 'library',
+          libraryTab: openLib.dataset.libraryTab || 'queue',
+          channelId: openLib.dataset.openLibrary,
+        });
+        return;
+      }
       const t = e.target.closest('button') || e.target;
       if (!t || !t.dataset) return;
       if (t.dataset.saveCategory) saveChannelCategory(t.dataset.saveCategory);
-      if (t.dataset.openChannel) openChannelJobs(t.dataset.openChannel);
       if (t.dataset.toggleSchedule) toggleChannelSchedule(t.dataset.toggleSchedule);
       if (t.dataset.saveSchedule) saveChannelSchedule(t.dataset.saveSchedule);
       if (t.dataset.upload) startUpload(t.dataset.upload, 1, t);
@@ -3182,30 +3217,11 @@
       }
     };
 
-    document.getElementById('btn-channel-jobs-close').onclick = closeChannelJobs;
-
-    document.getElementById('channel-jobs-filters').onclick = (e) => {
-      const btn = e.target.closest('[data-channel-job-filter]');
-      if (!btn || !selectedChannelId) return;
-      channelJobFilter = btn.dataset.channelJobFilter;
-      renderChannelJobsPanel();
-    };
-
-    document.getElementById('btn-channel-upload-pending').onclick = async (e) => {
-      if (!selectedChannelId) return;
-      await startUpload(selectedChannelId, null, e.currentTarget);
-      await loadChannelJobs(selectedChannelId, false);
-    };
-
-    document.getElementById('channel-jobs-body').onclick = async (e) => {
-      if (await onJobUploadButtonClick(e)) return;
-      const row = e.target.closest('tr.job-row');
-      if (row && row.dataset.channel && row.dataset.job) {
-        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
-      }
-    };
-
     document.getElementById('queue-body').onclick = async (e) => {
+      if (e.target.closest('[data-goto-settings]')) {
+        navigateTo({ tab: 'settings' });
+        return;
+      }
       if (await onJobUploadButtonClick(e)) return;
       const removeBtn = e.target.closest('[data-remove]');
       if (removeBtn) {
@@ -3236,14 +3252,13 @@
       const sec = document.getElementById('features-section');
       const list = document.getElementById('features-list');
       const btn = document.getElementById('btn-features');
-      const settings = document.getElementById('settings-panel');
       if (!sec.hidden) {
         sec.hidden = true;
         list.innerHTML = '';
         setButtonLoading(btn, false, 'Show features');
         return;
       }
-      settings.open = true;
+      navigateTo({ tab: 'settings' });
       sec.hidden = false;
       list.innerHTML = renderFeaturesSkeleton();
       setButtonLoading(btn, true, 'Loading…');
@@ -3259,60 +3274,44 @@
       }
     };
 
-    document.querySelectorAll('.subnav a[href="#settings-panel"]').forEach(link => {
-      link.addEventListener('click', () => {
-        document.getElementById('settings-panel').open = true;
-      });
-    });
-
-    function switchLibraryTab(tab) {
-      document.querySelectorAll('[data-library-tab]').forEach(btn => {
-        const active = btn.dataset.libraryTab === tab;
-        btn.classList.toggle('is-active', active);
-        btn.setAttribute('aria-selected', active ? 'true' : 'false');
-      });
-      document.querySelectorAll('[data-library-pane]').forEach(pane => {
-        pane.hidden = pane.dataset.libraryPane !== tab;
-      });
-    }
-
-    function setActiveNav(hash) {
-      document.querySelectorAll('.subnav a[href^="#"]').forEach(link => {
-        link.classList.toggle('is-active', link.getAttribute('href') === hash);
-      });
-    }
-
-    function scrollToSection(sectionId, opts) {
-      const el = document.getElementById(sectionId);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (opts && opts.libraryTab) switchLibraryTab(opts.libraryTab);
-      setActiveNav('#' + sectionId);
-    }
-
-    document.querySelectorAll('[data-library-tab]').forEach(btn => {
-      btn.addEventListener('click', () => switchLibraryTab(btn.dataset.libraryTab));
-    });
-
-    document.querySelectorAll('.stat-btn[data-scroll-to]').forEach(btn => {
+    document.querySelectorAll('.library-tabs [data-library-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const tab = btn.dataset.libraryTab;
-        scrollToSection(btn.dataset.scrollTo, tab ? { libraryTab: tab } : undefined);
+        navigateTo({
+          tab: 'library',
+          libraryTab: btn.dataset.libraryTab,
+          channelId: document.getElementById('channel-filter').value,
+        });
       });
     });
 
-    document.querySelectorAll('.subnav a[href^="#"]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        const href = link.getAttribute('href');
-        if (href === '#settings-panel') {
-          setActiveNav(href);
+    document.querySelectorAll('.stat-btn[data-nav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nav = btn.dataset.nav;
+        if (nav === 'dock') {
+          focusUploadDock();
           return;
         }
-        e.preventDefault();
-        const sectionId = href.slice(1);
-        const libraryTab = sectionId === 'library-section' ? 'queue' : undefined;
-        scrollToSection(sectionId, libraryTab ? { libraryTab } : undefined);
+        navigateTo({
+          tab: nav,
+          libraryTab: btn.dataset.libraryTab,
+          channelId: nav === 'library' ? '' : undefined,
+        });
       });
     });
+
+    document.querySelectorAll('.subnav [data-nav-tab]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateTo({ tab: link.dataset.navTab });
+      });
+    });
+
+    document.querySelector('.wordmark')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateTo({ tab: 'channels' });
+    });
+
+    window.addEventListener('hashchange', () => applyHashRoute());
 
     (async function init() {
       const params = new URLSearchParams(window.location.search);
@@ -3340,8 +3339,9 @@
       }
       if (params.get('oauth_error')) toast('OAuth error: ' + params.get('oauth_error'), true);
       if (params.has('oauth_success') || params.has('oauth_error')) {
-        history.replaceState({}, '', '/');
+        history.replaceState({}, '', '/' + (location.hash || '#channels'));
       }
+      applyHashRoute();
       refresh();
       pollActiveUploads();
     })();
