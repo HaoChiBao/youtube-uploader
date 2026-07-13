@@ -334,7 +334,8 @@ def test_dashboard_shell_public_when_auth_enabled(client, monkeypatch: pytest.Mo
     c = TestClient(create_app())
     r = c.get("/", follow_redirects=False)
     assert r.status_code == 200
-    assert "Enter password" in r.text
+    assert 'id="login-gate"' in r.text
+    assert "dashboard password" in r.text.lower()
 
     session = c.get("/v1/auth/session")
     assert session.status_code == 200
@@ -358,7 +359,8 @@ def test_dashboard_served_via_static_dir_env(client, monkeypatch: pytest.MonkeyP
     c = TestClient(create_app())
     r = c.get("/")
     assert r.status_code == 200
-    assert "Enter password" in r.text
+    assert 'id="login-gate"' in r.text
+    assert "btn-login" in r.text
 
 
 def test_auth_session_after_login(monkeypatch: pytest.MonkeyPatch):
