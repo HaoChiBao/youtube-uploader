@@ -1,0 +1,109 @@
+# Deploy production Cloud Run on every push to main.
+#
+# One-time GCP + GitHub setup: deploy/github-actions-cicd.md
+#
+# Required GitHub repository secrets / variables are documented there.
+# Defaults match the current production service (youtuber-uploader-app).
+
+name: Deploy Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_job_update:
+        description: "Skip updating the upload worker Cloud Run Job image"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-cloud-run-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'youtube-uploader-499603' }}
+  REGION: ${{ vars.GCP_REGION || 'northamerica-northeast2' }}
+  SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'youtuber-uploader-app' }}
+  UPLOAD_JOB: ${{ vars.CLOUD_RUN_UPLOAD_JOB || 'youtube-uploader-upload' }}
+  AR_REPO: ${{ vars.ARTIFACT_REGISTRY_REPO || 'uploader' }}
+  IMAGE_NAME: ${{ vars.ARTIFACT_IMAGE_NAME || 'uploader-api' }}
+
+jobs:
+  deploy:
+    name: Build & deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build image tags
+        id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::12}"
+          IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_sha=${IMAGE_BASE}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=${IMAGE_BASE}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        run: |
+          docker build \
+            -t "${{ steps.meta.outputs.image_sha }}" \
+            -t "${{ steps.meta.outputs.image_latest }}" \
+            .
+          docker push "${{ steps.meta.outputs.image_sha }}"
+          docker push "${{ steps.meta.outputs.image_latest }}"
+
+      - name: Deploy Cloud Run service
+        run: |
+          gcloud run deploy "${SERVICE}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --platform=managed \
+            --image="${{ steps.meta.outputs.image_sha }}" \
+            --quiet
+
+      - name: Update Cloud Run upload Job image
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_job_update != true }}
+        run: |
+          if gcloud run jobs describe "${UPLOAD_JOB}" \
+              --project="${PROJECT_ID}" \
+              --region="${REGION}" >/dev/null 2>&1; then
+            gcloud run jobs update "${UPLOAD_JOB}" \
+              --project="${PROJECT_ID}" \
+              --region="${REGION}" \
+              --image="${{ steps.meta.outputs.image_sha }}" \
+              --quiet
+          else
+            echo "Cloud Run Job ${UPLOAD_JOB} not found — skipping (create it via deploy/cloud-run-job.md)"
+          fi
+
+      - name: Verify health
+        run: |
+          URL="$(gcloud run services describe "${SERVICE}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --format='value(status.url)')"
+          echo "Service URL: ${URL}"
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${URL}/v1/health"
+          echo
+          echo "Deployed image: ${{ steps.meta.outputs.image_sha }}"

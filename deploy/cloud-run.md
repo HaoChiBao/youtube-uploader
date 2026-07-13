@@ -191,6 +191,11 @@ Stagger channels to stay under YouTube daily quota (~6 uploads/day default).
 
 ## 9. Updating
 
+**Automatic (recommended):** merge to `main` — GitHub Actions builds and deploys
+(see `deploy/github-actions-cicd.md`).
+
+**Manual:**
+
 ```bash
 gcloud builds submit --tag "$IMAGE"
 gcloud run deploy "$SERVICE" --image="$IMAGE" --region="$REGION"

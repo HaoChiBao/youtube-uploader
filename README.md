@@ -143,7 +143,7 @@ Interactive API docs: http://127.0.0.1:8000/docs
 
 Set `UPLOADER_API_PUBLIC_URL=http://127.0.0.1:8000` in `.env` if using a different host/port.
 
-**Cloud Run:** see [deploy/cloud-run.md](deploy/cloud-run.md) for Dockerfile, `gcloud` deploy, and production env vars.
+**Cloud Run:** see [deploy/cloud-run.md](deploy/cloud-run.md) for Dockerfile, `gcloud` deploy, and production env vars. Auto-deploy on `main`: [deploy/github-actions-cicd.md](deploy/github-actions-cicd.md).
 
 The dashboard uses **`GET /v1/dashboard`** (one request for channels, categories, and queue). In-memory caching keeps repeat loads fast (~100ms vs ~20s before optimization).
 
