@@ -831,10 +831,11 @@ def create_app() -> FastAPI:
         """Cloud Scheduler callback: upload this pending job when upload_at is due.
 
         Edge cases:
-        - Job missing / not pending → 200 no-op (idempotent for late/retry fires)
-        - upload_at still in the future (beyond grace) → 409
-        - Channel not authenticated → 400
-        - Always best-effort deletes the one-shot Cloud Scheduler job afterward
+        - Job missing / not pending → 200 no-op (idempotent); scheduler cleaned
+        - upload_at still in the future (beyond grace) → 409; scheduler kept
+        - Channel not authenticated → 400; scheduler kept
+        - Worker dispatch failed → 503; scheduler kept (Cloud Scheduler can retry)
+        - Successful dispatch → deletes the one-shot Cloud Scheduler job
         """
         try:
             ch = resolve_channel_ref(channel_ref)
@@ -864,8 +865,8 @@ def create_app() -> FastAPI:
                 message=reason,
                 scheduler_cleaned=cleaned,
             )
-        cleaned = cancel_upload_at_schedule(ch.id, job_id, registry=reg, entry=entry)
         if not _token_status(ch).valid:
+            # Keep scheduler job — operator can fix OAuth and let retries succeed.
             raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
         config = get_app_config()
         oauth = get_oauth_settings()
@@ -884,13 +885,9 @@ def create_app() -> FastAPI:
         bump("queue")
         if not result.dispatched:
             skip_reason = result.skipped[0]["reason"] if result.skipped else "could not dispatch worker"
-            return DispatchAtResponse(
-                channel_id=ch.id,
-                job_id=job_id,
-                status="not_dispatched",
-                message=skip_reason,
-                scheduler_cleaned=cleaned,
-            )
+            # Keep scheduler so Cloud Scheduler retries transient claim/capacity failures.
+            raise HTTPException(503, skip_reason)
+        cleaned = cancel_upload_at_schedule(ch.id, job_id, registry=reg, entry=entry)
         run_id = f"dispatch_at_{secrets.token_hex(6)}"
         return DispatchAtResponse(
             channel_id=ch.id,

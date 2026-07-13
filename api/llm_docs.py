@@ -28,7 +28,8 @@ WORKFLOWS: list[dict[str, str]] = [
         "steps": (
             "1. Register or stage with `upload_at` (when worker may pick up) and/or `publish_at` (YouTube publishAt).\n"
             "2. With `UPLOADER_UPLOAD_AT_SCHEDULER=1`, a Cloud Scheduler one-shot calls "
-            "`POST .../jobs/{id}/dispatch-at` at `upload_at` (past times → status `ready`, no cron).\n"
+            "`POST .../jobs/{id}/dispatch-at` at `upload_at` (past times → status `ready`, no cron). "
+            "Auth must allow the callback (`X-API-Key`).\n"
             "3. Without the scheduler flag, cron or manual `POST .../runs` still skips future `upload_at`.\n"
             "4. Use `ignore_upload_at: true` on runs to force early dispatch."
         ),

@@ -29,6 +29,14 @@ def test_cron_for_utc() -> None:
     assert cron_for_utc(when) == "30 6 1 8 *"
 
 
+def test_cron_for_utc_rounds_seconds_up() -> None:
+    when = datetime(2026, 8, 1, 6, 30, 45, tzinfo=timezone.utc)
+    assert cron_for_utc(when) == "31 6 1 8 *"
+    # Minute roll into next hour
+    when2 = datetime(2026, 8, 1, 6, 59, 1, tzinfo=timezone.utc)
+    assert cron_for_utc(when2) == "0 7 1 8 *"
+
+
 def test_classify_upload_at_past_ready_future() -> None:
     now = datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc)
     kind, when = classify_upload_at("2026-07-13T11:00:00Z", now=now)

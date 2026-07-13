@@ -85,8 +85,16 @@ def scheduler_job_name(channel_id: str, job_id: str) -> str:
 
 
 def cron_for_utc(when: datetime) -> str:
-    """Build a unix-cron expression that fires once per year at ``when`` (UTC)."""
+    """Build a unix-cron expression for ``when`` (UTC).
+
+    Cloud Scheduler is minute-granularity. If ``when`` has non-zero seconds,
+    round **up** to the next minute so the job never fires before ``upload_at``.
+    """
     when = when.astimezone(timezone.utc)
+    if when.second or when.microsecond:
+        when = when.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    else:
+        when = when.replace(second=0, microsecond=0)
     return f"{when.minute} {when.hour} {when.day} {when.month} *"
 
 

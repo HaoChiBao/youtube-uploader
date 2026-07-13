@@ -621,7 +621,13 @@ def test_dispatch_at_dispatches_when_ready(
         )
 
     monkeypatch.setattr("api.app.dispatch_parallel_uploads", fake_dispatch)
-    monkeypatch.setattr("api.app.cancel_upload_at_schedule", lambda *a, **k: True)
+    cancel_calls = []
+
+    def fake_cancel(*a, **k):
+        cancel_calls.append(True)
+        return True
+
+    monkeypatch.setattr("api.app.cancel_upload_at_schedule", fake_cancel)
 
     video = tmp_path / "clip.mp4"
     video.write_bytes(b"x")
@@ -638,6 +644,59 @@ def test_dispatch_at_dispatches_when_ready(
     assert body["dispatched"] is True
     assert body["status"] == "dispatched"
     assert calls and calls[0].get("ignore_upload_at") is True
+    assert cancel_calls, "scheduler should be cleaned only after successful dispatch"
+
+
+def test_dispatch_at_keeps_scheduler_when_oauth_missing(
+    client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from api.schemas import TokenStatus
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda channel_id, token_path, oauth: TokenStatus(
+            has_token=False, valid=False, status="missing"
+        ),
+    )
+    cancel_calls = []
+    monkeypatch.setattr(
+        "api.app.cancel_upload_at_schedule",
+        lambda *a, **k: cancel_calls.append(True) or True,
+    )
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    past = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    staged = client.post(
+        "/v1/channels/testchan/jobs/register",
+        json={"title": "Due", "video_uri": str(video), "upload_at": past},
+    )
+    job_id = staged.json()["job_id"]
+    r = client.post(f"/v1/channels/testchan/jobs/{job_id}/dispatch-at")
+    assert r.status_code == 400
+    assert cancel_calls == [], "must not cancel scheduler before OAuth is fixed"
+
+
+def test_delete_job_cancels_upload_at_schedule(
+    client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cancel_calls = []
+
+    def fake_cancel(channel_id, job_id, **kwargs):
+        cancel_calls.append((channel_id, job_id))
+        return True
+
+    monkeypatch.setattr("api.app.cancel_upload_at_schedule", fake_cancel)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    staged = client.post(
+        "/v1/channels/testchan/jobs/register",
+        json={"title": "To delete", "video_uri": str(video)},
+    )
+    assert staged.status_code == 201
+    job_id = staged.json()["job_id"]
+    r = client.delete(f"/v1/channels/testchan/jobs/{job_id}")
+    assert r.status_code == 200, r.text
+    assert cancel_calls == [("testchan", job_id)]
 
 
 def test_runs_skips_future_upload_at(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

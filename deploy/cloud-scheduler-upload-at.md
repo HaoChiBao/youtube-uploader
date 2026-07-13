@@ -22,38 +22,46 @@ as ``POST .../jobs/{job_id}/upload``), then deletes the Scheduler job.
 | future | `1` | Status `scheduled` — Cloud Scheduler one-shot armed |
 | + `upload_now: true` | — | Immediate upload; scheduling skipped |
 
+Response fields on register/stage: `upload_at_schedule_status`,
+`upload_at_scheduler_job`, `upload_at_schedule_message`.
+
 ## Edge cases handled by `dispatch-at`
 
-- Job already uploaded / uploading / missing → no-op (200), scheduler cleaned
-- Called before `upload_at` (beyond 60s grace) → **409**, scheduler **kept**
-- Channel OAuth missing → 400
-- Deleting the queue job cancels its Scheduler job
+| Situation | HTTP | Scheduler job |
+|-----------|------|---------------|
+| Job missing | 200 no-op | Deleted |
+| Not pending (uploading/uploaded/failed) | 200 no-op | Deleted |
+| Called before `upload_at` (beyond 60s grace) | **409** | **Kept** |
+| Channel OAuth missing | **400** | **Kept** (retries can succeed after reauth) |
+| Worker dispatch failed | **503** | **Kept** (Cloud Scheduler retries) |
+| Success | 200 `dispatched` | Deleted |
+| `DELETE .../jobs/{id}` | — | Deleted |
 
-Cloud Scheduler cron recurs yearly; the callback always deletes the job after a
-successful (or terminal) fire so it does not repeat next year. Late retries are
-idempotent.
+Cloud Scheduler cron is **minute-granularity** (seconds on `upload_at` round
+**up** to the next minute). Cron expressions recur yearly; the callback deletes
+the job after a successful fire so it does not repeat next year. Late retries
+are idempotent.
 
 ## Env (API service)
 
 ```env
 UPLOADER_UPLOAD_AT_SCHEDULER=1
 UPLOADER_API_PUBLIC_URL=https://your-uploader-api.run.app
+# Required when dashboard/API auth is enabled — Scheduler sends this header:
 UPLOADER_API_KEY=...
 GOOGLE_CLOUD_PROJECT=youtube-uploader-499603
 # Cloud Scheduler location (must be a supported Scheduler region, often us-central1)
 UPLOADER_CLOUD_SCHEDULER_LOCATION=us-central1
-# Optional OIDC (in addition to or instead of API key header)
+# Optional OIDC *in addition to* the API key (AuthMiddleware still needs X-API-Key):
 # UPLOADER_SCHEDULER_OIDC_SA=reconcile-cron@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
 The Cloud Run runtime service account needs:
 
 - `roles/cloudscheduler.admin` (or a custom role that can create/delete jobs)
-- Permission to invoke itself if using OIDC
+- Permission to invoke Cloud Run if using OIDC
 
-## IAM / queue setup
-
-No Cloud Tasks queue is required. Ensure the Cloud Scheduler API is enabled:
+## Enable API
 
 ```bash
 gcloud services enable cloudscheduler.googleapis.com --project="$PROJECT_ID"
@@ -81,8 +89,10 @@ curl -X POST "$API_URL/v1/channels/justcavefire/jobs/$JOB_ID/dispatch-at" \
   -H "X-API-Key: $UPLOADER_API_KEY"
 ```
 
-## Relationship to reconcile cron
+## Relationship to reconcile / polling crons
 
-The every-10-minute **reconcile** cron (`deploy/cloud-scheduler-reconcile.md`) is
-unrelated — it repairs stuck *Uploading now* rows. upload_at one-shots are
-per-video and created automatically on register/stage.
+| Cron | Purpose |
+|------|---------|
+| **upload_at one-shots** (this doc) | Per-video; auto-created on register/stage |
+| **Reconcile** (`deploy/cloud-scheduler-reconcile.md`) | Every 10 min — repair stuck *Uploading now* |
+| **Polling `POST .../runs`** | Optional nightly backlog drain; still useful as a safety net |

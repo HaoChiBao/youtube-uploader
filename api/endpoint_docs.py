@@ -454,8 +454,10 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             "scheduler_cleaned": True,
         },
         details=(
-            "Edge cases: missing/non-pending → 200 no-op; before upload_at → 409 (scheduler kept); "
-            "see deploy/cloud-scheduler-upload-at.md."
+            "Edge cases: missing/non-pending → 200 no-op (scheduler cleaned); "
+            "before upload_at → 409 (scheduler kept); OAuth missing → 400 (kept); "
+            "dispatch failure → 503 (kept for retry); success deletes the one-shot. "
+            "See deploy/cloud-scheduler-upload-at.md."
         ),
     ),
     _ep(

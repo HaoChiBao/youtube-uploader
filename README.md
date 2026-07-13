@@ -241,8 +241,9 @@ Dashboard: use the **Categories** section to create/delete; assign via dropdown 
 | POST | `/v1/jobs` | Same as above; pass `channel_id` in form body |
 | POST | `/v1/channels/{ref}/jobs/register` | Register when video already on R2 — JSON with `video_uri`, `title`, metadata |
 | GET | `/v1/channels/{ref}/jobs/{job_id}` | Job detail + `metadata.json` (`?media=true` for preview URLs) |
+| POST | `/v1/channels/{ref}/jobs/{job_id}/dispatch-at` | Cloud Scheduler callback — upload this job when `upload_at` is due |
 | GET | `/v1/channels/{ref}/jobs/{job_id}/media/{video\|thumbnail}` | Stream or redirect to queued media file |
-| DELETE | `/v1/channels/{ref}/jobs/{job_id}` | Remove from queue (deletes `queue/` folder + registry row) |
+| DELETE | `/v1/channels/{ref}/jobs/{job_id}` | Remove from queue (deletes `queue/` folder + registry row; cancels upload_at Scheduler job) |
 
 #### Upload runs & YouTube
 
@@ -406,6 +407,33 @@ curl -X POST "$UPLOADER_API_URL/v1/channels/nappabeats/runs" \
 
 Upload all channels: `POST /v1/runs/all` (same body).
 
+### Per-job `upload_at` (auto-dispatch at a future time)
+
+Pass `upload_at` (RFC3339) on register/stage so the job stays pending until that time.
+
+With **`UPLOADER_UPLOAD_AT_SCHEDULER=1`**, the API also creates a **one-shot Cloud Scheduler job** that calls `POST .../jobs/{job_id}/dispatch-at` at that UTC time — no polling cron required for that video.
+
+| `upload_at` | Scheduler flag | Result (`upload_at_schedule_status`) |
+|-------------|----------------|--------------------------------------|
+| omitted | — | `none` — normal queue |
+| past / ≤60s ahead | any | `ready` — no cron; eligible for `/runs` now |
+| future | unset/`0` | `disabled` — queue gate only (call `/runs` later) |
+| future | `1` | `scheduled` — one-shot armed |
+
+```bash
+curl -X POST "$UPLOADER_API_URL/v1/channels/nappabeats/jobs/register" \
+  -H "X-API-Key: $UPLOADER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Scheduled pickup",
+    "video_uri": "s3://music-assembly-data/.../video.mp4",
+    "upload_at": "2026-08-01T06:00:00Z",
+    "publish_at": "2026-08-01T12:00:00Z"
+  }'
+```
+
+Setup: enable Cloud Scheduler API, set env vars, grant the Cloud Run SA `cloudscheduler.admin` (create/delete). Full guide: **`deploy/cloud-scheduler-upload-at.md`**.
+
 ---
 
 ### Alternative: multipart queue (not assembler)
@@ -456,7 +484,7 @@ Returns `201` with `job_id`, `video_uri`, `queue_prefix`, and registry path. The
 
 **Option B — ai-music-assembler auto-queue (production)**
 
-When `ASSEMBLY_QUEUE_YOUTUBE=true`, the assembler calls **step 2 only** (`POST .../jobs/register`). An operator or cron must call **step 3** (`POST .../runs`) to upload to YouTube.
+When `ASSEMBLY_QUEUE_YOUTUBE=true`, the assembler calls **step 2 only** (`POST .../jobs/register`). An operator or cron must call **step 3** (`POST .../runs`) to upload to YouTube — **unless** you set `upload_at` with `UPLOADER_UPLOAD_AT_SCHEDULER=1`, which arms a one-shot dispatcher for that job.
 
 ```bash
 curl -X POST "$UPLOADER_API_URL/v1/channels/nappabeats/jobs/register" \
