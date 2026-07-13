@@ -867,6 +867,7 @@ youtube-uploader/
 │   ├── job_metadata.py        # metadata.json schema + load/write
 │   ├── job_defaults.py        # layered defaults (.env → channels.yaml → CLI)
 │   ├── scheduler.py           # Batch run + run-all
+│   ├── upload_at_scheduler.py # One-shot Cloud Scheduler for per-job upload_at
 │   ├── cache_signals.py       # Cache invalidation (API + CLI)
 │   └── storage.py             # URI → local temp file
 ├── api/
