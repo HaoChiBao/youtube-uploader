@@ -105,12 +105,29 @@ gcloud iam service-accounts add-iam-policy-binding "${RUNTIME_SA}" \
   --role="roles/iam.serviceAccountUser" \
   --quiet >/dev/null
 
+wait_for() {
+  local label="$1"
+  shift
+  local i
+  for i in $(seq 1 20); do
+    if "$@" >/dev/null 2>&1; then
+      return 0
+    fi
+    echo "    waiting for ${label}... (${i})"
+    sleep 3
+  done
+  echo "error: timed out waiting for ${label}" >&2
+  return 1
+}
+
 echo "==> Ensuring Workload Identity Pool '${POOL_ID}'"
 if ! gcloud iam workload-identity-pools describe "${POOL_ID}" --location=global >/dev/null 2>&1; then
   gcloud iam workload-identity-pools create "${POOL_ID}" \
     --location=global \
     --display-name="GitHub Actions"
 fi
+wait_for "workload identity pool" \
+  gcloud iam workload-identity-pools describe "${POOL_ID}" --location=global
 
 POOL_RESOURCE="$(gcloud iam workload-identity-pools describe "${POOL_ID}" \
   --location=global --format='value(name)')"
@@ -133,6 +150,9 @@ else
     --attribute-condition="assertion.repository=='${REPO_SLUG}'" \
     --quiet
 fi
+wait_for "OIDC provider" \
+  gcloud iam workload-identity-pools providers describe "${PROVIDER_ID}" \
+    --location=global --workload-identity-pool="${POOL_ID}"
 
 PROVIDER_RESOURCE="$(gcloud iam workload-identity-pools providers describe "${PROVIDER_ID}" \
   --location=global --workload-identity-pool="${POOL_ID}" --format='value(name)')"
