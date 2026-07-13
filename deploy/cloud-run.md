@@ -181,6 +181,8 @@ Cloud Run limits **HTTP request bodies to 32 MB**. Do not POST huge files to `/v
 Cloud Run is not ideal as a cron worker. For nightly uploads after assembly:
 
 - **Cloud Scheduler** → HTTP `POST /v1/channels/{id}/runs` with `X-API-Key` and `{"count": 1}`, or
+- **Per-job `upload_at`** → set `UPLOADER_UPLOAD_AT_SCHEDULER=1` so register/stage arms a one-shot
+  Scheduler job that calls `POST .../jobs/{id}/dispatch-at` (see `deploy/cloud-scheduler-upload-at.md`), or
 - Run the CLI on a small **Compute Engine** VM on a schedule
 
 Stagger channels to stay under YouTube daily quota (~6 uploads/day default).
