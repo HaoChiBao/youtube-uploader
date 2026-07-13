@@ -424,9 +424,38 @@ API_ENDPOINTS: list[dict[str, Any]] = [
             "upload_now": False,
         },
         details=(
-            "Scheduling: `publish_at` = YouTube publishAt preset; `upload_at` = queue pickup gate; "
-            "`upload_now` = register + dispatch worker immediately (requires OAuth). "
+            "Scheduling: `publish_at` = YouTube publishAt preset; `upload_at` = queue pickup time. "
+            "When `UPLOADER_UPLOAD_AT_SCHEDULER=1`, a Cloud Scheduler one-shot calls "
+            "`POST .../jobs/{id}/dispatch-at` at `upload_at` (past times → `ready`, no cron). "
+            "`upload_now` = register + dispatch immediately (requires OAuth; skips scheduler). "
             "Idempotent on `job_id`. Does not upload unless `upload_now` is true."
+        ),
+    ),
+    _ep(
+        "POST",
+        "/v1/channels/{channel_ref}/jobs/{job_id}/dispatch-at",
+        "jobs",
+        "Dispatch upload at upload_at (Cloud Scheduler callback)",
+        (
+            "Called by a one-shot Cloud Scheduler job when `upload_at` is due. "
+            "Uploads this pending job via the parallel worker path, then deletes the Scheduler job."
+        ),
+        (
+            f'curl -X POST {_BASE}/v1/channels/justcavefire/jobs/job_abc123/dispatch-at \\\n'
+            '  -H "X-API-Key: $UPLOADER_API_KEY"'
+        ),
+        {
+            "channel_id": "justcavefire",
+            "job_id": "job_abc123",
+            "status": "dispatched",
+            "message": "Upload started for job_abc123",
+            "dispatched": True,
+            "run_id": "dispatch_at_a1b2c3",
+            "scheduler_cleaned": True,
+        },
+        details=(
+            "Edge cases: missing/non-pending → 200 no-op; before upload_at → 409 (scheduler kept); "
+            "see deploy/cloud-scheduler-upload-at.md."
         ),
     ),
     _ep(

@@ -73,6 +73,7 @@ from api.schemas import (
     RunRequest,
     RunResponse,
     RunStatusOut,
+    DispatchAtResponse,
     ActiveUploadOut,
     ActiveUploadsResponse,
     CancelUploadResponse,
@@ -94,10 +95,15 @@ from uploader.category_store import (
     remove_category,
 )
 from uploader.job_metadata import load_job_metadata
-from uploader.job_schedule import filter_pending_ready
 from uploader.job_claim import cancel_upload_job
 from uploader.job_store import prepare_job_for_upload, remove_job
 from uploader.oauth import oauth_is_configured
+from uploader.upload_at_scheduler import (
+    cancel_upload_at_schedule,
+    schedule_upload_at_dispatch,
+    validate_dispatch_at,
+)
+from uploader.job_schedule import filter_pending_ready, upload_at_from_entry
 from uploader.oauth_web import (
     api_redirect_uri,
     build_authorization_url,
@@ -125,6 +131,30 @@ from uploader.job_views import list_active_uploads
 from uploader.upload_reconcile import _looks_complete, dismiss_stuck_upload, reconcile_uploads
 from uploader.state_store import ensure_bucket_structure
 from uploader.worker_dispatch import dispatch_parallel_uploads
+
+
+def _apply_upload_at_schedule(
+    out: StagedJobOut,
+    *,
+    channel_id: str,
+    registry: UploadRegistry,
+    created: bool = True,
+    skip: bool = False,
+) -> StagedJobOut:
+    result = schedule_upload_at_dispatch(
+        channel_id,
+        out.job_id,
+        out.upload_at or None,
+        registry=registry,
+        created=created,
+        skip=skip,
+    )
+    out.upload_at_schedule_status = result.status
+    out.upload_at_scheduler_job = result.scheduler_job
+    out.upload_at_schedule_message = result.message
+    if result.upload_at and not out.upload_at:
+        out.upload_at = result.upload_at
+    return out
 
 
 def _active_upload_completed(view) -> bool:
@@ -534,7 +564,8 @@ def create_app() -> FastAPI:
             upload_at=upload_at,
         )
         bump("queue")
-        return out
+        reg = UploadRegistry(ch.registry_path)
+        return _apply_upload_at_schedule(out, channel_id=ch.id, registry=reg, created=True)
 
     @app.post(
         "/v1/channels/{channel_ref}/jobs",
@@ -598,6 +629,8 @@ def create_app() -> FastAPI:
         made_for_kids: str | None = Form(default=None),
         language: str | None = Form(default=None),
         metadata: str | None = Form(default=None),
+        publish_at: str | None = Form(default=None, description="YouTube publishAt RFC3339"),
+        upload_at: str | None = Form(default=None, description="Queue pickup time RFC3339"),
     ):
         """Alias for POST /v1/channels/{id}/jobs with channel_id in form body."""
         return await _stage_job_multipart(
@@ -614,6 +647,8 @@ def create_app() -> FastAPI:
             metadata_json=metadata,
             is_short=is_short,
             made_for_kids=made_for_kids,
+            publish_at=publish_at,
+            upload_at=upload_at,
         )
 
     @app.post(
@@ -634,6 +669,7 @@ def create_app() -> FastAPI:
             base=get_storage_base(),
             config_defaults=config.job_defaults,
         )
+        reg = UploadRegistry(ch.registry_path)
         if body.upload_now:
             if not _token_status(ch).valid:
                 raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
@@ -655,6 +691,21 @@ def create_app() -> FastAPI:
             if not result.dispatched:
                 reason = result.skipped[0]["reason"] if result.skipped else "could not dispatch worker"
                 raise HTTPException(409, reason)
+            out = _apply_upload_at_schedule(
+                out,
+                channel_id=ch.id,
+                registry=reg,
+                created=created,
+                skip=True,
+            )
+        else:
+            out = _apply_upload_at_schedule(
+                out,
+                channel_id=ch.id,
+                registry=reg,
+                created=created,
+                skip=not created,
+            )
         return JSONResponse(
             status_code=201 if created else 200,
             content=out.model_dump(),
@@ -772,6 +823,86 @@ def create_app() -> FastAPI:
         )
 
     @app.post(
+        "/v1/channels/{channel_ref}/jobs/{job_id}/dispatch-at",
+        response_model=DispatchAtResponse,
+        tags=["jobs"],
+    )
+    def dispatch_job_at_upload_time(channel_ref: str, job_id: str):
+        """Cloud Scheduler callback: upload this pending job when upload_at is due.
+
+        Edge cases:
+        - Job missing / not pending → 200 no-op (idempotent for late/retry fires)
+        - upload_at still in the future (beyond grace) → 409
+        - Channel not authenticated → 400
+        - Always best-effort deletes the one-shot Cloud Scheduler job afterward
+        """
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        reg = UploadRegistry(ch.registry_path)
+        entry = reg.get(job_id)
+        if entry is None:
+            cleaned = cancel_upload_at_schedule(ch.id, job_id, registry=reg, entry=None)
+            return DispatchAtResponse(
+                channel_id=ch.id,
+                job_id=job_id,
+                status="missing",
+                message="Job not found; scheduler cleaned up if present",
+                scheduler_cleaned=cleaned,
+            )
+        ok, reason = validate_dispatch_at(entry)
+        if not ok:
+            if "future" in reason:
+                # Keep the Cloud Scheduler job so the real upload_at fire still works.
+                raise HTTPException(409, reason)
+            cleaned = cancel_upload_at_schedule(ch.id, job_id, registry=reg, entry=entry)
+            return DispatchAtResponse(
+                channel_id=ch.id,
+                job_id=job_id,
+                status="skipped",
+                message=reason,
+                scheduler_cleaned=cleaned,
+            )
+        cleaned = cancel_upload_at_schedule(ch.id, job_id, registry=reg, entry=entry)
+        if not _token_status(ch).valid:
+            raise HTTPException(400, f"Channel {ch.id} is not authenticated. Start OAuth first.")
+        config = get_app_config()
+        oauth = get_oauth_settings()
+        base = get_storage_base()
+        result = dispatch_parallel_uploads(
+            ch.id,
+            config,
+            base=base,
+            count=1,
+            job_ids=[job_id],
+            ignore_upload_at=True,
+            oauth_client_secret=oauth.client_secret_path,
+            oauth_client_config=oauth.client_config,
+            oauth_port=oauth.oauth_port,
+        )
+        bump("queue")
+        if not result.dispatched:
+            skip_reason = result.skipped[0]["reason"] if result.skipped else "could not dispatch worker"
+            return DispatchAtResponse(
+                channel_id=ch.id,
+                job_id=job_id,
+                status="not_dispatched",
+                message=skip_reason,
+                scheduler_cleaned=cleaned,
+            )
+        run_id = f"dispatch_at_{secrets.token_hex(6)}"
+        return DispatchAtResponse(
+            channel_id=ch.id,
+            job_id=job_id,
+            status="dispatched",
+            message=f"Upload started for {job_id} (upload_at={upload_at_from_entry(entry) or 'n/a'}). Poll GET /v1/uploads/active",
+            dispatched=True,
+            run_id=run_id,
+            scheduler_cleaned=cleaned,
+        )
+
+    @app.post(
         "/v1/channels/{channel_ref}/jobs/{job_id}/upload",
         response_model=RunResponse,
         status_code=202,
@@ -862,8 +993,11 @@ def create_app() -> FastAPI:
             ch = resolve_channel_ref(channel_ref)
         except KeyError as e:
             raise HTTPException(404, str(e)) from e
+        reg = UploadRegistry(ch.registry_path)
+        entry = reg.get(job_id)
+        cancel_upload_at_schedule(ch.id, job_id, registry=reg, entry=entry)
         try:
-            removed = remove_job(ch, job_id, base=get_storage_base())
+            removed = remove_job(ch, job_id, base=get_storage_base(), registry=reg)
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         return {"removed": removed.job_id, "deleted_files": len(removed.deleted_paths)}

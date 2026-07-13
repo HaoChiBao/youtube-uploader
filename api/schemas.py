@@ -98,6 +98,18 @@ class StagedJobOut(BaseModel):
     tags: list[str] = Field(default_factory=list)
     publish_at: str = ""
     upload_at: str = ""
+    upload_at_schedule_status: str = Field(
+        default="",
+        description=(
+            "none | ready | scheduled | disabled | skipped | error — "
+            "whether a Cloud Scheduler one-shot was armed for upload_at"
+        ),
+    )
+    upload_at_scheduler_job: str = Field(
+        default="",
+        description="Cloud Scheduler job resource name when status is scheduled",
+    )
+    upload_at_schedule_message: str = ""
 
 
 class JobRegisterRequest(BaseModel):
@@ -121,7 +133,11 @@ class JobRegisterRequest(BaseModel):
     )
     upload_at: str | None = Field(
         default=None,
-        description="Do not dispatch from queue until this time (RFC3339). Cron/runs skips until then.",
+        description=(
+            "Do not dispatch from queue until this time (RFC3339). "
+            "When UPLOADER_UPLOAD_AT_SCHEDULER=1, a Cloud Scheduler one-shot calls "
+            "POST .../jobs/{id}/dispatch-at at this time."
+        ),
     )
     upload_now: bool = Field(
         default=False,
@@ -193,6 +209,16 @@ class RunResponse(BaseModel):
     channel_id: str
     status: str
     message: str
+
+
+class DispatchAtResponse(BaseModel):
+    channel_id: str
+    job_id: str
+    status: str
+    message: str
+    dispatched: bool = False
+    run_id: str = ""
+    scheduler_cleaned: bool = False
 
 
 class RunStatusOut(BaseModel):

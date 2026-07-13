@@ -27,8 +27,10 @@ WORKFLOWS: list[dict[str, str]] = [
         "name": "Scheduled queue pickup + YouTube publishAt",
         "steps": (
             "1. Register or stage with `upload_at` (when worker may pick up) and/or `publish_at` (YouTube publishAt).\n"
-            "2. Cron or manual `POST .../runs` with `parallel: true` — skips jobs whose `upload_at` is still in the future.\n"
-            "3. Use `ignore_upload_at: true` on runs to force early dispatch."
+            "2. With `UPLOADER_UPLOAD_AT_SCHEDULER=1`, a Cloud Scheduler one-shot calls "
+            "`POST .../jobs/{id}/dispatch-at` at `upload_at` (past times → status `ready`, no cron).\n"
+            "3. Without the scheduler flag, cron or manual `POST .../runs` still skips future `upload_at`.\n"
+            "4. Use `ignore_upload_at: true` on runs to force early dispatch."
         ),
     },
     {
@@ -63,9 +65,14 @@ SCHEMAS: dict[str, Any] = {
         "language": "string",
         "metadata": "object — extra fields stored in metadata.json",
         "publish_at": "RFC3339 UTC — YouTube publishAt preset on job",
-        "upload_at": "RFC3339 UTC — do not dispatch until this time",
+        "upload_at": "RFC3339 UTC — do not dispatch until this time; arms Cloud Scheduler when enabled",
         "upload_now": "boolean — register then dispatch worker immediately",
         "no_schedule": "boolean — with upload_now, publish immediately using privacy",
+    },
+    "StagedJobOut": {
+        "upload_at_schedule_status": "none | ready | scheduled | disabled | skipped | error",
+        "upload_at_scheduler_job": "Cloud Scheduler resource name when scheduled",
+        "upload_at_schedule_message": "human-readable schedule outcome",
     },
     "RunRequest": {
         "count": "int | null — jobs from front of queue; null = all ready pending",

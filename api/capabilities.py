@@ -135,6 +135,14 @@ YOUTUBE_FEATURES: list[dict] = [
         "name": "Upload reconcile cron",
         "description": "POST /v1/uploads/reconcile repairs stuck Uploading now jobs (Cloud Scheduler every 10 min)",
     },
+    {
+        "id": "upload_at_scheduler",
+        "name": "Per-job upload_at Cloud Scheduler",
+        "description": (
+            "When UPLOADER_UPLOAD_AT_SCHEDULER=1, register/stage with upload_at arms a one-shot "
+            "Cloud Scheduler job → POST .../jobs/{id}/dispatch-at (past times → ready, no cron)"
+        ),
+    },
     {"id": "batch_stagger", "name": "Batch stagger", "description": "interval_hours between videos in a run"},
     {"id": "retry_transient", "name": "Retry transient errors", "description": "408/429/5xx and network errors with backoff"},
     {"id": "list_scheduled", "name": "List scheduled videos", "description": "Query channel for future publishAt videos"},
@@ -154,5 +162,6 @@ ASSEMBLY_INTEGRATION_NOTES: list[str] = [
     "External assembler URIs are kept in place; MP4/thumbnail are downloaded at upload time (no copy on register).",
     "YouTube Data API default quota is ~10,000 units/day (~6 uploads/day at ~1,600 units each).",
     "Upload runs process one job at a time per channel (sequential) to respect quota and bandwidth.",
-    "Trigger uploads with POST /v1/channels/{ref}/runs {\"count\": 1} or schedule cron/Cloud Scheduler.",
+    "Trigger uploads with POST /v1/channels/{ref}/runs {\"count\": 1}, per-job upload_at Cloud Scheduler "
+    "(UPLOADER_UPLOAD_AT_SCHEDULER=1), or manual cron.",
 ]
