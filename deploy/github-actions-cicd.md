@@ -21,7 +21,17 @@ workflow only updates the container image.
 
 ## One-time setup (Workload Identity Federation)
 
-Avoid storing a long-lived GCP JSON key in GitHub. Use WIF + a deploy SA.
+**Fast path (recommended):** from a machine where you are logged into `gcloud` and `gh`
+with admin access:
+
+```bash
+./scripts/setup-github-cicd.sh
+```
+
+That script creates the deploy SA, WIF pool/provider, IAM bindings, GitHub
+Environment `production`, and the `GCP_*` secrets/variables.
+
+Or follow the manual steps below.
 
 ### 1. Enable APIs
 
