@@ -1783,6 +1783,8 @@
         syncStageChannelDropdown([]);
         return;
       }
+      // Most recent video added first (by max job created_at per channel).
+      channels = channels.slice().sort((a, b) => channelLastAddedMs(b.id) - channelLastAddedMs(a.id));
       tbody.innerHTML = channels.map(ch => {
         const expanded = expandedChannelSchedule.has(ch.id);
         const canEdit = ch.auth && ch.auth.valid;
@@ -2111,6 +2113,30 @@
       if (!iso) return NaN;
       const t = Date.parse(String(iso));
       return Number.isNaN(t) ? NaN : t;
+    }
+
+    function jobCreatedAtMs(job) {
+      const t = parseJobTimeMs(job && job.created_at);
+      return Number.isNaN(t) ? 0 : t;
+    }
+
+    function compareJobsByCreatedAtDesc(a, b) {
+      return jobCreatedAtMs(b) - jobCreatedAtMs(a);
+    }
+
+    function channelLastAddedMs(channelId) {
+      const data = dashboardData || {};
+      const all = []
+        .concat(data.queue_jobs || data.jobs || [])
+        .concat(data.uploading_jobs || [])
+        .concat(data.uploaded_jobs || []);
+      let max = 0;
+      for (const j of all) {
+        if (j.channel_id !== channelId) continue;
+        const t = jobCreatedAtMs(j);
+        if (t > max) max = t;
+      }
+      return max;
     }
 
     function jobUploadAt(job) {
@@ -2816,24 +2842,8 @@
     function renderQueueJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
       let filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs.slice();
-      const pending = filtered.filter(j => j.status === 'pending');
-      const failed = filtered.filter(j => j.status === 'failed');
-      const other = filtered.filter(j => j.status !== 'pending' && j.status !== 'failed');
-      pending.sort((a, b) => {
-        const pa = a.queue_position != null ? a.queue_position : 9999;
-        const pb = b.queue_position != null ? b.queue_position : 9999;
-        if (pa !== pb) return pa - pb;
-        return String(a.created_at || '').localeCompare(String(b.created_at || ''));
-      });
-      failed.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-      filtered = pending.concat(failed, other);
-      let pos = 1;
-      filtered = filtered.map(j => {
-        if (j.status === 'pending' && (j.queue_position == null || j.queue_position === undefined)) {
-          return Object.assign({}, j, { queue_position: pos++ });
-        }
-        return j;
-      });
+      // Most recently added videos first (display only; worker still uses FIFO queue_position).
+      filtered.sort(compareJobsByCreatedAtDesc);
       const tbody = document.getElementById('queue-body');
       if (!filtered.length) {
         const emptyMsg = channel
@@ -2870,14 +2880,8 @@
       const now = Date.now();
       let filtered = (jobs || []).filter(j => isFutureScheduledJob(j, now));
       if (channel) filtered = filtered.filter(j => j.channel_id === channel);
-      filtered.sort((a, b) => {
-        const ta = parseJobTimeMs(jobUploadAt(a));
-        const tb = parseJobTimeMs(jobUploadAt(b));
-        if (ta !== tb) return ta - tb;
-        const pa = a.queue_position != null ? a.queue_position : 9999;
-        const pb = b.queue_position != null ? b.queue_position : 9999;
-        return pa - pb;
-      });
+      // Most recently added videos first.
+      filtered.sort(compareJobsByCreatedAtDesc);
       const tbody = document.getElementById('scheduled-body');
       if (!filtered.length) {
         const emptyMsg = channel
@@ -3007,7 +3011,14 @@
     function renderUploadedJobs(jobs) {
       const channel = document.getElementById('channel-filter').value;
       let filtered = channel ? jobs.filter(j => j.channel_id === channel) : jobs.slice();
-      filtered.sort((a, b) => String(b.uploaded_at || b.created_at || '').localeCompare(String(a.uploaded_at || a.created_at || '')));
+      // Most recently added videos first (fall back to uploaded_at when created_at missing).
+      filtered.sort((a, b) => {
+        const ta = jobCreatedAtMs(a) || parseJobTimeMs(a.uploaded_at) || 0;
+        const tb = jobCreatedAtMs(b) || parseJobTimeMs(b.uploaded_at) || 0;
+        const sa = Number.isNaN(ta) ? 0 : ta;
+        const sb = Number.isNaN(tb) ? 0 : tb;
+        return sb - sa;
+      });
       const tbody = document.getElementById('uploaded-body');
       if (!filtered.length) {
         const emptyMsg = channel
