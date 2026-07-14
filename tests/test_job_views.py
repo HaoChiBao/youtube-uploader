@@ -35,6 +35,33 @@ def test_load_channel_jobs_queue_fifo(tmp_path: Path, monkeypatch) -> None:
     assert bundle.uploaded_count == 0
 
 
+def test_load_channel_jobs_exposes_upload_at(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    monkeypatch.delenv("UPLOADER_UPLOAD_AT_SCHEDULER", raising=False)
+    video = tmp_path / "a.mp4"
+    video.write_bytes(b"x")
+    ch = _channel(tmp_path)
+    future = "2030-08-01T12:00:00Z"
+    stage_job(
+        ch,
+        video_path=video,
+        title="Later",
+        description="",
+        job_id="job-sched",
+        base=tmp_path,
+        publish_at=future,
+    )
+
+    bundle = load_channel_jobs(ch, base=tmp_path)
+    assert len(bundle.queue_jobs) == 1
+    job = bundle.queue_jobs[0]
+    assert job.upload_at == future
+    assert job.publish_at == future
+    assert job.upload_at_schedule_status in ("disabled", "scheduled", "ready", "none", "")
+    assert "upload_at" in job.to_dict()
+    assert job.to_dict()["upload_at"] == future
+
+
 def test_archive_moves_to_uploaded_folder(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
     video = tmp_path / "a.mp4"

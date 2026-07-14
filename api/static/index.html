@@ -398,6 +398,20 @@
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
+    .cell-time-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 1.25;
+    }
+    .cell-time-stack .cell-time-main {
+      color: var(--color-midnight-ink);
+      font-size: 13px;
+    }
+    .cell-time-stack .cell-time-sub {
+      font-size: 11px;
+      color: var(--color-smoke);
+    }
     .count-link {
       background: none;
       border: none;
@@ -1382,6 +1396,9 @@
         <button type="button" class="stat stat-btn" data-nav="library" data-library-tab="queue">
           <span class="stat-value" id="stat-pending">—</span><span class="stat-label">Queued</span>
         </button>
+        <button type="button" class="stat stat-btn" data-nav="library" data-library-tab="scheduled">
+          <span class="stat-value" id="stat-scheduled">—</span><span class="stat-label">Scheduled</span>
+        </button>
         <button type="button" class="stat stat-btn" data-nav="dock">
           <span class="stat-value" id="stat-uploading">—</span><span class="stat-label">Uploading</span>
         </button>
@@ -1418,7 +1435,7 @@
         <div class="section-header">
           <div>
             <h2>Library</h2>
-            <p class="section-desc">Queued and published videos — expand a row for preview and actions</p>
+            <p class="section-desc">Queued, scheduled, and published videos — expand a row for preview and actions</p>
           </div>
         </div>
         <div class="panel">
@@ -1428,6 +1445,7 @@
             </label>
             <div class="library-tabs" role="tablist" aria-label="Library view">
               <button type="button" class="filter-chip is-active" data-library-tab="queue" role="tab" aria-selected="true">Queue</button>
+              <button type="button" class="filter-chip" data-library-tab="scheduled" role="tab" aria-selected="false">Scheduled</button>
               <button type="button" class="filter-chip" data-library-tab="history" role="tab" aria-selected="false">Published</button>
             </div>
           </div>
@@ -1436,6 +1454,24 @@
               <table class="table-data">
                 <thead><tr><th>Title</th><th>Channel</th><th>Status</th><th>Queued</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
                 <tbody id="queue-body"><tr><td colspan="5">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="library-pane" data-library-pane="scheduled" hidden>
+            <div class="table-wrap">
+              <table class="table-data">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Channel</th>
+                    <th>Uploads at</th>
+                    <th>Goes live</th>
+                    <th>In</th>
+                    <th>Dispatcher</th>
+                    <th class="th-actions"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody id="scheduled-body"><tr><td colspan="7">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1581,7 +1617,7 @@
     function setStatsLoading(loading) {
       const bar = document.getElementById('stats-bar');
       bar.classList.toggle('is-loading', loading);
-      ['stat-channels', 'stat-pending', 'stat-uploading', 'stat-uploaded'].forEach(id => {
+      ['stat-channels', 'stat-pending', 'stat-scheduled', 'stat-uploading', 'stat-uploaded'].forEach(id => {
         const el = document.getElementById(id);
         if (loading) {
           el.textContent = '0';
@@ -1618,6 +1654,7 @@
       setStatsLoading(true);
       setTableLoading('channels-body', 5, 'Loading channels…');
       setTableLoading('queue-body', 5, 'Loading queue…');
+      setTableLoading('scheduled-body', 7, 'Loading scheduled…');
       setTableLoading('uploaded-body', 5, 'Loading published…');
       const catList = document.getElementById('categories-list');
       if (catList) catList.innerHTML = '<div class="inline-loading"><span class="spinner"></span><span>Loading…</span></div>';
@@ -2046,11 +2083,13 @@
       setStatsLoading(false);
       document.getElementById('stats-bar').classList.remove('is-loading');
       const pending = (queueJobs || []).filter(j => j.status === 'pending').length;
+      const scheduled = (queueJobs || []).filter(isFutureScheduledJob).length;
       const uploaded = (uploadedJobs || []).length;
       const uploading = (uploadingJobs || []).filter(j => !j.completed && j.upload_phase !== 'done').length;
       const totalPublished = (channels || []).reduce((n, c) => n + (c.uploaded_count || 0), 0);
       document.getElementById('stat-channels').textContent = String((channels || []).length);
       document.getElementById('stat-pending').textContent = String(pending);
+      document.getElementById('stat-scheduled').textContent = String(scheduled);
       document.getElementById('stat-uploading').textContent = String(uploading);
       document.getElementById('stat-uploaded').textContent = String(totalPublished || uploaded);
       const uploadingStat = document.querySelector('.stat-btn[data-nav="dock"]');
@@ -2068,6 +2107,62 @@
       return String(iso).replace('T', ' ').replace('Z', '').slice(0, 16);
     }
 
+    function parseJobTimeMs(iso) {
+      if (!iso) return NaN;
+      const t = Date.parse(String(iso));
+      return Number.isNaN(t) ? NaN : t;
+    }
+
+    function jobUploadAt(job) {
+      return (job && (job.upload_at || job.publish_at)) || '';
+    }
+
+    function jobPublishAt(job) {
+      return (job && job.publish_at) || '';
+    }
+
+    function isFutureScheduledJob(job, nowMs) {
+      if (!job || job.status !== 'pending') return false;
+      const at = jobUploadAt(job);
+      if (!at) return false;
+      const t = parseJobTimeMs(at);
+      const now = nowMs == null ? Date.now() : nowMs;
+      return !Number.isNaN(t) && t > now;
+    }
+
+    function formatRelativeUntil(iso, nowMs) {
+      const t = parseJobTimeMs(iso);
+      if (Number.isNaN(t)) return '—';
+      const now = nowMs == null ? Date.now() : nowMs;
+      let sec = Math.round((t - now) / 1000);
+      if (sec <= 0) return 'due';
+      const days = Math.floor(sec / 86400);
+      sec -= days * 86400;
+      const hours = Math.floor(sec / 3600);
+      sec -= hours * 3600;
+      const mins = Math.floor(sec / 60);
+      if (days > 0) return days + 'd ' + hours + 'h';
+      if (hours > 0) return hours + 'h ' + mins + 'm';
+      if (mins > 0) return mins + 'm';
+      return '<1m';
+    }
+
+    function scheduleStatusLabel(status) {
+      if (status === 'scheduled') return '<span class="badge badge-ok" title="Cloud Scheduler one-shot armed">Armed</span>';
+      if (status === 'ready') return '<span class="badge badge-warn" title="upload_at is due — eligible for the next run">Ready</span>';
+      if (status === 'disabled') return '<span class="badge" title="Stored as a queue gate; Cloud Scheduler not enabled">Gate</span>';
+      if (status === 'error') return '<span class="badge badge-bad">Error</span>';
+      if (status === 'skipped') return '<span class="badge">Skipped</span>';
+      if (status === 'none' || !status) return '<span class="muted">—</span>';
+      return '<span class="badge">' + esc(status) + '</span>';
+    }
+
+    function normalizeLibraryTab(tab) {
+      if (tab === 'history' || tab === 'published') return 'history';
+      if (tab === 'scheduled') return 'scheduled';
+      return 'queue';
+    }
+
     function focusUploadDock() {
       const dock = document.getElementById('uploading-section');
       if (!dock.classList.contains('is-active')) {
@@ -2082,7 +2177,7 @@
     }
 
     function switchLibraryTab(tab) {
-      const next = tab === 'history' ? 'history' : 'queue';
+      const next = normalizeLibraryTab(tab);
       document.querySelectorAll('.library-tabs [data-library-tab]').forEach(btn => {
         const active = btn.dataset.libraryTab === next;
         btn.classList.toggle('is-active', active);
@@ -2103,8 +2198,9 @@
       const tab = opts.tab || 'channels';
       let hash = '#' + tab;
       if (tab === 'library') {
-        const lib = opts.libraryTab === 'history' ? 'published' : 'queue';
-        hash = '#library/' + lib;
+        const lib = normalizeLibraryTab(opts.libraryTab);
+        const slug = lib === 'history' ? 'published' : lib;
+        hash = '#library/' + slug;
         if (opts.channelId) hash += '?channel=' + encodeURIComponent(opts.channelId);
       }
       if (location.hash !== hash) history.replaceState(null, '', hash);
@@ -2124,7 +2220,7 @@
       });
       setActiveNav(tab);
       if (tab === 'library') {
-        const libraryTab = options.libraryTab === 'history' ? 'history' : 'queue';
+        const libraryTab = normalizeLibraryTab(options.libraryTab);
         switchLibraryTab(libraryTab);
         const filter = document.getElementById('channel-filter');
         if (options.channelId !== undefined) {
@@ -2132,6 +2228,7 @@
         }
         if (dashboardData) {
           renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+          renderScheduledJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
           renderUploadedJobs(dashboardData.uploaded_jobs || []);
         }
       }
@@ -2152,7 +2249,7 @@
       const channelId = qs.get('channel') || '';
       if (parts[0] === 'settings') return { tab: 'settings' };
       if (parts[0] === 'library') {
-        const libraryTab = parts[1] === 'published' || parts[1] === 'history' ? 'history' : 'queue';
+        const libraryTab = normalizeLibraryTab(parts[1]);
         return { tab: 'library', libraryTab, channelId };
       }
       return { tab: 'channels' };
@@ -2446,6 +2543,7 @@
       }
       renderChannelsTable(channels);
       renderQueueJobs(data.queue_jobs || data.jobs || []);
+      renderScheduledJobs(data.queue_jobs || data.jobs || []);
       renderUploadingJobs(data.uploading_jobs || []);
       renderUploadedJobs(data.uploaded_jobs || []);
       updateDashboardStats(
@@ -2626,6 +2724,7 @@
     function renderMetaList(meta, job) {
       if (!meta && !job) return '<p class="placeholder">No metadata</p>';
       const m = meta || {};
+      const j = job || {};
       const rows = [
         ['Privacy', m.privacy || '—'],
         ['Short', m.is_short != null ? (m.is_short ? 'yes' : 'no') : '—'],
@@ -2633,10 +2732,14 @@
         ['Made for kids', m.made_for_kids != null ? (m.made_for_kids ? 'yes' : 'no') : '—'],
         ['Language', m.language || '—'],
         ['Tags', (m.tags && m.tags.length) ? m.tags.join(', ') : '—'],
-        ['Staged', m.staged_at || job.created_at || '—'],
-        ['Registry status', job.status || '—'],
+        ['Uploads at', m.upload_at || j.upload_at || '—'],
+        ['Goes live', m.publish_at || j.publish_at || '—'],
+        ['Dispatcher', j.upload_at_schedule_status || '—'],
+        ['Queue pos', j.queue_position != null ? String(j.queue_position) : '—'],
+        ['Staged', m.staged_at || j.created_at || '—'],
+        ['Registry status', j.status || '—'],
       ];
-      if (job.error) rows.push(['Error', job.error]);
+      if (j.error) rows.push(['Error', j.error]);
       return '<dl>' + rows.map(([k,v]) => {
         if (k === 'Error') return '';
         return '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>';
@@ -2762,6 +2865,62 @@
       });
     }
 
+    function renderScheduledJobs(jobs) {
+      const channel = document.getElementById('channel-filter').value;
+      const now = Date.now();
+      let filtered = (jobs || []).filter(j => isFutureScheduledJob(j, now));
+      if (channel) filtered = filtered.filter(j => j.channel_id === channel);
+      filtered.sort((a, b) => {
+        const ta = parseJobTimeMs(jobUploadAt(a));
+        const tb = parseJobTimeMs(jobUploadAt(b));
+        if (ta !== tb) return ta - tb;
+        const pa = a.queue_position != null ? a.queue_position : 9999;
+        const pb = b.queue_position != null ? b.queue_position : 9999;
+        return pa - pb;
+      });
+      const tbody = document.getElementById('scheduled-body');
+      if (!filtered.length) {
+        const emptyMsg = channel
+          ? 'No future uploads scheduled for <strong>' + esc(channel) + '</strong>.'
+          : 'No future uploads scheduled. Register or stage with an <code>upload_at</code> / <code>publish_at</code> in the future.';
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">' + emptyMsg + '</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map((j) => {
+        const key = jobKey(j.channel_id, j.id);
+        const expanded = expandedJobKeys.has(key) ? ' expanded' : '';
+        const uploadAt = jobUploadAt(j);
+        const publishAt = jobPublishAt(j);
+        const pos = j.queue_position != null ? '#' + j.queue_position : '';
+        return `<tr class="job-row data-row${expanded}" data-channel="${esc(j.channel_id)}" data-job="${esc(j.id)}">
+          <td class="cell-title">
+            <span class="cell-title-main click-title">${esc(j.title || '(no title)')}</span>
+            <span class="cell-title-sub"><code>${esc(shortJobId(j.id))}</code>${pos ? ' · queue ' + esc(pos) : ''}</span>
+          </td>
+          <td>${esc(j.channel_id)}</td>
+          <td class="cell-time">
+            <div class="cell-time-stack">
+              <span class="cell-time-main">${esc(formatJobTimestamp(uploadAt))}</span>
+              <span class="cell-time-sub">UTC</span>
+            </div>
+          </td>
+          <td class="cell-time">
+            <div class="cell-time-stack">
+              <span class="cell-time-main">${esc(formatJobTimestamp(publishAt))}</span>
+              <span class="cell-time-sub">${publishAt && publishAt !== uploadAt ? 'YouTube publishAt' : (publishAt ? 'same as upload' : 'immediate')}</span>
+            </div>
+          </td>
+          <td class="cell-time">${esc(formatRelativeUntil(uploadAt, now))}</td>
+          <td>${scheduleStatusLabel(j.upload_at_schedule_status)}</td>
+          <td class="cell-actions">${jobActionButtons(j)}</td>
+        </tr>`;
+      }).join('');
+      filtered.filter(j => expandedJobKeys.has(jobKey(j.channel_id, j.id))).forEach(j => {
+        const row = tbody.querySelector('tr.job-row[data-job="' + j.id + '"][data-channel="' + j.channel_id + '"]');
+        if (row) toggleJobRow(j.channel_id, j.id, row);
+      });
+    }
+
     function uploadButtonLabel(job) {
       if (job.status === 'uploading') return null;
       if (job.status === 'uploaded') return 'Re-upload';
@@ -2878,6 +3037,7 @@
     async function loadJobs() {
       if (dashboardData) {
         renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+        renderScheduledJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
         renderUploadedJobs(dashboardData.uploaded_jobs || []);
         return;
       }
@@ -2888,6 +3048,7 @@
         api('/v1/jobs?status=uploaded&location=uploaded' + chQs),
       ]);
       renderQueueJobs(queue);
+      renderScheduledJobs(queue);
       renderUploadedJobs(uploaded);
     }
 
@@ -3091,6 +3252,7 @@
     document.getElementById('channel-filter').onchange = () => {
       if (dashboardData) {
         renderQueueJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
+        renderScheduledJobs(dashboardData.queue_jobs || dashboardData.jobs || []);
         renderUploadedJobs(dashboardData.uploaded_jobs || []);
       } else loadJobs();
       writeNavHash({
@@ -3222,6 +3384,25 @@
         navigateTo({ tab: 'settings' });
         return;
       }
+      if (await onJobUploadButtonClick(e)) return;
+      const removeBtn = e.target.closest('[data-remove]');
+      if (removeBtn) {
+        e.stopPropagation();
+        if (!confirm('Remove job ' + removeBtn.dataset.job + '?')) return;
+        await api('/v1/channels/' + encodeURIComponent(removeBtn.dataset.remove) + '/jobs/' + encodeURIComponent(removeBtn.dataset.job), { method: 'DELETE' });
+        jobDetailCache.delete(jobKey(removeBtn.dataset.remove, removeBtn.dataset.job));
+        expandedJobKeys.delete(jobKey(removeBtn.dataset.remove, removeBtn.dataset.job));
+        toast('Removed');
+        refresh();
+        return;
+      }
+      const row = e.target.closest('tr.job-row');
+      if (row && row.dataset.channel && row.dataset.job) {
+        await toggleJobRow(row.dataset.channel, row.dataset.job, row);
+      }
+    };
+
+    document.getElementById('scheduled-body').onclick = async (e) => {
       if (await onJobUploadButtonClick(e)) return;
       const removeBtn = e.target.closest('[data-remove]');
       if (removeBtn) {
