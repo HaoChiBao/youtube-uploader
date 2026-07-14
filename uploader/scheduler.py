@@ -10,7 +10,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from uploader.channels import AppConfig, ChannelConfig, get_channel
-from uploader.job_schedule import apply_plan_publish_overrides, filter_pending_ready
+from uploader.job_schedule import (
+    apply_plan_publish_overrides,
+    filter_pending_ready,
+    privacy_for_due_publish,
+)
 from uploader.registry import UploadEntry, UploadRegistry
 from uploader.state_store import config_base_from_path
 from uploader.upload_worker import upload_single_job
@@ -320,6 +324,7 @@ def run_channel(
 
     for entry, publish_at in plan:
         worker_id = f"seq_{uuid.uuid4().hex[:10]}"
+        job_privacy = privacy_for_due_publish(entry, publish_at, privacy=privacy)
         one = upload_single_job(
             channel.id,
             entry.id,
@@ -328,7 +333,7 @@ def run_channel(
             base=base,
             publish_at=publish_at,
             no_schedule=upload_plan.upload_immediately or not publish_at,
-            privacy=privacy,
+            privacy=job_privacy,
             upload_retries=upload_retries,
             retry_delay=retry_delay,
             tags=tags,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from uploader.registry import STATUS_PENDING, UploadEntry
@@ -49,6 +49,23 @@ def scheduled_publish_at_from_entry(entry: UploadEntry) -> str:
     return entry.publish_at or ""
 
 
+def publish_at_is_due(
+    value: str,
+    *,
+    now: datetime | None = None,
+    grace: timedelta = timedelta(seconds=60),
+) -> bool:
+    """True when YouTube publishAt is at/near now (API rejects past publishAt)."""
+    if not value or not str(value).strip():
+        return False
+    try:
+        when = parse_schedule_at(str(value).strip())
+    except ValueError:
+        return False
+    now = now or datetime.now(timezone.utc)
+    return when <= now + grace
+
+
 def filter_pending_ready(
     pending: list[UploadEntry],
     *,
@@ -82,15 +99,43 @@ def resolve_job_publish_at(
     no_schedule: bool,
     override: str | None = None,
     timezone_name: str = "UTC",
+    now: datetime | None = None,
 ) -> str:
     if no_schedule:
         return ""
     if override:
-        return normalize_schedule_at(override, timezone_name=timezone_name)
+        normalized = normalize_schedule_at(override, timezone_name=timezone_name)
+        if publish_at_is_due(normalized, now=now):
+            return ""
+        return normalized
     preset = scheduled_publish_at_from_entry(entry)
     if preset:
-        return normalize_schedule_at(preset, timezone_name=timezone_name)
+        normalized = normalize_schedule_at(preset, timezone_name=timezone_name)
+        if publish_at_is_due(normalized, now=now):
+            # Upload is happening at/after the intended go-live time — publish now.
+            return ""
+        return normalized
     return computed
+
+
+def privacy_for_due_publish(
+    entry: UploadEntry,
+    resolved_publish_at: str,
+    *,
+    privacy: str | None = None,
+) -> str | None:
+    """When a queued publishAt is due, force public so the video actually goes live.
+
+    Jobs are usually staged as private + publishAt; dropping a due publishAt without
+    flipping privacy would leave the video permanently private.
+    """
+    if resolved_publish_at:
+        return privacy
+    if not scheduled_publish_at_from_entry(entry) and not (entry.publish_at or ""):
+        return privacy
+    if privacy and privacy != "private":
+        return privacy
+    return "public"
 
 
 def apply_plan_publish_overrides(

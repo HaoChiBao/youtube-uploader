@@ -82,15 +82,33 @@ def _scheduling_fields(
     upload_at: str | None,
     timezone_name: str,
 ) -> tuple[str, dict]:
-    """Return (registry publish_at, extra scheduling keys) for a new pending job."""
+    """Return (registry publish_at, extra scheduling keys) for a new pending job.
+
+    When ``publish_at`` is set and ``upload_at`` is omitted, default ``upload_at`` to
+    the same instant so Cloud Scheduler (when enabled) auto-dispatches at publish time.
+    """
     pub = normalize_schedule_at(publish_at, timezone_name=timezone_name) if publish_at else ""
     upl = normalize_schedule_at(upload_at, timezone_name=timezone_name) if upload_at else ""
+    if pub and not upl:
+        upl = pub
     extra: dict = {}
     if upl:
         extra["upload_at"] = upl
     if pub:
         extra["scheduled_publish_at"] = pub
     return pub, extra
+
+
+def _default_upload_at_from_publish(
+    publish_at: str | None,
+    upload_at: str | None,
+) -> str | None:
+    """When only publish_at is set, pick up the video at that same UTC instant."""
+    if upload_at and str(upload_at).strip():
+        return upload_at
+    if publish_at and str(publish_at).strip():
+        return publish_at
+    return upload_at
 
 
 def stage_job(
@@ -132,6 +150,8 @@ def stage_job(
         thumbnail_path = thumbnail_path.expanduser().resolve()
         if not thumbnail_path.is_file():
             raise FileNotFoundError(f"Thumbnail file not found: {thumbnail_path}")
+
+    upload_at = _default_upload_at_from_publish(publish_at, upload_at)
 
     job_id = _slugify_job_id(job_id) if job_id else generate_job_id(channel.id)
     uris = bucket_layout.default_job_uris(channel.id, job_id, base)
@@ -381,6 +401,8 @@ def register_job_from_uris(
     if not video_uri:
         raise ValueError("video_uri is required")
     assert_object_readable(video_uri)
+
+    upload_at = _default_upload_at_from_publish(publish_at, upload_at)
 
     inferred = _infer_job_id_from_video_uri(video_uri, channel.id)
     job_id = _slugify_job_id(job_id) if job_id else (inferred or generate_job_id(channel.id))

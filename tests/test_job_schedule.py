@@ -41,6 +41,35 @@ def test_resolve_job_publish_at_uses_queue_preset() -> None:
     assert resolved == "2026-07-15T09:00:00Z"
 
 
+def test_resolve_job_publish_at_drops_due_preset() -> None:
+    past = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entry = UploadEntry(
+        id="j1",
+        channel_id="a",
+        status=STATUS_PENDING,
+        publish_at=past,
+        extra={"scheduled_publish_at": past},
+    )
+    assert resolve_job_publish_at(entry, "2026-07-01T09:00:00Z", no_schedule=False) == ""
+
+
+def test_privacy_for_due_publish_forces_public() -> None:
+    past = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entry = UploadEntry(
+        id="j1",
+        channel_id="a",
+        status=STATUS_PENDING,
+        publish_at=past,
+        extra={"scheduled_publish_at": past},
+    )
+    from uploader.job_schedule import privacy_for_due_publish
+
+    assert privacy_for_due_publish(entry, "", privacy=None) == "public"
+    assert privacy_for_due_publish(entry, "", privacy="private") == "public"
+    assert privacy_for_due_publish(entry, "", privacy="unlisted") == "unlisted"
+    assert privacy_for_due_publish(entry, past, privacy="private") == "private"
+
+
 def test_apply_plan_publish_overrides_no_schedule() -> None:
     entry = UploadEntry(id="j1", channel_id="a", status=STATUS_PENDING, publish_at="2026-07-15T09:00:00Z")
     plan = apply_plan_publish_overrides([(entry, "2026-07-01T09:00:00Z")], no_schedule=True, publish_at_override=None)
