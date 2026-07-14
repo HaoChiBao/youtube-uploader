@@ -55,7 +55,11 @@ def _sign(payload: bytes) -> str:
 def _unsign(token: str) -> dict[str, Any] | None:
     try:
         raw = base64.urlsafe_b64decode(token.encode("ascii"))
-        payload, sig = raw.rsplit(b".", 1)
+        # HMAC digests are binary and may contain b"." — never rsplit on that.
+        # Format is always: payload + b"." + 32-byte sha256 digest.
+        if len(raw) < 33 or raw[-33:-32] != b".":
+            return None
+        payload, sig = raw[:-33], raw[-32:]
         expected = hmac.new(_session_secret(), payload, hashlib.sha256).digest()
         if not hmac.compare_digest(sig, expected):
             return None
