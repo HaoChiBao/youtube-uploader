@@ -53,6 +53,14 @@ class JobOut(BaseModel):
     youtube_id: str = ""
     youtube_url: str = ""
     publish_at: str = ""
+    upload_at: str = Field(
+        default="",
+        description="Queue pickup time (RFC3339 UTC). Empty means eligible for the next run.",
+    )
+    upload_at_schedule_status: str = Field(
+        default="",
+        description="none | ready | scheduled | disabled | skipped | error — Cloud Scheduler arm state",
+    )
     created_at: str = ""
     uploaded_at: str = ""
     error: str = ""

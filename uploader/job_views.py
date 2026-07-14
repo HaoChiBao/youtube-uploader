@@ -8,6 +8,7 @@ from typing import Literal
 
 from uploader import bucket_layout
 from uploader.channels import ChannelConfig
+from uploader.job_schedule import scheduled_publish_at_from_entry, upload_at_from_entry
 from uploader.job_store import _prefix_has_objects
 from uploader.object_storage import exists, is_s3_uri, parse_s3_uri
 from uploader.registry import (
@@ -36,6 +37,8 @@ class JobView:
     youtube_id: str = ""
     youtube_url: str = ""
     publish_at: str = ""
+    upload_at: str = ""
+    upload_at_schedule_status: str = ""
     created_at: str = ""
     uploaded_at: str = ""
     error: str = ""
@@ -60,6 +63,8 @@ class JobView:
             "youtube_id": self.youtube_id,
             "youtube_url": self.youtube_url,
             "publish_at": self.publish_at,
+            "upload_at": self.upload_at,
+            "upload_at_schedule_status": self.upload_at_schedule_status,
             "created_at": self.created_at,
             "uploaded_at": self.uploaded_at,
             "error": self.error,
@@ -231,6 +236,8 @@ def entry_to_job_view(
     )
     prefix = job_folder_prefix(entry, base=base, folder=folder)
     prog = UploadRegistry.upload_progress_fields(entry)
+    extra = entry.extra or {}
+    publish_at = scheduled_publish_at_from_entry(entry) or entry.publish_at or ""
     return JobView(
         id=entry.id,
         channel_id=entry.channel_id,
@@ -241,7 +248,9 @@ def entry_to_job_view(
         thumbnail_uri=entry.resolved_thumbnail_uri(),
         youtube_id=entry.youtube_id,
         youtube_url=entry.youtube_url,
-        publish_at=entry.publish_at,
+        publish_at=publish_at,
+        upload_at=upload_at_from_entry(entry),
+        upload_at_schedule_status=str(extra.get("upload_at_schedule_status") or ""),
         created_at=entry.created_at,
         uploaded_at=entry.uploaded_at,
         error=entry.error,
