@@ -135,6 +135,8 @@ class JobRegisterRequest(BaseModel):
         default=None,
         description=(
             "Do not dispatch from queue until this time (RFC3339). "
+            "When omitted but publish_at is set, defaults to publish_at so the job "
+            "auto-uploads at go-live time. "
             "When UPLOADER_UPLOAD_AT_SCHEDULER=1, a Cloud Scheduler one-shot calls "
             "POST .../jobs/{id}/dispatch-at at this time."
         ),

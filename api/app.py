@@ -44,6 +44,7 @@ from api.deps import (
     oauth_configured,
     resolve_channel_ref,
 )
+from uploader.channels import ChannelConfig
 from api.oauth_sessions import OAuthSession, pop_session, save_session
 from api.run_tracker import create_run, get_run, set_complete, set_failed, set_running
 from api.static_dir import static_dir
@@ -154,6 +155,49 @@ def _apply_upload_at_schedule(
     out.upload_at_schedule_message = result.message
     if result.upload_at and not out.upload_at:
         out.upload_at = result.upload_at
+    return out
+
+
+def _maybe_dispatch_ready_job(
+    out: StagedJobOut,
+    *,
+    channel: ChannelConfig,
+    created: bool,
+) -> StagedJobOut:
+    """If upload_at is already due, start the worker now (no /runs cron required)."""
+    if not created or out.upload_at_schedule_status != "ready":
+        return out
+    oauth = get_oauth_settings()
+    token = get_token_status(channel.id, channel.token_path, oauth)
+    if not token.valid:
+        out.upload_at_schedule_message = (
+            (out.upload_at_schedule_message + " ").strip()
+            + "upload_at is due but channel OAuth is missing — authenticate then POST .../runs"
+        ).strip()
+        return out
+    config = get_app_config()
+    result = dispatch_parallel_uploads(
+        channel.id,
+        config,
+        base=get_storage_base(),
+        count=1,
+        job_ids=[out.job_id],
+        ignore_upload_at=True,
+        oauth_client_secret=oauth.client_secret_path,
+        oauth_client_config=oauth.client_config,
+        oauth_port=oauth.oauth_port,
+    )
+    bump("queue")
+    if result.dispatched:
+        out.upload_at_schedule_message = (
+            (out.upload_at_schedule_message + " ").strip()
+            + "Dispatched upload immediately (upload_at already due)."
+        ).strip()
+    elif result.skipped:
+        reason = result.skipped[0].get("reason") or "could not dispatch"
+        out.upload_at_schedule_message = (
+            (out.upload_at_schedule_message + " ").strip() + f"Ready but not dispatched: {reason}"
+        ).strip()
     return out
 
 
@@ -565,7 +609,8 @@ def create_app() -> FastAPI:
         )
         bump("queue")
         reg = UploadRegistry(ch.registry_path)
-        return _apply_upload_at_schedule(out, channel_id=ch.id, registry=reg, created=True)
+        out = _apply_upload_at_schedule(out, channel_id=ch.id, registry=reg, created=True)
+        return _maybe_dispatch_ready_job(out, channel=ch, created=True)
 
     @app.post(
         "/v1/channels/{channel_ref}/jobs",
@@ -706,6 +751,7 @@ def create_app() -> FastAPI:
                 created=created,
                 skip=not created,
             )
+            out = _maybe_dispatch_ready_job(out, channel=ch, created=created)
         return JSONResponse(
             status_code=201 if created else 200,
             content=out.model_dump(),

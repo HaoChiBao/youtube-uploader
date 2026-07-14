@@ -540,6 +540,25 @@ def test_register_stores_upload_at(client, tmp_path: Path) -> None:
     assert body["upload_at_schedule_status"] == "disabled"
 
 
+def test_register_defaults_upload_at_from_publish_at(client, tmp_path: Path) -> None:
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    future = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    r = client.post(
+        "/v1/channels/testchan/jobs/register",
+        json={
+            "title": "Publish drives upload",
+            "video_uri": str(video),
+            "publish_at": future,
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["publish_at"] == future
+    assert body["upload_at"] == future
+    assert body["upload_at_schedule_status"] == "disabled"
+
+
 def test_register_past_upload_at_is_ready(client, tmp_path: Path) -> None:
     video = tmp_path / "clip.mp4"
     video.write_bytes(b"x")

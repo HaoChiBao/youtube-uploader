@@ -335,7 +335,7 @@ sequenceDiagram
 
 ### Step 2 — Register (assembler)
 
-Called automatically when `ASSEMBLY_QUEUE_YOUTUBE=true` (or `--queue-youtube`). **Does not upload to YouTube.**
+Called automatically when `ASSEMBLY_QUEUE_YOUTUBE=true` (or `--queue-youtube`). Registers the job with `publish_at` / `upload_at` when scheduling is configured. With `UPLOADER_UPLOAD_AT_SCHEDULER=1`, that arms auto-upload at go-live time; otherwise an operator still needs `POST .../runs` for unscheduled jobs.
 
 ```
 POST /v1/channels/{channel_ref}/jobs/register
@@ -410,6 +410,7 @@ Upload all channels: `POST /v1/runs/all` (same body).
 ### Per-job `upload_at` (auto-dispatch at a future time)
 
 Pass `upload_at` (RFC3339) on register/stage so the job stays pending until that time.
+If you only set `publish_at`, **`upload_at` defaults to the same timestamp** so the video is auto-dispatched at go-live time (when the scheduler flag is on).
 
 With **`UPLOADER_UPLOAD_AT_SCHEDULER=1`**, the API also creates a **one-shot Cloud Scheduler job** that calls `POST .../jobs/{job_id}/dispatch-at` at that UTC time — no polling cron required for that video.
 
@@ -484,7 +485,7 @@ Returns `201` with `job_id`, `video_uri`, `queue_prefix`, and registry path. The
 
 **Option B — ai-music-assembler auto-queue (production)**
 
-When `ASSEMBLY_QUEUE_YOUTUBE=true`, the assembler calls **step 2 only** (`POST .../jobs/register`). An operator or cron must call **step 3** (`POST .../runs`) to upload to YouTube — **unless** you set `upload_at` with `UPLOADER_UPLOAD_AT_SCHEDULER=1`, which arms a one-shot dispatcher for that job.
+When `ASSEMBLY_QUEUE_YOUTUBE=true`, the assembler calls **step 2** (`POST .../jobs/register`) with `publish_at` (and `upload_at` defaults to that same time). With **`UPLOADER_UPLOAD_AT_SCHEDULER=1`**, a one-shot Cloud Scheduler job auto-dispatches upload at that time — no manual `POST .../runs` needed for scheduled videos. Unscheduled jobs (no `publish_at` / `upload_at`) still need `POST .../runs` or `upload_now`.
 
 ```bash
 curl -X POST "$UPLOADER_API_URL/v1/channels/nappabeats/jobs/register" \

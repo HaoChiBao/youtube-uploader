@@ -12,7 +12,11 @@ from typing import Any
 
 from uploader.channels import AppConfig, get_channel
 from uploader.job_claim import release_job_claim, try_claim_job
-from uploader.job_schedule import apply_plan_publish_overrides, filter_pending_ready
+from uploader.job_schedule import (
+    apply_plan_publish_overrides,
+    filter_pending_ready,
+    privacy_for_due_publish,
+)
 from uploader.registry import UploadRegistry
 from uploader.scheduler import build_channel_upload_plan
 from uploader.state_store import config_base_from_path
@@ -125,6 +129,7 @@ def dispatch_parallel_uploads(
             result.skipped.append({"job_id": entry.id, "reason": claim.reason})
             continue
         job_no_schedule = upload_plan.upload_immediately or not publish_at
+        job_privacy = privacy_for_due_publish(entry, publish_at, privacy=privacy)
         try:
             execution = _launch_worker(
                 channel.id,
@@ -132,7 +137,7 @@ def dispatch_parallel_uploads(
                 worker_id,
                 publish_at=publish_at,
                 no_schedule=job_no_schedule,
-                privacy=privacy,
+                privacy=job_privacy,
                 upload_retries=upload_retries,
                 retry_delay=retry_delay,
                 tags=tags,

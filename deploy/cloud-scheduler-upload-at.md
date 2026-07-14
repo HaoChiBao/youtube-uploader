@@ -17,7 +17,8 @@ as ``POST .../jobs/{job_id}/upload``), then deletes the Scheduler job.
 | `upload_at` | Scheduler enabled? | Result |
 |-------------|--------------------|--------|
 | omitted | — | No cron; normal queue |
-| in the past (or ≤60s ahead) | any | Status `ready` — no cron; eligible for next `/runs` |
+| omitted + `publish_at` set | any | **Defaults `upload_at` = `publish_at`** (auto at go-live) |
+| in the past (or ≤60s ahead) | any | Status `ready` — dispatch immediately on register/stage when OAuth ok |
 | future | `0` / unset | Status `disabled` — stored as queue gate only |
 | future | `1` | Status `scheduled` — Cloud Scheduler one-shot armed |
 | + `upload_now: true` | — | Immediate upload; scheduling skipped |
