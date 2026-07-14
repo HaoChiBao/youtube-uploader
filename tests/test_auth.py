@@ -28,6 +28,34 @@ def test_session_roundtrip(monkeypatch: pytest.MonkeyPatch):
     assert data.get("kind") == "dashboard"
 
 
+def test_session_unsign_when_hmac_contains_dot(monkeypatch: pytest.MonkeyPatch):
+    """Regression: binary HMAC bytes can include 0x2e ('.'); must not use rsplit."""
+    import base64
+    import json
+    import time
+
+    monkeypatch.setenv("UPLOADER_SESSION_SECRET", "test-secret")
+    from api import auth
+
+    payload = json.dumps(
+        {"kind": "dashboard", "exp": int(time.time()) + 3600},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    # Craft a digest that contains '.' so rsplit-based parsing would break.
+    sig = b"a" * 15 + b"." + b"b" * 16
+    assert len(sig) == 32
+    token = base64.urlsafe_b64encode(payload + b"." + sig).decode("ascii")
+
+    monkeypatch.setattr(
+        auth.hmac,
+        "new",
+        lambda *a, **k: type("H", (), {"digest": staticmethod(lambda: sig)})(),
+    )
+    data = auth._unsign(token)
+    assert data is not None
+    assert data.get("kind") == "dashboard"
+
+
 def test_session_cookie_not_secure_on_http(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("UPLOADER_SESSION_SECURE", "1")
     from starlette.requests import Request

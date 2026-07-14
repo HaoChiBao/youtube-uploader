@@ -42,6 +42,31 @@ Cloud Scheduler cron is **minute-granularity** (seconds on `upload_at` round
 the job after a successful fire so it does not repeat next year. Late retries
 are idempotent.
 
+## Production status
+
+On **youtuber-uploader-app** (project `youtube-uploader-499603`):
+
+```env
+UPLOADER_UPLOAD_AT_SCHEDULER=1
+UPLOADER_CLOUD_SCHEDULER_LOCATION=us-central1
+```
+
+The Cloud Run runtime SA has `roles/cloudscheduler.admin` so register/stage can
+create and delete one-shot Scheduler jobs.
+
+### Smoke test
+
+```bash
+UPLOADER_API_URL="https://youtuber-uploader-app-q3uklh4a6a-pd.a.run.app" \
+UPLOADER_API_KEY="…" \
+CHANNEL=nappabeats \
+VIDEO_URI="s3://music-assembly-data/music-video/nappabeats/…/….mp4" \
+./scripts/smoke-upload-at.sh
+```
+
+Expect `upload_at_schedule_status=scheduled`, early `dispatch-at` → 409, then
+job delete removes the Scheduler job.
+
 ## Env (API service)
 
 ```env
