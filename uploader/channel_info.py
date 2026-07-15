@@ -7,12 +7,23 @@ from pathlib import Path
 
 from uploader.youtube_client import get_credentials
 
+# YouTube Data API status.longUploadsStatus — phone verification proxy.
+LONG_UPLOADS_ALLOWED = "allowed"
+LONG_UPLOADS_ELIGIBLE = "eligible"
+LONG_UPLOADS_DISALLOWED = "disallowed"
+
 
 @dataclass
 class AuthorizedChannelInfo:
     youtube_channel_id: str
     title: str
     custom_url: str = ""
+    long_uploads_status: str = ""
+
+
+def is_channel_verified(long_uploads_status: str | None) -> bool:
+    """True when the channel can upload long videos (phone verification completed)."""
+    return (long_uploads_status or "").strip().lower() == LONG_UPLOADS_ALLOWED
 
 
 def get_authorized_channel_info(
@@ -35,15 +46,17 @@ def get_authorized_channel_info(
             oauth_port=oauth_port,
         )
     youtube = build("youtube", "v3", credentials=creds)
-    response = youtube.channels().list(part="snippet", mine=True).execute()
+    response = youtube.channels().list(part="snippet,status", mine=True).execute()
     items = response.get("items") or []
     if not items:
         raise RuntimeError("No YouTube channel found for this Google account.")
 
     item = items[0]
     snippet = item.get("snippet") or {}
+    status = item.get("status") or {}
     return AuthorizedChannelInfo(
         youtube_channel_id=item.get("id", ""),
         title=snippet.get("title") or item.get("id", ""),
         custom_url=snippet.get("customUrl") or "",
+        long_uploads_status=str(status.get("longUploadsStatus") or "").strip(),
     )

@@ -40,6 +40,14 @@ class ChannelOut(BaseModel):
     pending_count: int = 0
     uploaded_count: int = 0
     failed_count: int = 0
+    long_uploads_status: str = Field(
+        default="",
+        description="YouTube status.longUploadsStatus: allowed | eligible | disallowed",
+    )
+    verified: bool = Field(
+        default=False,
+        description="True when long_uploads_status is allowed (phone-verified proxy)",
+    )
 
 
 class JobOut(BaseModel):
