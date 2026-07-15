@@ -30,15 +30,16 @@ def test_filter_pending_ready_respects_upload_at() -> None:
 
 
 def test_resolve_job_publish_at_uses_queue_preset() -> None:
+    future = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     entry = UploadEntry(
         id="j1",
         channel_id="a",
         status=STATUS_PENDING,
-        publish_at="2026-07-15T09:00:00Z",
+        publish_at=future,
     )
-    assert scheduled_publish_at_from_entry(entry) == "2026-07-15T09:00:00Z"
+    assert scheduled_publish_at_from_entry(entry) == future
     resolved = resolve_job_publish_at(entry, "2026-07-01T09:00:00Z", no_schedule=False, override=None)
-    assert resolved == "2026-07-15T09:00:00Z"
+    assert resolved == future
 
 
 def test_resolve_job_publish_at_drops_due_preset() -> None:
@@ -71,6 +72,7 @@ def test_privacy_for_due_publish_forces_public() -> None:
 
 
 def test_apply_plan_publish_overrides_no_schedule() -> None:
-    entry = UploadEntry(id="j1", channel_id="a", status=STATUS_PENDING, publish_at="2026-07-15T09:00:00Z")
+    future = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entry = UploadEntry(id="j1", channel_id="a", status=STATUS_PENDING, publish_at=future)
     plan = apply_plan_publish_overrides([(entry, "2026-07-01T09:00:00Z")], no_schedule=True, publish_at_override=None)
     assert plan[0][1] == ""
