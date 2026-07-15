@@ -381,6 +381,7 @@ def test_cataloged_api_routes_require_auth(client, monkeypatch: pytest.MonkeyPat
         "job_id": "job-1",
         "run_id": "run-1",
         "asset": "video",
+        "category_name": "korean",
     }
     for ep in API_ENDPOINTS:
         if not ep.get("auth", True):
@@ -773,3 +774,160 @@ def test_upload_direct(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert body["youtube_id"] == "yt123"
     assert body["youtube_url"] == "https://youtu.be/yt123"
     assert body["privacy"] == "unlisted"
+
+
+def _fake_analytics_overview(*, days: int = 28, **kwargs):
+    return {
+        "days": days,
+        "start_date": "2026-06-17",
+        "end_date": "2026-07-14",
+        "prior_start_date": "2026-05-20",
+        "prior_end_date": "2026-06-16",
+        "refreshed_at": "2026-07-15T12:00:00Z",
+        "cached": False,
+        "network": {
+            "views": {"value": 1000, "prior": 800, "delta_pct": 25.0},
+            "watch_minutes": {"value": 120, "prior": 100, "delta_pct": 20.0},
+            "subs_net": {"value": 10, "prior": 8, "delta_pct": 25.0},
+            "ctr": {"value": 4.5, "prior": 4.0, "delta_pct": 12.5},
+            "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
+        },
+        "health": {"growing": 1, "flat": 0, "cooling": 0, "needs_data": 0},
+        "categories": [
+            {
+                "category": "korean",
+                "label": "korean",
+                "channel_count": 1,
+                "health": "growing",
+                "views": {"value": 1000, "prior": 800, "delta_pct": 25.0},
+                "watch_minutes": {"value": 120, "prior": 100, "delta_pct": 20.0},
+                "subs_net": {"value": 10, "prior": 8, "delta_pct": 25.0},
+                "ctr": {"value": 4.5, "prior": 4.0, "delta_pct": 12.5},
+                "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
+                "uploads": 2,
+                "views_per_upload": 500.0,
+                "network_view_share_pct": 100.0,
+                "carrier_risk": False,
+                "sparkline": [10, 20, 30],
+                "insights": ["100% of network views in this window"],
+                "channels": [],
+                "top_videos": [],
+            }
+        ],
+        "channels": [
+            {
+                "channel_id": "testchan",
+                "name": "Test Channel",
+                "category": "korean",
+                "youtube_channel_id": "UCtest",
+                "status": "growing",
+                "message": "",
+                "ok": True,
+                "source": "analytics_api",
+                "views": {"value": 1000, "prior": 800, "delta_pct": 25.0},
+                "watch_minutes": {"value": 120, "prior": 100, "delta_pct": 20.0},
+                "subs_net": {"value": 10, "prior": 8, "delta_pct": 25.0},
+                "ctr": {"value": 4.5, "prior": 4.0, "delta_pct": 12.5},
+                "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
+                "avg_view_duration_seconds": {"value": 90.0, "prior": 80.0, "delta_pct": 12.5},
+                "likes": 10,
+                "comments": 2,
+                "shares": 1,
+                "impressions": 20000,
+                "uploads": 2,
+                "views_per_upload": 500.0,
+                "sparkline": [10, 20, 30],
+                "subscriber_count": 1000,
+                "video_count": 50,
+                "top_videos": [],
+            }
+        ],
+        "leaderboard_top": [],
+        "leaderboard_bottom": [],
+        "breakouts": [],
+        "cooling": [],
+        "needs_reauth_count": 0,
+    }
+
+
+def test_analytics_overview(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "uploader.analytics_service.build_analytics_overview",
+        lambda *a, **k: _fake_analytics_overview(days=k.get("days", 28)),
+    )
+    r = client.get("/v1/analytics?days=28")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["days"] == 28
+    assert data["network"]["views"]["value"] == 1000
+    assert data["categories"][0]["category"] == "korean"
+    assert data["health"]["growing"] == 1
+
+
+def test_analytics_rejects_bad_days(client) -> None:
+    r = client.get("/v1/analytics?days=14")
+    assert r.status_code == 400
+
+
+def test_analytics_category_detail(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    overview = _fake_analytics_overview()
+    monkeypatch.setattr(
+        "uploader.analytics_service.build_category_detail",
+        lambda *a, **k: {
+            "days": 28,
+            "start_date": overview["start_date"],
+            "end_date": overview["end_date"],
+            "prior_start_date": overview["prior_start_date"],
+            "prior_end_date": overview["prior_end_date"],
+            "refreshed_at": overview["refreshed_at"],
+            "cached": False,
+            "network_views": 1000,
+            "category": overview["categories"][0],
+        },
+    )
+    r = client.get("/v1/analytics/categories/korean?days=28")
+    assert r.status_code == 200, r.text
+    assert r.json()["category"]["label"] == "korean"
+
+
+def test_analytics_channel_detail(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    overview = _fake_analytics_overview()
+    monkeypatch.setattr(
+        "uploader.analytics_service.build_channel_detail",
+        lambda *a, **k: {
+            "days": 7,
+            "start_date": overview["start_date"],
+            "end_date": overview["end_date"],
+            "prior_start_date": overview["prior_start_date"],
+            "prior_end_date": overview["prior_end_date"],
+            "refreshed_at": overview["refreshed_at"],
+            "cached": False,
+            "channel": overview["channels"][0],
+            "peer_median_views_per_upload": 400.0,
+            "vs_peer_median_pct": 25.0,
+        },
+    )
+    r = client.get("/v1/analytics/channels/testchan?days=7")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["channel"]["channel_id"] == "testchan"
+    assert body["vs_peer_median_pct"] == 25.0
+
+
+def test_dashboard_includes_analytics_nav(client) -> None:
+    r = client.get("/")
+    assert r.status_code == 200
+    html = r.text
+    assert 'data-nav-tab="analytics"' in html
+    assert "id=\"analytics-section\"" in html or "id='analytics-section'" in html
+    assert "/v1/analytics" in html
+
+
+def test_capabilities_lists_analytics(client) -> None:
+    r = client.get("/v1/capabilities")
+    assert r.status_code == 200
+    features = r.json()["youtube_features"]
+    assert any(f.get("id") == "channel_analytics" for f in features)
+    endpoints = r.json().get("api_endpoints") or []
+    paths = {e.get("path") for e in endpoints}
+    assert "/v1/analytics" in paths

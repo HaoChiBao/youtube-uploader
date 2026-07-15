@@ -51,6 +51,9 @@ from api.static_dir import static_dir
 from api.schemas import (
     AuthenticatedYouTubeChannelOut,
     AuthenticatedYouTubeChannelsResponse,
+    AnalyticsOverviewResponse,
+    CategoryAnalyticsResponse,
+    ChannelAnalyticsResponse,
     CapabilitiesOut,
     CategoryCreateRequest,
     CategoryListResponse,
@@ -1503,6 +1506,91 @@ def create_app() -> FastAPI:
         if result.action == "updated":
             return RedirectResponse(url=f"/?oauth_success={channel.id}&oauth_action=updated")
         return RedirectResponse(url=f"/?oauth_success={channel.id}&oauth_action=added")
+
+    @app.get(
+        "/v1/analytics",
+        response_model=AnalyticsOverviewResponse,
+        tags=["analytics"],
+        summary="Network analytics overview",
+    )
+    def analytics_overview(
+        days: int = Query(default=28, description="Window length: 7 or 28"),
+        refresh: bool = Query(default=False, description="Bypass cache and refetch from YouTube"),
+    ):
+        if days not in (7, 28):
+            raise HTTPException(400, "days must be 7 or 28")
+        config = get_app_config()
+        oauth = get_oauth_settings()
+        from uploader.analytics_service import build_analytics_overview
+
+        data = build_analytics_overview(
+            config,
+            oauth,
+            days=days,
+            base=get_storage_base(),
+            refresh=refresh,
+            include_top_videos=False,
+        )
+        return AnalyticsOverviewResponse.model_validate(data)
+
+    @app.get(
+        "/v1/analytics/categories/{category_name}",
+        response_model=CategoryAnalyticsResponse,
+        tags=["analytics"],
+        summary="Category analytics detail",
+    )
+    def analytics_category(
+        category_name: str,
+        days: int = Query(default=28),
+        refresh: bool = Query(default=False),
+    ):
+        if days not in (7, 28):
+            raise HTTPException(400, "days must be 7 or 28")
+        config = get_app_config()
+        oauth = get_oauth_settings()
+        from uploader.analytics_service import build_category_detail
+
+        data = build_category_detail(
+            config,
+            oauth,
+            category_name,
+            days=days,
+            base=get_storage_base(),
+            refresh=refresh,
+        )
+        if data is None:
+            raise HTTPException(404, f"No channels in category {category_name!r}")
+        return CategoryAnalyticsResponse.model_validate(data)
+
+    @app.get(
+        "/v1/analytics/channels/{channel_ref}",
+        response_model=ChannelAnalyticsResponse,
+        tags=["analytics"],
+        summary="Channel analytics detail",
+    )
+    def analytics_channel(
+        channel_ref: str,
+        days: int = Query(default=28),
+        refresh: bool = Query(default=False),
+    ):
+        if days not in (7, 28):
+            raise HTTPException(400, "days must be 7 or 28")
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        oauth = get_oauth_settings()
+        from uploader.analytics_service import build_channel_detail
+
+        data = build_channel_detail(
+            get_app_config(),
+            oauth,
+            ch,
+            days=days,
+            base=get_storage_base(),
+            refresh=refresh,
+        )
+        return ChannelAnalyticsResponse.model_validate(data)
 
     @app.post("/v1/storage/init")
     def storage_init():

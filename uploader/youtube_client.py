@@ -17,15 +17,21 @@ from uploader.object_storage import exists, read_text, write_text
 # - youtube.readonly:   channels.list, playlistItems.list, videos.list (channel add + uploader list)
 # - youtube.force-ssl:  videos.update / delete (reschedule or fix metadata after upload)
 #
+# Analytics (requested on connect/reauth; upload validity does not require it):
+# - yt-analytics.readonly: channel/video performance reports (views, watch time, CTR, etc.)
+#
 # Not included (not needed for a standard channel uploader):
 # - youtube                  (superset of upload+force-ssl; broader OAuth verification)
 # - youtubepartner           (YouTube CMS / content-owner accounts only)
 # - youtubepartner-channel-audit
-SCOPES = [
+# - yt-analytics-monetary.readonly (revenue — intentionally omitted)
+UPLOAD_SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.readonly",
     "https://www.googleapis.com/auth/youtube.force-ssl",
 ]
+ANALYTICS_SCOPE = "https://www.googleapis.com/auth/yt-analytics.readonly"
+SCOPES = [*UPLOAD_SCOPES, ANALYTICS_SCOPE]
 
 DEFAULT_CATEGORY_ID = "10"
 DEFAULT_PRIVACY = "private"
@@ -114,11 +120,22 @@ def is_transient_upload_error(exc: BaseException) -> bool:
 
 
 def _credentials_need_reauth(creds) -> bool:
-    """True when the token is missing a refresh token or any required scope."""
+    """True when the token is missing a refresh token or upload scopes.
+
+    Analytics scope is requested on OAuth but not required to keep uploads working.
+    """
     if not creds or not creds.refresh_token:
         return True
     granted = set(creds.scopes or [])
-    return not all(scope in granted for scope in SCOPES)
+    return not all(scope in granted for scope in UPLOAD_SCOPES)
+
+
+def credentials_have_analytics(creds) -> bool:
+    """True when the token includes YouTube Analytics readonly access."""
+    if not creds:
+        return False
+    granted = set(creds.scopes or [])
+    return ANALYTICS_SCOPE in granted
 
 
 def _oauth_prompt(*, force_reauth: bool, oauth_prompt: str | None) -> str:
@@ -128,6 +145,16 @@ def _oauth_prompt(*, force_reauth: bool, oauth_prompt: str | None) -> str:
     if force_reauth:
         return "select_account consent"
     return "consent"
+
+
+def credentials_from_token_info(info: dict):
+    """Build Credentials using scopes granted in the token (not the full request list)."""
+    _Request, Credentials, _Flow, _build, _HttpError, _Media = _require_google_libs()
+    granted = info.get("scopes")
+    if isinstance(granted, str):
+        granted = [s for s in granted.split() if s]
+    # Prefer scopes recorded on the token so Analytics can detect missing grants.
+    return Credentials.from_authorized_user_info(info, scopes=granted or UPLOAD_SCOPES)
 
 
 def get_credentials(
@@ -156,7 +183,7 @@ def get_credentials(
         try:
             text = read_text(loc)
             if text.strip():
-                creds = Credentials.from_authorized_user_info(json.loads(text), SCOPES)
+                creds = credentials_from_token_info(json.loads(text))
             if creds and _credentials_need_reauth(creds):
                 creds = None
         except (ValueError, KeyError, json.JSONDecodeError):

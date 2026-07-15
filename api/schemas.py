@@ -402,3 +402,131 @@ class CapabilitiesOut(BaseModel):
     api_endpoints: list[dict]
     auth_note: str = ""
     assembly_integration: dict = Field(default_factory=dict)
+
+
+class MetricDeltaOut(BaseModel):
+    value: float | None = None
+    prior: float | None = None
+    delta_pct: float | None = None
+
+
+class AnalyticsVideoOut(BaseModel):
+    video_id: str
+    title: str = ""
+    url: str = ""
+    published_at: str = ""
+    channel_id: str = ""
+    channel_name: str = ""
+    category: str = ""
+    views: float = 0
+    watch_minutes: float = 0
+    avg_view_percentage: float | None = None
+    ctr: float | None = None
+    impressions: float | None = None
+    subscribers_gained: float = 0
+
+
+class ChannelAnalyticsOut(BaseModel):
+    channel_id: str
+    name: str
+    category: str = ""
+    youtube_channel_id: str = ""
+    status: str = "needs_data"
+    message: str = ""
+    ok: bool = False
+    source: str = "none"
+    views: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    watch_minutes: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    subs_net: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    ctr: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    avg_view_percentage: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    avg_view_duration_seconds: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    likes: float = 0
+    comments: float = 0
+    shares: float = 0
+    impressions: float | None = None
+    uploads: int = 0
+    views_per_upload: float | None = None
+    sparkline: list[float] = Field(default_factory=list)
+    subscriber_count: int | None = None
+    video_count: int | None = None
+    top_videos: list[AnalyticsVideoOut] = Field(default_factory=list)
+
+
+class CategoryAnalyticsOut(BaseModel):
+    category: str = ""
+    label: str = ""
+    channel_count: int = 0
+    health: str = "needs_data"
+    views: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    watch_minutes: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    subs_net: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    ctr: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    avg_view_percentage: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    uploads: int = 0
+    views_per_upload: float | None = None
+    network_view_share_pct: float | None = None
+    carrier_risk: bool = False
+    sparkline: list[float] = Field(default_factory=list)
+    insights: list[str] = Field(default_factory=list)
+    channels: list[ChannelAnalyticsOut] = Field(default_factory=list)
+    top_videos: list[AnalyticsVideoOut] = Field(default_factory=list)
+
+
+class AnalyticsHealthOut(BaseModel):
+    growing: int = 0
+    flat: int = 0
+    cooling: int = 0
+    needs_data: int = 0
+
+
+class AnalyticsNetworkOut(BaseModel):
+    views: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    watch_minutes: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    subs_net: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    ctr: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    avg_view_percentage: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+
+
+class AnalyticsOverviewResponse(BaseModel):
+    days: int
+    start_date: str
+    end_date: str
+    prior_start_date: str
+    prior_end_date: str
+    refreshed_at: str
+    cached: bool = False
+    network: AnalyticsNetworkOut
+    health: AnalyticsHealthOut
+    categories: list[CategoryAnalyticsOut] = Field(default_factory=list)
+    channels: list[ChannelAnalyticsOut] = Field(default_factory=list)
+    leaderboard_top: list[ChannelAnalyticsOut] = Field(default_factory=list)
+    leaderboard_bottom: list[ChannelAnalyticsOut] = Field(default_factory=list)
+    breakouts: list[ChannelAnalyticsOut] = Field(default_factory=list)
+    cooling: list[ChannelAnalyticsOut] = Field(default_factory=list)
+    needs_reauth_count: int = 0
+
+
+class CategoryAnalyticsResponse(BaseModel):
+    days: int
+    start_date: str
+    end_date: str
+    prior_start_date: str
+    prior_end_date: str
+    refreshed_at: str
+    cached: bool = False
+    network_views: float = 0
+    category: CategoryAnalyticsOut
+
+
+class ChannelAnalyticsResponse(BaseModel):
+    days: int
+    start_date: str
+    end_date: str
+    prior_start_date: str
+    prior_end_date: str
+    refreshed_at: str
+    cached: bool = False
+    channel: ChannelAnalyticsOut
+    peer_median_views_per_upload: float | None = None
+    vs_peer_median_pct: float | None = None

@@ -155,6 +155,14 @@ YOUTUBE_FEATURES: list[dict] = [
         "name": "ai-music-assembler auto-queue",
         "description": "POST .../jobs/register with s3://music-assembly-data/... URIs (reference-by-URI, idempotent job_id)",
     },
+    {
+        "id": "channel_analytics",
+        "name": "Channel & category analytics",
+        "description": (
+            "YouTube Analytics rollups: views, watch time, subs, CTR, avg view % "
+            "by channel and category (GET /v1/analytics)"
+        ),
+    },
 ]
 
 ASSEMBLY_INTEGRATION_NOTES: list[str] = [
