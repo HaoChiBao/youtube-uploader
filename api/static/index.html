@@ -858,7 +858,24 @@
     td.cell-channel { min-width: 11rem; }
     td.cell-schedule { max-width: 12rem; }
     td.cell-title { max-width: 22rem; }
-    .channel-primary { line-height: 1.35; }
+    .channel-primary {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      line-height: 1.35;
+    }
+    .channel-verified {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #1a7f37;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      user-select: none;
+    }
     .cell-channel > small {
       display: block;
       margin-top: 3px;
@@ -2210,11 +2227,14 @@
               <span class="category-save-status" data-category-status="${ch.id}" aria-live="polite"></span>
             </div>`
           : '';
+        const verifiedMark = ch.verified
+          ? '<span class="channel-verified" title="Verified" aria-label="Verified">✓</span>'
+          : '';
         const mainRow = `<tr class="data-row">
           <td class="cell-channel">
             <div class="channel-primary">${canEdit
             ? `<button type="button" class="channel-name-btn" data-open-library="${esc(ch.id)}" data-library-tab="queue" title="View queue">${esc(ch.name)}</button>`
-            : `<strong>${esc(ch.name)}</strong>`}</div>
+            : `<strong>${esc(ch.name)}</strong>`}${verifiedMark}</div>
             <small>${esc(ch.id)}${ch.custom_url ? ' · ' + esc(ch.custom_url) : ''}</small>
             ${categoryRow}
           </td>

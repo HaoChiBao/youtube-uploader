@@ -18,10 +18,12 @@ from uploader.oauth_web import inspect_token_file
 from uploader.state_store import config_storage_uri, remote_storage_enabled
 
 from api.schemas import ChannelOut, DashboardResponse, JobOut, PublishConfigOut, TokenStatus
+from uploader.channel_info import get_authorized_channel_info, is_channel_verified
 
 _lock = threading.Lock()
 _config_cache: _Entry | None = None
 _token_cache: dict[str, _Entry] = {}
+_verification_cache: dict[str, _Entry] = {}
 _dashboard_cache: _Entry | None = None
 
 
@@ -39,6 +41,7 @@ def _ttl(name: str, default: float) -> float:
         "dashboard": "UPLOADER_DASHBOARD_CACHE_TTL",
         "config": "UPLOADER_CONFIG_CACHE_TTL",
         "tokens": "UPLOADER_TOKEN_CACHE_TTL",
+        "verification": "UPLOADER_VERIFICATION_CACHE_TTL",
     }[name]
     raw = os.environ.get(env_key, "").strip()
     if raw:
@@ -59,6 +62,10 @@ def _config_ttl() -> float:
 
 def _token_ttl() -> float:
     return _ttl("tokens", 300.0)
+
+
+def _verification_ttl() -> float:
+    return _ttl("verification", 3600.0)
 
 
 def _entry_fresh(entry: _Entry | None, ttl: float, *, kinds: tuple[str, ...]) -> bool:
@@ -138,6 +145,49 @@ def get_token_status(
     return status
 
 
+def resolve_long_uploads_status(
+    channel_id: str,
+    token_path: str,
+    oauth: OAuthSettings,
+    *,
+    auth_valid: bool,
+    stored_status: str = "",
+) -> str:
+    """Return longUploadsStatus, refreshing from YouTube when the token is valid."""
+    stored = (stored_status or "").strip()
+    if not auth_valid:
+        return stored
+
+    with _lock:
+        entry = _verification_cache.get(channel_id)
+        if _entry_fresh(entry, _verification_ttl(), kinds=("tokens",)):
+            return entry.value or stored
+
+    status = stored
+    try:
+        info = get_authorized_channel_info(
+            token_path,
+            client_secret=oauth.client_secret_path,
+            client_config=oauth.client_config,
+            oauth_port=oauth.oauth_port,
+        )
+        if info.long_uploads_status:
+            status = info.long_uploads_status
+    except Exception:
+        pass
+
+    _, _, tok_gen = _snapshot_gens()
+    with _lock:
+        _verification_cache[channel_id] = _Entry(
+            value=status,
+            stored_at=time.monotonic(),
+            config_gen=generation("config"),
+            queue_gen=generation("queue"),
+            tokens_gen=tok_gen,
+        )
+    return status
+
+
 def job_view_to_out(view: JobView) -> JobOut:
     return JobOut(**view.to_dict())
 
@@ -147,6 +197,13 @@ def _load_channel_bundle(
 ) -> tuple[ChannelOut, list[JobOut], list[JobOut], list[JobOut]]:
     bundle = load_channel_jobs(ch, base=base)
     auth = get_token_status(ch.id, ch.token_path, oauth)
+    long_uploads_status = resolve_long_uploads_status(
+        ch.id,
+        ch.token_path,
+        oauth,
+        auth_valid=auth.valid,
+        stored_status=ch.long_uploads_status,
+    )
     channel_out = ChannelOut(
         id=ch.id,
         name=ch.name,
@@ -165,6 +222,8 @@ def _load_channel_bundle(
         pending_count=bundle.pending_count,
         uploaded_count=bundle.uploaded_count,
         failed_count=bundle.failed_count,
+        long_uploads_status=long_uploads_status,
+        verified=is_channel_verified(long_uploads_status),
     )
     queue_jobs = [job_view_to_out(j) for j in bundle.queue_jobs]
     uploading_jobs = [job_view_to_out(j) for j in bundle.uploading_jobs]
@@ -240,4 +299,5 @@ def clear_all_caches() -> None:
         _config_cache = None
         _dashboard_cache = None
         _token_cache.clear()
+        _verification_cache.clear()
     bump_cache("all")

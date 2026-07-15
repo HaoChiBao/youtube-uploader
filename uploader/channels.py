@@ -37,6 +37,7 @@ class ChannelConfig:
     youtube_channel_id: str = ""
     custom_url: str = ""
     category: str = ""
+    long_uploads_status: str = ""
 
 
 @dataclass
@@ -162,6 +163,7 @@ def load_config(path: Path | None = None) -> AppConfig:
                 youtube_channel_id=raw.get("youtube_channel_id", ""),
                 custom_url=raw.get("custom_url", ""),
                 category=str(raw.get("category") or "").strip(),
+                long_uploads_status=str(raw.get("long_uploads_status") or "").strip(),
             )
         )
 
