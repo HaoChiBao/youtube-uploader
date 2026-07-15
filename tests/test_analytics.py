@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from uploader.analytics_service import (
     _category_health,
     _metric_block,
+    _subs_per_1k_views,
     _views_per_upload,
     build_category_out,
+    build_cohort_compare,
     channel_to_out,
 )
 from uploader.youtube_analytics import (
     ChannelPerformance,
     PeriodTotals,
+    VideoVelocity,
+    _build_velocity_from_days,
+    _compute_median_views_24h,
+    _mark_underperformers,
     classify_health,
     date_windows,
     _delta_pct,
@@ -146,8 +154,101 @@ def test_channel_to_out_shape():
         uploads_in_window=5,
         sparkline=[1, 2, 3],
     )
-    out = channel_to_out(perf)
+    out = channel_to_out(perf, days=28)
     assert out["channel_id"] == "ch1"
     assert out["subs_net"]["value"] == 10
     assert out["views_per_upload"] == 100.0
     assert out["ctr"]["value"] == 4.5
+    assert out["subs_per_day"] == round(10 / 28, 4)
+    assert out["subs_per_1k_views"] == round((10 / 500) * 1000, 4)
+
+
+def test_build_velocity_from_days_checkpoints():
+    pub = "2026-07-01T12:00:00Z"
+    now = datetime(2026, 7, 10, 12, 0, tzinfo=timezone.utc)
+    day_rows = [
+        ("2026-07-01", 100.0, 10.0),
+        ("2026-07-02", 50.0, 5.0),
+        ("2026-07-03", 30.0, 3.0),
+        ("2026-07-04", 20.0, 2.0),
+        ("2026-07-05", 10.0, 1.0),
+        ("2026-07-06", 5.0, 0.5),
+        ("2026-07-07", 2.0, 0.2),
+    ]
+    m = _build_velocity_from_days(
+        published_at=pub,
+        day_rows=day_rows,
+        lifetime_views=500.0,
+        now=now,
+    )
+    assert m["views_24h"] == 100.0
+    assert m["views_72h"] == 180.0
+    assert m["views_7d"] == 217.0
+    assert m["watch_24h"] == 10.0
+    assert m["watch_72h"] == 18.0
+
+
+def test_build_velocity_from_days_too_young():
+    pub = "2026-07-10T12:00:00Z"
+    now = datetime(2026, 7, 11, 6, 0, tzinfo=timezone.utc)
+    day_rows = [("2026-07-10", 50.0, 5.0)]
+    m = _build_velocity_from_days(
+        published_at=pub,
+        day_rows=day_rows,
+        lifetime_views=50.0,
+        now=now,
+    )
+    assert m["views_24h"] is None
+    assert m["views_72h"] is None
+
+
+def test_median_views_24h_and_underperformer():
+    videos = [
+        VideoVelocity(video_id="a", age_hours=72, views_24h=200.0, views_72h=400.0),
+        VideoVelocity(video_id="b", age_hours=96, views_24h=100.0, views_72h=80.0),
+        VideoVelocity(video_id="c", age_hours=50, views_24h=300.0, views_72h=500.0),
+    ]
+    median = _compute_median_views_24h(videos)
+    assert median == 200.0
+    _mark_underperformers(videos, median)
+    flagged = [v for v in videos if v.is_underperformer]
+    assert len(flagged) == 1
+    assert flagged[0].video_id == "b"
+
+
+def test_subs_per_1k_views():
+    assert _subs_per_1k_views(10, 5000) == 2.0
+    assert _subs_per_1k_views(10, 0) is None
+
+
+def test_build_cohort_compare():
+    now = datetime(2026, 7, 15, 12, 0, tzinfo=timezone.utc)
+    videos = [
+        {
+            "published_at": "2026-07-14T10:00:00Z",
+            "age_hours": 100,
+            "views_72h": 200.0,
+            "views_7d": 500.0,
+            "views_so_far": 600.0,
+        },
+        {
+            "published_at": "2026-07-13T10:00:00Z",
+            "age_hours": 50,
+            "views_72h": None,
+            "views_7d": None,
+            "views_so_far": 100.0,
+        },
+        {
+            "published_at": "2026-07-05T10:00:00Z",
+            "age_hours": 240,
+            "views_72h": 100.0,
+            "views_7d": 300.0,
+            "views_so_far": 400.0,
+        },
+    ]
+    cohorts = build_cohort_compare(videos, now=now)
+    assert cohorts["this_week"]["uploads"] == 2
+    assert cohorts["last_week"]["uploads"] == 1
+    assert cohorts["this_week"]["avg_views_72h"] == 200.0
+    assert cohorts["last_week"]["avg_views_72h"] == 100.0
+    assert cohorts["delta_views_72h_pct"] == 100.0

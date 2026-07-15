@@ -410,6 +410,50 @@ class MetricDeltaOut(BaseModel):
     delta_pct: float | None = None
 
 
+class GrowthSeriesOut(BaseModel):
+    dates: list[str] = Field(default_factory=list)
+    views: list[float] = Field(default_factory=list)
+    watch_minutes: list[float] = Field(default_factory=list)
+    subs_net: list[float] = Field(default_factory=list)
+
+
+class VideoVelocityOut(BaseModel):
+    video_id: str
+    title: str = ""
+    url: str = ""
+    published_at: str = ""
+    privacy_status: str = ""
+    channel_id: str = ""
+    channel_name: str = ""
+    category: str = ""
+    age_hours: float = 0
+    views_so_far: float = 0
+    watch_minutes_so_far: float = 0
+    views_24h: float | None = None
+    views_72h: float | None = None
+    views_7d: float | None = None
+    watch_24h: float | None = None
+    watch_72h: float | None = None
+    watch_7d: float | None = None
+    vs_median_24h_pct: float | None = None
+    is_underperformer: bool = False
+    is_live: bool = True
+
+
+class CohortSideOut(BaseModel):
+    uploads: int = 0
+    avg_views_72h: float | None = None
+    avg_views_7d: float | None = None
+    avg_views_so_far: float | None = None
+
+
+class CohortCompareOut(BaseModel):
+    this_week: CohortSideOut = Field(default_factory=CohortSideOut)
+    last_week: CohortSideOut = Field(default_factory=CohortSideOut)
+    delta_views_72h_pct: float | None = None
+    delta_views_7d_pct: float | None = None
+
+
 class AnalyticsVideoOut(BaseModel):
     video_id: str
     title: str = ""
@@ -448,6 +492,12 @@ class ChannelAnalyticsOut(BaseModel):
     uploads: int = 0
     views_per_upload: float | None = None
     sparkline: list[float] = Field(default_factory=list)
+    growth_series: GrowthSeriesOut | None = None
+    growth_series_90d: GrowthSeriesOut | None = None
+    median_views_24h: float | None = None
+    subs_per_day: float | None = None
+    subs_per_1k_views: float | None = None
+    recent_videos: list[VideoVelocityOut] = Field(default_factory=list)
     subscriber_count: int | None = None
     video_count: int | None = None
     top_videos: list[AnalyticsVideoOut] = Field(default_factory=list)
@@ -468,9 +518,14 @@ class CategoryAnalyticsOut(BaseModel):
     network_view_share_pct: float | None = None
     carrier_risk: bool = False
     sparkline: list[float] = Field(default_factory=list)
+    growth_series: GrowthSeriesOut | None = None
+    growth_series_90d: GrowthSeriesOut | None = None
+    subs_per_day: float | None = None
+    subs_per_1k_views: float | None = None
     insights: list[str] = Field(default_factory=list)
     channels: list[ChannelAnalyticsOut] = Field(default_factory=list)
     top_videos: list[AnalyticsVideoOut] = Field(default_factory=list)
+    recent_videos: list[VideoVelocityOut] = Field(default_factory=list)
 
 
 class AnalyticsHealthOut(BaseModel):
@@ -486,6 +541,8 @@ class AnalyticsNetworkOut(BaseModel):
     subs_net: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
     ctr: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
     avg_view_percentage: MetricDeltaOut = Field(default_factory=MetricDeltaOut)
+    subs_per_day: float | None = None
+    subs_per_1k_views: float | None = None
 
 
 class AnalyticsOverviewResponse(BaseModel):
@@ -505,6 +562,10 @@ class AnalyticsOverviewResponse(BaseModel):
     breakouts: list[ChannelAnalyticsOut] = Field(default_factory=list)
     cooling: list[ChannelAnalyticsOut] = Field(default_factory=list)
     needs_reauth_count: int = 0
+    growth_curves: dict[str, GrowthSeriesOut] = Field(default_factory=dict)
+    new_uploads: list[VideoVelocityOut] = Field(default_factory=list)
+    underperformers: list[VideoVelocityOut] = Field(default_factory=list)
+    cohorts: CohortCompareOut = Field(default_factory=CohortCompareOut)
 
 
 class CategoryAnalyticsResponse(BaseModel):
@@ -530,3 +591,7 @@ class ChannelAnalyticsResponse(BaseModel):
     channel: ChannelAnalyticsOut
     peer_median_views_per_upload: float | None = None
     vs_peer_median_pct: float | None = None
+    growth_curves: dict[str, GrowthSeriesOut] = Field(default_factory=dict)
+    new_uploads: list[VideoVelocityOut] = Field(default_factory=list)
+    underperformers: list[VideoVelocityOut] = Field(default_factory=list)
+    cohorts: CohortCompareOut = Field(default_factory=CohortCompareOut)

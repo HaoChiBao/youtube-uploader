@@ -6,7 +6,7 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from uploader.channels import AppConfig, ChannelConfig
@@ -15,7 +15,9 @@ from uploader.oauth import OAuthSettings
 from uploader.registry import STATUS_UPLOADED
 from uploader.youtube_analytics import (
     ChannelPerformance,
+    DailySeries,
     PeriodTotals,
+    VideoVelocity,
     _delta_pct,
     date_windows,
     fetch_channel_performance,
@@ -119,7 +121,55 @@ def _views_per_upload(views: float, uploads: int) -> float | None:
     return round(views / uploads, 2)
 
 
-def channel_to_out(perf: ChannelPerformance) -> dict[str, Any]:
+def _subs_per_day(subs_net: float, days: int) -> float | None:
+    if days <= 0:
+        return None
+    return round(subs_net / days, 4)
+
+
+def _subs_per_1k_views(subs_net: float, views: float) -> float | None:
+    if views <= 0:
+        return None
+    return round((subs_net / views) * 1000.0, 4)
+
+
+def _series_to_dict(series: DailySeries | None) -> dict[str, Any] | None:
+    if series is None or not series.dates:
+        return None
+    return {
+        "dates": list(series.dates),
+        "views": [round(v, 2) for v in series.views],
+        "watch_minutes": [round(v, 2) for v in series.watch_minutes],
+        "subs_net": [round(v, 2) for v in series.subs_net],
+    }
+
+
+def _velocity_to_dict(v: VideoVelocity, *, channel_id: str, channel_name: str, category: str) -> dict[str, Any]:
+    return {
+        "video_id": v.video_id,
+        "title": v.title,
+        "url": v.url,
+        "published_at": v.published_at,
+        "privacy_status": v.privacy_status,
+        "channel_id": channel_id,
+        "channel_name": channel_name,
+        "category": category,
+        "age_hours": round(v.age_hours, 2),
+        "views_so_far": round(v.views_so_far, 2),
+        "watch_minutes_so_far": round(v.watch_minutes_so_far, 2),
+        "views_24h": None if v.views_24h is None else round(v.views_24h, 2),
+        "views_72h": None if v.views_72h is None else round(v.views_72h, 2),
+        "views_7d": None if v.views_7d is None else round(v.views_7d, 2),
+        "watch_24h": None if v.watch_24h is None else round(v.watch_24h, 2),
+        "watch_72h": None if v.watch_72h is None else round(v.watch_72h, 2),
+        "watch_7d": None if v.watch_7d is None else round(v.watch_7d, 2),
+        "vs_median_24h_pct": v.vs_median_24h_pct,
+        "is_underperformer": v.is_underperformer,
+        "is_live": v.is_live,
+    }
+
+
+def channel_to_out(perf: ChannelPerformance, *, days: int = 28) -> dict[str, Any]:
     cur = perf.current
     prior = perf.prior
     subs_net = cur.subscribers_gained - cur.subscribers_lost
@@ -148,6 +198,15 @@ def channel_to_out(perf: ChannelPerformance) -> dict[str, Any]:
         "uploads": perf.uploads_in_window,
         "views_per_upload": _views_per_upload(cur.views, perf.uploads_in_window),
         "sparkline": [round(v, 2) for v in perf.sparkline],
+        "growth_series": _series_to_dict(perf.series),
+        "growth_series_90d": _series_to_dict(perf.series_90d),
+        "median_views_24h": None if perf.median_views_24h is None else round(perf.median_views_24h, 2),
+        "subs_per_day": _subs_per_day(subs_net, days),
+        "subs_per_1k_views": _subs_per_1k_views(subs_net, cur.views),
+        "recent_videos": [
+            _velocity_to_dict(v, channel_id=perf.channel_id, channel_name=perf.name, category=perf.category or "")
+            for v in perf.recent_videos
+        ],
         "subscriber_count": perf.subscriber_count,
         "video_count": perf.video_count,
         "top_videos": [
@@ -234,7 +293,7 @@ def _sum_period(channels: list[ChannelPerformance]) -> tuple[PeriodTotals, Perio
     return cur, prior
 
 
-def _pulse(cur: PeriodTotals, prior: PeriodTotals) -> dict[str, Any]:
+def _pulse(cur: PeriodTotals, prior: PeriodTotals, *, days: int = 28) -> dict[str, Any]:
     subs = cur.subscribers_gained - cur.subscribers_lost
     subs_p = prior.subscribers_gained - prior.subscribers_lost
     return {
@@ -243,6 +302,8 @@ def _pulse(cur: PeriodTotals, prior: PeriodTotals) -> dict[str, Any]:
         "subs_net": _metric_block(subs, subs_p),
         "ctr": _opt_metric(cur.ctr, prior.ctr),
         "avg_view_percentage": _opt_metric(cur.avg_view_percentage, prior.avg_view_percentage),
+        "subs_per_day": _subs_per_day(subs, days),
+        "subs_per_1k_views": _subs_per_1k_views(subs, cur.views),
     }
 
 
@@ -306,6 +367,151 @@ def _category_insights(
     return insights
 
 
+def _rollup_growth_series(channels: list[ChannelPerformance]) -> DailySeries:
+    """Sum daily series across channels, aligned by date."""
+    ok = [c for c in channels if c.ok and c.series.dates]
+    if not ok:
+        return DailySeries()
+    all_dates: list[str] = []
+    seen: set[str] = set()
+    for ch in ok:
+        for d in ch.series.dates:
+            if d and d not in seen:
+                seen.add(d)
+                all_dates.append(d)
+    all_dates.sort()
+    out = DailySeries(dates=all_dates, views=[0.0] * len(all_dates), watch_minutes=[0.0] * len(all_dates), subs_net=[0.0] * len(all_dates))
+    idx_by_date = {d: i for i, d in enumerate(all_dates)}
+    for ch in ok:
+        for i, d in enumerate(ch.series.dates):
+            if d not in idx_by_date:
+                continue
+            j = idx_by_date[d]
+            if i < len(ch.series.views):
+                out.views[j] += ch.series.views[i]
+            if i < len(ch.series.watch_minutes):
+                out.watch_minutes[j] += ch.series.watch_minutes[i]
+            if i < len(ch.series.subs_net):
+                out.subs_net[j] += ch.series.subs_net[i]
+    return out
+
+
+def _rollup_growth_series_90d(channels: list[ChannelPerformance]) -> DailySeries | None:
+    ok = [c for c in channels if c.ok and c.series_90d and c.series_90d.dates]
+    if not ok:
+        return None
+    all_dates: list[str] = []
+    seen: set[str] = set()
+    for ch in ok:
+        assert ch.series_90d is not None
+        for d in ch.series_90d.dates:
+            if d and d not in seen:
+                seen.add(d)
+                all_dates.append(d)
+    all_dates.sort()
+    out = DailySeries(dates=all_dates, views=[0.0] * len(all_dates), watch_minutes=[0.0] * len(all_dates), subs_net=[0.0] * len(all_dates))
+    idx_by_date = {d: i for i, d in enumerate(all_dates)}
+    for ch in ok:
+        s = ch.series_90d
+        assert s is not None
+        for i, d in enumerate(s.dates):
+            if d not in idx_by_date:
+                continue
+            j = idx_by_date[d]
+            if i < len(s.views):
+                out.views[j] += s.views[i]
+            if i < len(s.watch_minutes):
+                out.watch_minutes[j] += s.watch_minutes[i]
+            if i < len(s.subs_net):
+                out.subs_net[j] += s.subs_net[i]
+    return out
+
+
+def _merge_recent_videos(channels: list[ChannelPerformance], *, limit: int = 40) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for ch in channels:
+        for v in ch.recent_videos:
+            rows.append(
+                _velocity_to_dict(v, channel_id=ch.channel_id, channel_name=ch.name, category=ch.category or "")
+            )
+    rows.sort(key=lambda r: r.get("published_at") or "", reverse=True)
+    return rows[:limit]
+
+
+def _collect_underperformers(channels: list[ChannelPerformance], *, limit: int = 20) -> list[dict[str, Any]]:
+    rows = _merge_recent_videos(channels, limit=9999)
+    under = [r for r in rows if r.get("is_underperformer")]
+    return under[:limit]
+
+
+def _avg_metric(values: list[float | None]) -> float | None:
+    nums = [v for v in values if v is not None]
+    if not nums:
+        return None
+    return round(sum(nums) / len(nums), 2)
+
+
+def _cohort_side(videos: list[dict[str, Any]], *, min_age_72h: bool = False) -> dict[str, Any]:
+    uploads = len(videos)
+    views_72h_vals: list[float | None] = []
+    views_7d_vals: list[float | None] = []
+    views_so_far_vals: list[float] = []
+    for v in videos:
+        age = v.get("age_hours") or 0.0
+        if min_age_72h:
+            if age >= 72 and v.get("views_72h") is not None:
+                views_72h_vals.append(v["views_72h"])
+            if age >= 168 and v.get("views_7d") is not None:
+                views_7d_vals.append(v["views_7d"])
+        else:
+            if v.get("views_72h") is not None:
+                views_72h_vals.append(v["views_72h"])
+            if v.get("views_7d") is not None:
+                views_7d_vals.append(v["views_7d"])
+        views_so_far_vals.append(v.get("views_so_far") or 0.0)
+    return {
+        "uploads": uploads,
+        "avg_views_72h": _avg_metric(views_72h_vals),
+        "avg_views_7d": _avg_metric(views_7d_vals),
+        "avg_views_so_far": _avg_metric(views_so_far_vals) if views_so_far_vals else None,
+    }
+
+
+def build_cohort_compare(all_videos: list[dict[str, Any]], *, now: datetime | None = None) -> dict[str, Any]:
+    """Compare this week (last 7d uploads) vs last week (7-14d ago)."""
+    now = now or datetime.now(timezone.utc)
+    this_week: list[dict[str, Any]] = []
+    last_week: list[dict[str, Any]] = []
+    week_ago = now - timedelta(days=7)
+    two_weeks_ago = now - timedelta(days=14)
+
+    for v in all_videos:
+        pub = _parse_ts(v.get("published_at") or "")
+        if not pub:
+            continue
+        if pub >= week_ago:
+            this_week.append(v)
+        elif pub >= two_weeks_ago:
+            last_week.append(v)
+
+    this_side = _cohort_side(this_week, min_age_72h=True)
+    last_side = _cohort_side(last_week, min_age_72h=False)
+
+    delta_72h = None
+    if this_side["avg_views_72h"] is not None and last_side["avg_views_72h"] is not None and last_side["avg_views_72h"] > 0:
+        delta_72h = round((this_side["avg_views_72h"] / last_side["avg_views_72h"] - 1.0) * 100.0, 2)
+    delta_7d = None
+    if this_side["avg_views_7d"] is not None and last_side["avg_views_7d"] is not None and last_side["avg_views_7d"] > 0:
+        delta_7d = round((this_side["avg_views_7d"] / last_side["avg_views_7d"] - 1.0) * 100.0, 2)
+
+    return {
+        "this_week": this_side,
+        "last_week": last_side,
+        "delta_views_72h_pct": delta_72h,
+        "delta_views_7d_pct": delta_7d,
+    }
+
+
 def _rollup_sparkline(channels: list[ChannelPerformance]) -> list[float]:
     series = [c.sparkline for c in channels if c.ok and c.sparkline]
     if not series:
@@ -326,16 +532,19 @@ def build_category_out(
     *,
     network_views: float,
     include_channels: bool = True,
+    days: int = 28,
 ) -> dict[str, Any]:
     cur, prior = _sum_period(channels)
     uploads = sum(c.uploads_in_window for c in channels)
     health = _category_health(channels)
-    channel_outs = [channel_to_out(c) for c in channels]
+    channel_outs = [channel_to_out(c, days=days) for c in channels]
     if include_channels:
         channel_outs.sort(key=lambda c: (c["views_per_upload"] is None, -(c["views_per_upload"] or 0)))
     share = None
     if network_views > 0:
         share = round(cur.views / network_views * 100.0, 2)
+    subs_net = cur.subscribers_gained - cur.subscribers_lost
+    subs_net_prior = prior.subscribers_gained - prior.subscribers_lost
     return {
         "category": category,
         "label": category if category else "Uncategorized",
@@ -343,14 +552,13 @@ def build_category_out(
         "health": health,
         "views": _metric_block(cur.views, prior.views),
         "watch_minutes": _metric_block(cur.watch_minutes, prior.watch_minutes),
-        "subs_net": _metric_block(
-            cur.subscribers_gained - cur.subscribers_lost,
-            prior.subscribers_gained - prior.subscribers_lost,
-        ),
+        "subs_net": _metric_block(subs_net, subs_net_prior),
         "ctr": _opt_metric(cur.ctr, prior.ctr),
         "avg_view_percentage": _opt_metric(cur.avg_view_percentage, prior.avg_view_percentage),
         "uploads": uploads,
         "views_per_upload": _views_per_upload(cur.views, uploads),
+        "subs_per_day": _subs_per_day(subs_net, days),
+        "subs_per_1k_views": _subs_per_1k_views(subs_net, cur.views),
         "network_view_share_pct": share,
         "carrier_risk": bool(
             cur.views > 0
@@ -358,9 +566,12 @@ def build_category_out(
             and max((c.current.views for c in channels if c.ok), default=0) / cur.views >= 0.6
         ),
         "sparkline": _rollup_sparkline(channels),
+        "growth_series": _series_to_dict(_rollup_growth_series(channels)),
+        "growth_series_90d": _series_to_dict(_rollup_growth_series_90d(channels)),
         "insights": _category_insights(category=category, channels=channels, network_views=network_views),
         "channels": channel_outs if include_channels else [],
         "top_videos": _merge_top_videos(channels, limit=15),
+        "recent_videos": _merge_recent_videos(channels, limit=40),
     }
 
 
@@ -396,6 +607,8 @@ def _fetch_all_channels(
     days: int,
     base,
     include_top_videos: bool,
+    include_growth_90: bool = False,
+    include_recent_velocities: bool = False,
 ) -> list[ChannelPerformance]:
     start, end, _, _ = date_windows(days)
     results: list[ChannelPerformance] = []
@@ -414,6 +627,8 @@ def _fetch_all_channels(
             client_config=oauth.client_config,
             oauth_port=oauth.oauth_port,
             include_top_videos=include_top_videos,
+            include_growth_90=include_growth_90,
+            include_recent_velocities=include_recent_velocities,
             uploads_in_window=uploads,
         )
 
@@ -453,7 +668,7 @@ def build_analytics_overview(
     include_top_videos: bool = False,
 ) -> dict[str, Any]:
     days = 7 if days == 7 else 28
-    cache_key = f"overview:{days}:tops={int(include_top_videos)}"
+    cache_key = f"overview:v2:{days}:tops={int(include_top_videos)}"
     if not refresh:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -462,7 +677,13 @@ def build_analytics_overview(
             return out
 
     perfs = _fetch_all_channels(
-        config, oauth, days=days, base=base, include_top_videos=include_top_videos
+        config,
+        oauth,
+        days=days,
+        base=base,
+        include_top_videos=include_top_videos,
+        include_growth_90=True,
+        include_recent_velocities=True,
     )
     start, end, prior_start, prior_end = date_windows(days)
     net_cur, net_prior = _sum_period(perfs)
@@ -485,7 +706,7 @@ def build_analytics_overview(
         ordered_keys.append("")
 
     categories = [
-        build_category_out(k, by_cat[k], network_views=network_views, include_channels=True)
+        build_category_out(k, by_cat[k], network_views=network_views, include_channels=True, days=days)
         for k in ordered_keys
     ]
     # Sort scoreboard by views delta (movement), then views
@@ -497,7 +718,7 @@ def build_analytics_overview(
         )
     )
 
-    channel_outs = [channel_to_out(p) for p in perfs]
+    channel_outs = [channel_to_out(p, days=days) for p in perfs]
     health_counts = {"growing": 0, "flat": 0, "cooling": 0, "needs_data": 0}
     for c in channel_outs:
         key = c["status"] if c["status"] in health_counts else "needs_data"
@@ -524,6 +745,15 @@ def build_analytics_overview(
     ]
     cooling.sort(key=lambda c: c["views"]["delta_pct"])
 
+    all_recent = _merge_recent_videos(perfs, limit=9999)
+    growth_d28 = _series_to_dict(_rollup_growth_series(perfs))
+    growth_d90 = _series_to_dict(_rollup_growth_series_90d(perfs))
+    growth_curves: dict[str, Any] = {}
+    if growth_d28:
+        growth_curves["d28"] = growth_d28
+    if growth_d90:
+        growth_curves["d90"] = growth_d90
+
     payload = {
         "days": days,
         "start_date": start.isoformat(),
@@ -532,7 +762,7 @@ def build_analytics_overview(
         "prior_end_date": prior_end.isoformat(),
         "refreshed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "cached": False,
-        "network": _pulse(net_cur, net_prior),
+        "network": _pulse(net_cur, net_prior, days=days),
         "health": health_counts,
         "categories": categories,
         "channels": channel_outs,
@@ -541,6 +771,10 @@ def build_analytics_overview(
         "breakouts": breakouts[:8],
         "cooling": cooling[:8],
         "needs_reauth_count": sum(1 for c in channel_outs if c["status"] == "needs_reauth"),
+        "growth_curves": growth_curves,
+        "new_uploads": _merge_recent_videos(perfs, limit=40),
+        "underperformers": _collect_underperformers(perfs, limit=20),
+        "cohorts": build_cohort_compare(all_recent),
     }
     _cache_set(cache_key, payload)
     return payload
@@ -557,7 +791,7 @@ def build_category_detail(
 ) -> dict[str, Any] | None:
     days = 7 if days == 7 else 28
     want = (category or "").strip()
-    cache_key = f"category:{want.casefold()}:{days}"
+    cache_key = f"category:v2:{want.casefold()}:{days}"
     if not refresh:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -599,6 +833,8 @@ def build_category_detail(
             oauth_port=oauth.oauth_port,
             include_top_videos=True,
             top_video_limit=12,
+            include_growth_90=True,
+            include_recent_velocities=True,
             uploads_in_window=uploads,
         )
 
@@ -621,13 +857,13 @@ def build_category_detail(
 
     # Network views for share % — use overview cache when possible
     network_views = 0.0
-    overview = _cache_get(f"overview:{days}:tops=0")
+    overview = _cache_get(f"overview:v2:{days}:tops=0")
     if overview:
         network_views = float(overview.get("network", {}).get("views", {}).get("value") or 0)
     else:
         network_views = sum(p.current.views for p in ordered if p.ok)
 
-    cat = build_category_out(want, ordered, network_views=network_views or 1.0, include_channels=True)
+    cat = build_category_out(want, ordered, network_views=network_views or 1.0, include_channels=True, days=days)
     payload = {
         "days": days,
         "start_date": start.isoformat(),
@@ -653,7 +889,7 @@ def build_channel_detail(
     refresh: bool = False,
 ) -> dict[str, Any]:
     days = 7 if days == 7 else 28
-    cache_key = f"channel:{channel.id}:{days}"
+    cache_key = f"channel:v2:{channel.id}:{days}"
     if not refresh:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -675,14 +911,16 @@ def build_channel_detail(
         oauth_port=oauth.oauth_port,
         include_top_videos=True,
         top_video_limit=15,
+        include_growth_90=True,
+        include_recent_velocities=True,
         uploads_in_window=uploads,
     )
-    channel_out = channel_to_out(perf)
+    channel_out = channel_to_out(perf, days=days)
 
     # Peer median from cached overview when available (avoids N extra Analytics calls).
     peer_median = None
     vs_peer = None
-    overview = _cache_get(f"overview:{days}:tops=0") or _cache_get(f"overview:{days}:tops=1")
+    overview = _cache_get(f"overview:v2:{days}:tops=0") or _cache_get(f"overview:v2:{days}:tops=1")
     if overview:
         cat = channel.category or ""
         peer_vpus = [
@@ -699,6 +937,15 @@ def build_channel_detail(
             if channel_out["views_per_upload"] and peer_median:
                 vs_peer = round((channel_out["views_per_upload"] / peer_median - 1.0) * 100.0, 2)
 
+    all_recent = _merge_recent_videos([perf], limit=9999)
+    growth_d28 = _series_to_dict(perf.series)
+    growth_d90 = _series_to_dict(perf.series_90d)
+    growth_curves: dict[str, Any] = {}
+    if growth_d28:
+        growth_curves["d28"] = growth_d28
+    if growth_d90:
+        growth_curves["d90"] = growth_d90
+
     payload = {
         "days": days,
         "start_date": start.isoformat(),
@@ -710,6 +957,10 @@ def build_channel_detail(
         "channel": channel_out,
         "peer_median_views_per_upload": peer_median,
         "vs_peer_median_pct": vs_peer,
+        "growth_curves": growth_curves,
+        "new_uploads": all_recent[:40],
+        "underperformers": _collect_underperformers([perf], limit=20),
+        "cohorts": build_cohort_compare(all_recent),
     }
     _cache_set(cache_key, payload)
     return payload

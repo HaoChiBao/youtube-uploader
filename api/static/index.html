@@ -1088,6 +1088,7 @@
       font-variant-numeric: tabular-nums;
       color: var(--color-midnight-ink);
     }
+    .pulse-value--sm { font-size: 18px; }
     .pulse-delta {
       margin-top: 6px;
       font-size: 12px;
@@ -1233,6 +1234,93 @@
       margin: 0 0 12px;
     }
     .analytics-peer-note { margin-top: 12px; }
+    .pulse-grid--7 {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+    @media (max-width: 1100px) {
+      .pulse-grid--7 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    .growth-chart-wrap {
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      padding: 16px 18px 12px;
+    }
+    .growth-chart-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .growth-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--color-smoke);
+    }
+    .growth-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .growth-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .growth-swatch--views { background: var(--color-deep-forest-teal); }
+    .growth-swatch--watch { background: var(--color-lavender-whisper); border: 1px solid var(--color-midnight-ink); }
+    .growth-swatch--subs { background: var(--color-amber-pulse); }
+    .growth-chart-svg {
+      width: 100%;
+      height: 160px;
+      display: block;
+    }
+    .growth-chart-empty {
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cohort-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 16px;
+      align-items: stretch;
+    }
+    @media (max-width: 800px) {
+      .cohort-grid { grid-template-columns: 1fr; }
+    }
+    .cohort-card h4 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .cohort-stat-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--color-stone-mist);
+    }
+    .cohort-stat-row:last-child { border-bottom: none; }
+    .cohort-delta {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      min-width: 8rem;
+    }
+    .age-chip {
+      font-size: 11px;
+      color: var(--color-smoke);
+      font-variant-numeric: tabular-nums;
+    }
 
     .folder-tag {
       display: inline-block;
@@ -1747,7 +1835,76 @@
           <div class="analytics-block">
             <h3>Network pulse</h3>
             <p class="block-desc">Totals across all connected channels for the selected window</p>
-            <div class="pulse-grid" id="analytics-pulse"></div>
+            <div class="pulse-grid pulse-grid--7" id="analytics-pulse"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Growth curves</h3>
+            <p class="block-desc">Daily views, watch time, and net subs — toggle 28d / 90d</p>
+            <div class="growth-chart-wrap">
+              <div class="growth-chart-head">
+                <div class="analytics-range" role="group" aria-label="Growth curve range">
+                  <button type="button" class="filter-chip is-active" data-growth-curve="d28">28 days</button>
+                  <button type="button" class="filter-chip" data-growth-curve="d90">90 days</button>
+                </div>
+                <div class="growth-legend">
+                  <span><i class="growth-swatch growth-swatch--views"></i>Views</span>
+                  <span><i class="growth-swatch growth-swatch--watch"></i>Watch</span>
+                  <span><i class="growth-swatch growth-swatch--subs"></i>Subs Δ</span>
+                </div>
+              </div>
+              <div id="analytics-growth-chart"></div>
+            </div>
+          </div>
+          <div class="analytics-block">
+            <h3>New uploads</h3>
+            <p class="block-desc">Recent publishes with 24h / 72h / 7d velocity vs channel median</p>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Channel</th>
+                      <th>Age</th>
+                      <th>24h</th>
+                      <th>72h</th>
+                      <th>7d</th>
+                      <th>vs median</th>
+                      <th>So far</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-new-uploads"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-block">
+            <h3>Cohort compare</h3>
+            <p class="block-desc">This week’s uploads vs last week at the same early checkpoints</p>
+            <div class="cohort-grid" id="analytics-cohorts"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Underperformers</h3>
+            <p class="block-desc">Fresh videos (2–7 days old) below half of that channel’s median 24h views</p>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Channel</th>
+                      <th>Age</th>
+                      <th>24h</th>
+                      <th>72h</th>
+                      <th>7d</th>
+                      <th>vs median</th>
+                      <th>So far</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-underperformers"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
           <div class="analytics-block">
             <h3>Channel health</h3>
@@ -1814,11 +1971,38 @@
         <!-- Category detail -->
         <div class="analytics-view analytics-stack" id="analytics-view-category" data-analytics-view="category" hidden>
           <div class="analytics-block">
-            <div class="pulse-grid" id="analytics-cat-pulse"></div>
+            <div class="pulse-grid pulse-grid--7" id="analytics-cat-pulse"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Growth</h3>
+            <div class="growth-chart-wrap">
+              <div id="analytics-cat-growth-chart"></div>
+            </div>
           </div>
           <div class="analytics-block">
             <h3>Insights</h3>
             <ul class="insights-list" id="analytics-cat-insights"></ul>
+          </div>
+          <div class="analytics-block">
+            <h3>Recent uploads in category</h3>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Channel</th>
+                      <th>Age</th>
+                      <th>24h</th>
+                      <th>72h</th>
+                      <th>7d</th>
+                      <th>vs median</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-cat-new-uploads"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
           <div class="analytics-block">
             <h3>Channels</h3>
@@ -1870,8 +2054,41 @@
         <!-- Channel detail -->
         <div class="analytics-view analytics-stack" id="analytics-view-channel" data-analytics-view="channel" hidden>
           <div class="analytics-block">
-            <div class="pulse-grid" id="analytics-ch-pulse"></div>
+            <div class="pulse-grid pulse-grid--7" id="analytics-ch-pulse"></div>
             <p class="muted analytics-peer-note" id="analytics-ch-peer"></p>
+          </div>
+          <div class="analytics-block">
+            <h3>Growth</h3>
+            <div class="growth-chart-wrap">
+              <div class="growth-chart-head">
+                <div class="analytics-range" role="group" aria-label="Channel growth curve range">
+                  <button type="button" class="filter-chip is-active" data-ch-growth-curve="d28">28 days</button>
+                  <button type="button" class="filter-chip" data-ch-growth-curve="d90">90 days</button>
+                </div>
+              </div>
+              <div id="analytics-ch-growth-chart"></div>
+            </div>
+          </div>
+          <div class="analytics-block">
+            <h3>New uploads on this channel</h3>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Age</th>
+                      <th>24h</th>
+                      <th>72h</th>
+                      <th>7d</th>
+                      <th>vs median</th>
+                      <th>So far</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-ch-new-uploads"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
           <div class="analytics-block">
             <h3>Recent top videos</h3>
@@ -2619,6 +2836,9 @@
       category: '',
       channelId: '',
       overview: null,
+      channelDetail: null,
+      growthCurveKey: 'd28',
+      channelGrowthCurveKey: 'd28',
       loading: false,
     };
 
@@ -2705,7 +2925,7 @@
         { key: 'ctr', label: 'CTR', fmt: fmtPct },
         { key: 'avg_view_percentage', label: 'Avg view %', fmt: fmtPct },
       ];
-      return items.map(item => {
+      let html = items.map(item => {
         const m = (pulse && pulse[item.key]) || {};
         const delta = m.delta_pct;
         let deltaCls = '';
@@ -2723,6 +2943,120 @@
           + '<div class="pulse-delta' + deltaCls + '">' + esc(deltaText) + '</div>'
           + '</div>';
       }).join('');
+      const spd = pulse && pulse.subs_per_day;
+      const spk = pulse && pulse.subs_per_1k_views;
+      html += '<div class="pulse-card">'
+        + '<div class="pulse-label">Subs / day</div>'
+        + '<div class="pulse-value">' + esc(spd == null ? '—' : Number(spd).toFixed(2)) + '</div>'
+        + '<div class="pulse-delta">Net velocity</div></div>';
+      html += '<div class="pulse-card">'
+        + '<div class="pulse-label">Subs / 1k views</div>'
+        + '<div class="pulse-value">' + esc(spk == null ? '—' : Number(spk).toFixed(2)) + '</div>'
+        + '<div class="pulse-delta">Conversion</div></div>';
+      return html;
+    }
+
+    function fmtAgeHours(h) {
+      if (h == null || Number.isNaN(Number(h))) return '—';
+      const v = Number(h);
+      if (v < 48) return Math.round(v) + 'h';
+      return (v / 24).toFixed(v >= 72 ? 0 : 1).replace(/\.0$/, '') + 'd';
+    }
+
+    function growthChartHtml(series) {
+      if (!series || !(series.views || []).length) {
+        return '<div class="growth-chart-empty muted">No daily series yet</div>';
+      }
+      const views = series.views.map(Number);
+      const watch = (series.watch_minutes || []).map(Number);
+      const subs = (series.subs_net || []).map(Number);
+      const n = views.length;
+      const w = 640;
+      const h = 160;
+      const pad = 8;
+      function norm(arr) {
+        const max = Math.max(...arr.map(Math.abs), 1);
+        return arr.map(v => {
+          const y = h - pad - ((v / max) * (h - pad * 2));
+          return Math.max(pad, Math.min(h - pad, y));
+        });
+      }
+      const xv = (i) => pad + (n <= 1 ? (w - pad * 2) / 2 : (i / (n - 1)) * (w - pad * 2));
+      function path(arr, color, width) {
+        const ys = norm(arr);
+        let d = '';
+        ys.forEach((y, i) => { d += (i ? ' L ' : 'M ') + xv(i).toFixed(1) + ' ' + y.toFixed(1); });
+        return '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="' + width + '" stroke-linecap="round" stroke-linejoin="round"/>';
+      }
+      return '<svg class="growth-chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img" aria-label="Growth curves">'
+        + path(watch, '#f0d7ff', 2)
+        + path(subs, '#ffa946', 2)
+        + path(views, '#034f46', 2.5)
+        + '</svg>';
+    }
+
+    function velocityRowsHtml(rows, opts) {
+      const o = opts || {};
+      const emptyCols = o.cols || 8;
+      if (!rows || !rows.length) {
+        return '<tr><td colspan="' + emptyCols + '"><div class="empty-state">'
+          + esc(o.empty || 'No recent uploads with Analytics yet') + '</div></td></tr>';
+      }
+      return rows.map(v => {
+        const title = '<a href="' + esc(v.url || ('https://youtu.be/' + v.video_id)) + '" target="_blank" rel="noopener">'
+          + esc(v.title || v.video_id) + '</a>'
+          + (v.is_underperformer ? ' <span class="badge badge-warn">Under</span>' : '');
+        let cells = '<td>' + title + '</td>';
+        if (!o.hideChannel) {
+          cells += '<td><button type="button" class="row-link" data-open-channel="' + esc(v.channel_id || '') + '">'
+            + esc(v.channel_name || v.channel_id || '—') + '</button></td>';
+        }
+        cells += '<td class="num-cell age-chip">' + esc(fmtAgeHours(v.age_hours)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(v.views_24h)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(v.views_72h)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(v.views_7d)) + '</td>'
+          + '<td class="num-cell">' + fmtDelta(v.vs_median_24h_pct) + '</td>';
+        if (!o.hideSoFar) {
+          cells += '<td class="num-cell">' + esc(fmtCompact(v.views_so_far)) + '</td>';
+        }
+        return '<tr>' + cells + '</tr>';
+      }).join('');
+    }
+
+    function cohortsHtml(cohorts) {
+      const c = cohorts || {};
+      const tw = c.this_week || {};
+      const lw = c.last_week || {};
+      function side(label, side) {
+        return '<div class="panel cohort-card"><h4>' + esc(label) + '</h4>'
+          + '<div class="cohort-stat-row"><span>Uploads</span><span class="num-cell">' + (side.uploads || 0) + '</span></div>'
+          + '<div class="cohort-stat-row"><span>Avg views so far</span><span class="num-cell">' + esc(fmtCompact(side.avg_views_so_far)) + '</span></div>'
+          + '<div class="cohort-stat-row"><span>Avg 72h</span><span class="num-cell">' + esc(fmtCompact(side.avg_views_72h)) + '</span></div>'
+          + '<div class="cohort-stat-row"><span>Avg 7d</span><span class="num-cell">' + esc(fmtCompact(side.avg_views_7d)) + '</span></div>'
+          + '</div>';
+      }
+      return side('This week', tw) + side('Last week', lw)
+        + '<div class="panel cohort-delta">'
+          + '<div><div class="pulse-label">72h Δ</div><div class="pulse-value pulse-value--sm">' + fmtDelta(c.delta_views_72h_pct) + '</div></div>'
+        + '<div><div class="pulse-label">7d Δ</div><div class="pulse-value pulse-value--sm">' + fmtDelta(c.delta_views_7d_pct) + '</div></div>'
+        + '</div>';
+    }
+
+    function syncGrowthCurveUi() {
+      document.querySelectorAll('[data-growth-curve]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.growthCurve === analyticsState.growthCurveKey);
+      });
+      document.querySelectorAll('[data-ch-growth-curve]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.chGrowthCurve === analyticsState.channelGrowthCurveKey);
+      });
+    }
+
+    function renderOverviewGrowthChart() {
+      const curves = (analyticsState.overview && analyticsState.overview.growth_curves) || {};
+      const key = analyticsState.growthCurveKey === 'd90' ? 'd90' : 'd28';
+      const el = document.getElementById('analytics-growth-chart');
+      if (el) el.innerHTML = growthChartHtml(curves[key]);
+      syncGrowthCurveUi();
     }
 
     function setAnalyticsMeta(data) {
@@ -2806,6 +3140,13 @@
     function renderOverview(data) {
       analyticsState.overview = data;
       document.getElementById('analytics-pulse').innerHTML = pulseCardsHtml(data.network);
+      renderOverviewGrowthChart();
+      const newBody = document.getElementById('analytics-new-uploads');
+      if (newBody) newBody.innerHTML = velocityRowsHtml(data.new_uploads, { empty: 'No new uploads in the last 28 days', cols: 8 });
+      const undBody = document.getElementById('analytics-underperformers');
+      if (undBody) undBody.innerHTML = velocityRowsHtml(data.underperformers, { empty: 'No underperformers — fresh uploads look healthy', cols: 8 });
+      const cohortEl = document.getElementById('analytics-cohorts');
+      if (cohortEl) cohortEl.innerHTML = cohortsHtml(data.cohorts);
       renderHealthStrip(data.health);
       renderScoreboard(data.categories || []);
       renderCalloutList('analytics-leaderboard-top', data.leaderboard_top, 'No efficiency data yet');
@@ -2828,7 +3169,19 @@
         subs_net: cat.subs_net,
         ctr: cat.ctr,
         avg_view_percentage: cat.avg_view_percentage,
+        subs_per_day: cat.subs_per_day,
+        subs_per_1k_views: cat.subs_per_1k_views,
       });
+      const catGrowth = document.getElementById('analytics-cat-growth-chart');
+      if (catGrowth) catGrowth.innerHTML = growthChartHtml(cat.growth_series_90d || cat.growth_series);
+      const catNew = document.getElementById('analytics-cat-new-uploads');
+      if (catNew) {
+        catNew.innerHTML = velocityRowsHtml(cat.recent_videos || [], {
+          empty: 'No recent uploads in this category',
+          cols: 7,
+          hideSoFar: true,
+        });
+      }
       const insights = cat.insights || [];
       document.getElementById('analytics-cat-insights').innerHTML = insights.length
         ? insights.map(i => '<li>' + esc(i) + '</li>').join('')
@@ -2877,12 +3230,9 @@
     }
 
     function renderChannelDetail(data) {
+      analyticsState.channelDetail = data;
       const ch = data.channel || {};
       document.getElementById('analytics-title').textContent = ch.name || ch.channel_id || 'Channel';
-      document.getElementById('analytics-desc').textContent =
-        (ch.category ? ch.category + ' · ' : '') + healthBadge(ch.status).replace(/<[^>]+>/g, '')
-        + (ch.message ? ' — ' + ch.message : '');
-      // Prefer structured desc without stripping HTML from badge
       document.getElementById('analytics-desc').innerHTML =
         (ch.category ? esc(ch.category) + ' · ' : '') + healthBadge(ch.status)
         + (ch.message ? ' <span class="muted">— ' + esc(ch.message) + '</span>' : '');
@@ -2893,19 +3243,40 @@
         subs_net: ch.subs_net,
         ctr: ch.ctr,
         avg_view_percentage: ch.avg_view_percentage,
+        subs_per_day: ch.subs_per_day,
+        subs_per_1k_views: ch.subs_per_1k_views,
       });
 
+      const curves = data.growth_curves || {};
+      const gkey = analyticsState.channelGrowthCurveKey === 'd90' ? 'd90' : 'd28';
+      const series = curves[gkey] || (gkey === 'd90' ? ch.growth_series_90d : ch.growth_series);
+      const chGrowth = document.getElementById('analytics-ch-growth-chart');
+      if (chGrowth) chGrowth.innerHTML = growthChartHtml(series);
+      syncGrowthCurveUi();
+
+      const chNew = document.getElementById('analytics-ch-new-uploads');
+      if (chNew) {
+        chNew.innerHTML = velocityRowsHtml(ch.recent_videos || data.new_uploads || [], {
+          empty: 'No recent uploads on this channel',
+          cols: 7,
+          hideChannel: true,
+        });
+      }
+
       const peer = document.getElementById('analytics-ch-peer');
+      const bits = [];
+      if (ch.median_views_24h != null) {
+        bits.push('Channel median 24h views: ' + fmtCompact(ch.median_views_24h));
+      }
       if (data.peer_median_views_per_upload != null && ch.views_per_upload != null) {
         const vs = data.vs_peer_median_pct;
-        peer.innerHTML = 'Views/upload ' + esc(fmtCompact(ch.views_per_upload))
-          + ' · category peer median ' + esc(fmtCompact(data.peer_median_views_per_upload))
-          + (vs != null ? ' (' + (vs > 0 ? '+' : '') + Math.round(vs) + '% vs peers)' : '');
-      } else {
-        peer.textContent = ch.uploads
-          ? (ch.uploads + ' uploads in window · ' + (fmtCompact(ch.views_per_upload) || '—') + ' views/upload')
-          : 'No uploads recorded in this window';
+        bits.push('Views/upload ' + fmtCompact(ch.views_per_upload)
+          + ' · peer median ' + fmtCompact(data.peer_median_views_per_upload)
+          + (vs != null ? ' (' + (vs > 0 ? '+' : '') + Math.round(vs) + '% vs peers)' : ''));
+      } else if (ch.uploads) {
+        bits.push(ch.uploads + ' uploads in window · ' + (fmtCompact(ch.views_per_upload) || '—') + ' views/upload');
       }
+      peer.textContent = bits.join(' · ') || 'No uploads recorded in this window';
 
       const vBody = document.getElementById('analytics-ch-videos');
       const videos = ch.top_videos || [];
@@ -4378,6 +4749,20 @@
         loadAnalyticsOverview({ refresh: true });
       }
     };
+
+    document.querySelectorAll('[data-growth-curve]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        analyticsState.growthCurveKey = btn.dataset.growthCurve === 'd90' ? 'd90' : 'd28';
+        renderOverviewGrowthChart();
+      });
+    });
+
+    document.querySelectorAll('[data-ch-growth-curve]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        analyticsState.channelGrowthCurveKey = btn.dataset.chGrowthCurve === 'd90' ? 'd90' : 'd28';
+        if (analyticsState.channelDetail) renderChannelDetail(analyticsState.channelDetail);
+      });
+    });
 
     document.getElementById('analytics-back').onclick = () => {
       navigateTo({ tab: 'analytics', analyticsView: 'overview', days: analyticsState.days });
