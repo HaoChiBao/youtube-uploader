@@ -858,7 +858,18 @@
     td.cell-channel { min-width: 11rem; }
     td.cell-schedule { max-width: 12rem; }
     td.cell-title { max-width: 22rem; }
-    .channel-primary { line-height: 1.35; }
+    .channel-primary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 12px;
+      line-height: 1.35;
+    }
+    .channel-primary .btn-text {
+      font-size: 12px;
+      opacity: 0.75;
+    }
+    tr.data-row:hover .channel-primary .btn-text { opacity: 1; }
     .cell-channel > small {
       display: block;
       margin-top: 3px;
@@ -1939,6 +1950,34 @@
             </div>
           </div>
           <div class="analytics-block">
+            <h3>Channels</h3>
+            <p class="block-desc">Click a channel for full analytics — growth, velocity, and top videos</p>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Channel</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                      <th>Views</th>
+                      <th>Δ</th>
+                      <th>Watch</th>
+                      <th>Subs</th>
+                      <th>Subs/d</th>
+                      <th>CTR</th>
+                      <th>Eff.</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-channels-body">
+                    <tr><td colspan="11"><div class="empty-state">Open Analytics to load</div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-block">
             <h3>Efficiency leaderboard</h3>
             <p class="block-desc">Views per upload — carriers and laggards</p>
             <div class="leaderboard-grid">
@@ -2431,7 +2470,9 @@
           <td class="cell-channel">
             <div class="channel-primary">${canEdit
             ? `<button type="button" class="channel-name-btn" data-open-library="${esc(ch.id)}" data-library-tab="queue" title="View queue">${esc(ch.name)}</button>`
-            : `<strong>${esc(ch.name)}</strong>`}</div>
+            : `<strong>${esc(ch.name)}</strong>`}
+              <button type="button" class="btn-text" data-open-channel="${esc(ch.id)}" title="Open channel analytics">Analytics</button>
+            </div>
             <small>${esc(ch.id)}${ch.custom_url ? ' · ' + esc(ch.custom_url) : ''}</small>
             ${categoryRow}
           </td>
@@ -2448,6 +2489,7 @@
             <button class="btn-voltage btn-voltage--compact" data-upload="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''} title="Upload next video">Upload</button>
             <button class="btn-ghost btn-ghost--compact" data-upload-all="${ch.id}" ${!ch.auth.valid || !ch.pending_count ? 'disabled' : ''} title="Upload all queued">All</button>
             <span class="btn-group__sep" aria-hidden="true"></span>
+            <button type="button" class="btn-ghost btn-ghost--compact" data-open-channel="${esc(ch.id)}" title="Channel analytics">Stats</button>
             <button class="btn-icon" data-reauth="${ch.id}" title="Reconnect OAuth">↻</button>
             <button type="button" class="btn-icon" data-remove-channel="${ch.id}" data-channel-name="${esc(ch.name)}" title="Remove channel">${TRASH_ICON}</button>
             </div>
@@ -3121,6 +3163,38 @@
       }).join('');
     }
 
+    function renderAnalyticsChannelsTable(channels) {
+      const tbody = document.getElementById('analytics-channels-body');
+      if (!tbody) return;
+      if (!channels || !channels.length) {
+        tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state">No channels configured</div></td></tr>';
+        return;
+      }
+      const sorted = channels.slice().sort((a, b) => {
+        const av = (a.views && a.views.value) || 0;
+        const bv = (b.views && b.views.value) || 0;
+        return bv - av;
+      });
+      tbody.innerHTML = sorted.map(c => {
+        const cat = c.category || 'uncategorized';
+        return '<tr>'
+          + '<td><button type="button" class="row-link" data-open-channel="' + esc(c.channel_id) + '">'
+          + esc(c.name || c.channel_id) + '</button></td>'
+          + '<td><button type="button" class="row-link muted" data-open-category="' + esc(cat) + '">'
+          + esc(cat) + '</button></td>'
+          + '<td>' + healthBadge(c.status) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(c.views && c.views.value)) + '</td>'
+          + '<td class="num-cell">' + fmtDelta(c.views && c.views.delta_pct) + '</td>'
+          + '<td class="num-cell">' + esc(fmtWatch(c.watch_minutes && c.watch_minutes.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(c.subs_net && c.subs_net.value)) + '</td>'
+          + '<td class="num-cell">' + esc(c.subs_per_day != null ? Number(c.subs_per_day).toFixed(1) : '—') + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(c.ctr && c.ctr.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(c.views_per_upload)) + '</td>'
+          + '<td><button type="button" class="btn-text" data-open-channel="' + esc(c.channel_id) + '">View</button></td>'
+          + '</tr>';
+      }).join('');
+    }
+
     function renderCalloutList(elId, rows, emptyMsg) {
       const el = document.getElementById(elId);
       if (!rows || !rows.length) {
@@ -3149,6 +3223,7 @@
       if (cohortEl) cohortEl.innerHTML = cohortsHtml(data.cohorts);
       renderHealthStrip(data.health);
       renderScoreboard(data.categories || []);
+      renderAnalyticsChannelsTable(data.channels || []);
       renderCalloutList('analytics-leaderboard-top', data.leaderboard_top, 'No efficiency data yet');
       renderCalloutList('analytics-leaderboard-bottom', data.leaderboard_bottom, 'No efficiency data yet');
       renderCalloutList('analytics-breakouts', data.breakouts, 'No breakouts this window');
@@ -3304,6 +3379,7 @@
       const btn = document.getElementById('btn-analytics-refresh');
       setButtonLoading(btn, true, 'Loading…');
       setTableLoading('analytics-scoreboard-body', 10, 'Loading YouTube Analytics…');
+      setTableLoading('analytics-channels-body', 11, 'Loading channels…');
       document.getElementById('analytics-pulse').innerHTML = '<div class="muted">Loading…</div>';
       try {
         const q = '?days=' + days + (refresh ? '&refresh=true' : '');
@@ -3312,6 +3388,11 @@
       } catch (err) {
         document.getElementById('analytics-scoreboard-body').innerHTML =
           '<tr><td colspan="10"><div class="empty-state">' + esc(err.message || String(err)) + '</div></td></tr>';
+        const chBody = document.getElementById('analytics-channels-body');
+        if (chBody) {
+          chBody.innerHTML = '<tr><td colspan="11"><div class="empty-state">'
+            + esc(err.message || String(err)) + '</div></td></tr>';
+        }
         toast(err.message || String(err), true);
       } finally {
         setButtonLoading(btn, false);
@@ -4777,17 +4858,19 @@
           category: catBtn.dataset.openCategory,
           days: analyticsState.days,
         });
-        return;
       }
+    });
+
+    document.addEventListener('click', (e) => {
       const chBtn = e.target.closest('[data-open-channel]');
-      if (chBtn) {
-        navigateTo({
-          tab: 'analytics',
-          analyticsView: 'channel',
-          channelId: chBtn.dataset.openChannel,
-          days: analyticsState.days,
-        });
-      }
+      if (!chBtn) return;
+      e.preventDefault();
+      navigateTo({
+        tab: 'analytics',
+        analyticsView: 'channel',
+        channelId: chBtn.dataset.openChannel,
+        days: analyticsState.days || 28,
+      });
     });
 
     window.addEventListener('hashchange', () => applyHashRoute());
