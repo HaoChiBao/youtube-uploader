@@ -97,6 +97,7 @@ def _channel_entry_dict(
     custom_url: str = "",
     publish: PublishConfig | None = None,
     category: str = "",
+    long_uploads_status: str = "",
 ) -> dict:
     pub = publish or PublishConfig()
     entry: dict = {
@@ -115,6 +116,8 @@ def _channel_entry_dict(
     category = normalize_content_category(category)
     if category:
         entry["category"] = category
+    if long_uploads_status:
+        entry["long_uploads_status"] = long_uploads_status
     return entry
 
 
@@ -181,6 +184,7 @@ def _channel_config_from_entry(entry: dict) -> ChannelConfig:
         youtube_channel_id=entry.get("youtube_channel_id", ""),
         custom_url=entry.get("custom_url", ""),
         category=str(entry.get("category") or "").strip(),
+        long_uploads_status=str(entry.get("long_uploads_status") or "").strip(),
     )
 
 
@@ -243,6 +247,10 @@ def register_oauth_channel(
                 entry["youtube_channel_id"] = info.youtube_channel_id
                 if info.custom_url:
                     entry["custom_url"] = info.custom_url
+                if info.long_uploads_status:
+                    entry["long_uploads_status"] = info.long_uploads_status
+                elif "long_uploads_status" in entry:
+                    del entry["long_uploads_status"]
                 entry["token_path"] = token_loc
                 if category:
                     normalized = normalize_content_category(category)
@@ -286,6 +294,7 @@ def register_oauth_channel(
             custom_url=info.custom_url,
             publish=publish,
             category=category,
+            long_uploads_status=info.long_uploads_status,
         )
 
         idx = find_channel_index(data, info.youtube_channel_id)

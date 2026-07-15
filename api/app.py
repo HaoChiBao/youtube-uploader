@@ -24,7 +24,13 @@ from api.endpoint_docs import API_ENDPOINTS, API_TAGS, AUTH_NOTE
 from api.llm_docs import render_llm_api_docs
 from api.middleware import AuthMiddleware
 from api.openapi_enrich import install_openapi_enrichment
-from api.cache import build_dashboard, clear_all_caches, get_token_status, job_view_to_out
+from api.cache import (
+    build_dashboard,
+    clear_all_caches,
+    get_token_status,
+    job_view_to_out,
+    resolve_long_uploads_status,
+)
 from api.capabilities import CLI_COMMANDS, YOUTUBE_FEATURES, ASSEMBLY_INTEGRATION_NOTES
 from uploader.object_storage import assembly_r2_status
 from api.direct_upload import direct_upload_from_multipart, parse_direct_upload_form
@@ -91,6 +97,7 @@ from api.schemas import (
 )
 from uploader import __version__
 from uploader.channel_store import patch_channel_config, remove_channel_from_config
+from uploader.channel_info import is_channel_verified
 from uploader.category_store import (
     CategoryError,
     CategoryNotFoundError,
@@ -359,6 +366,16 @@ def create_app() -> FastAPI:
 
     def _channel_out(ch) -> ChannelOut:
         bundle = load_channel_jobs(ch, base=get_storage_base())
+        oauth = get_oauth_settings()
+        auth = _token_status(ch)
+        long_uploads_status = resolve_long_uploads_status(
+            ch.id,
+            ch.token_path,
+            oauth,
+            auth_valid=auth.valid,
+            stored_status=ch.long_uploads_status,
+        )
+
         return ChannelOut(
             id=ch.id,
             name=ch.name,
@@ -367,11 +384,13 @@ def create_app() -> FastAPI:
             category=ch.category,
             token_path=ch.token_path,
             registry_path=ch.registry_path,
-            auth=_token_status(ch),
+            auth=auth,
             publish=_publish_out(ch),
             pending_count=bundle.pending_count,
             uploaded_count=bundle.uploaded_count,
             failed_count=bundle.failed_count,
+            long_uploads_status=long_uploads_status,
+            verified=is_channel_verified(long_uploads_status),
         )
 
     @app.get("/v1/dashboard", response_model=DashboardResponse, tags=["dashboard"])
