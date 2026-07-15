@@ -14,7 +14,7 @@ from uploader.channel_store import (
 )
 from uploader.channels import PublishConfig
 from uploader.oauth import OAuthSettings
-from uploader.youtube_client import SCOPES, _credentials_need_reauth, _oauth_prompt
+from uploader.youtube_client import SCOPES, _credentials_need_reauth, _oauth_prompt, credentials_from_token_info
 
 
 def _require_flow():
@@ -137,7 +137,6 @@ def credentials_to_json(creds) -> str:
 def inspect_token_file(token_path: str | Path, *, client_secret, client_config) -> dict:
     """Check token without opening a browser; refresh and persist when possible."""
     from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
 
     from uploader.cache_signals import bump as bump_cache
     from uploader.object_storage import exists, read_text, write_text
@@ -150,7 +149,7 @@ def inspect_token_file(token_path: str | Path, *, client_secret, client_config) 
         text = read_text(loc)
         if not text.strip():
             return {"has_token": False, "valid": False, "status": "empty"}
-        creds = Credentials.from_authorized_user_info(json.loads(text), SCOPES)
+        creds = credentials_from_token_info(json.loads(text))
     except (ValueError, KeyError, json.JSONDecodeError):
         return {"has_token": True, "valid": False, "status": "invalid"}
 

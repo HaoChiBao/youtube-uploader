@@ -50,11 +50,12 @@ Edit `.env` with Google OAuth vars and (optionally) Cloudflare R2 credentials.
 
 ### 3. Google Cloud setup
 
-1. Create a Google Cloud project and enable **YouTube Data API v3**
-2. Configure the OAuth consent screen
+1. Create a Google Cloud project and enable **YouTube Data API v3** and **YouTube Analytics API**
+2. Configure the OAuth consent screen (include `yt-analytics.readonly` for the dashboard Analytics tab)
 3. Create a **Web application** OAuth client
 4. Register redirect URIs (no trailing slash): `http://localhost:8765` and `http://127.0.0.1:8765`
 5. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID` in `.env`
+6. Re-auth existing channels after pull so tokens pick up the Analytics scope (Uploads keep working until you reconnect)
 
 ### 4. Cloudflare R2 (recommended for production)
 

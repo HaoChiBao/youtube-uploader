@@ -1001,6 +1001,239 @@
     }
     .filter-chip:hover:not(.is-active) { background: var(--color-stone-mist); }
 
+    /* —— Analytics —— */
+    .analytics-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .analytics-range {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .analytics-meta {
+      font-size: 12px;
+      color: var(--color-smoke);
+      font-variant-numeric: tabular-nums;
+    }
+    .analytics-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-smoke);
+      text-decoration: none;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .analytics-back:hover {
+      color: var(--color-midnight-ink);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .analytics-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .analytics-block h3 {
+      font-size: var(--text-body);
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+    .analytics-block .block-desc {
+      margin: 0 0 14px;
+      font-size: var(--text-caption);
+      color: var(--color-smoke);
+    }
+    .pulse-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 900px) {
+      .pulse-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .pulse-grid { grid-template-columns: 1fr; }
+    }
+    .pulse-card {
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      padding: 14px 16px;
+      min-width: 0;
+    }
+    .pulse-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-smoke);
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .pulse-value {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+      color: var(--color-midnight-ink);
+    }
+    .pulse-delta {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--color-smoke);
+    }
+    .pulse-delta.is-up { color: var(--color-deep-forest-teal); }
+    .pulse-delta.is-down { color: var(--color-charcoal); }
+    .health-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .health-chip {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+    .health-chip .health-n {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .health-chip.is-growing {
+      border-color: color-mix(in srgb, var(--color-deep-forest-teal) 35%, var(--color-stone-mist));
+    }
+    .health-chip.is-growing .health-n { color: var(--color-deep-forest-teal); }
+    .health-chip.is-cooling {
+      border-color: color-mix(in srgb, var(--color-amber-pulse) 45%, var(--color-stone-mist));
+    }
+    .sparkline {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 28px;
+      min-width: 72px;
+    }
+    .sparkline span {
+      flex: 1;
+      min-width: 2px;
+      background: color-mix(in srgb, var(--color-deep-forest-teal) 55%, var(--color-stone-mist));
+      border-radius: 1px 1px 0 0;
+      opacity: 0.85;
+    }
+    .row-link {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      font-weight: 600;
+      color: var(--color-midnight-ink);
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+    .row-link:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .analytics-callouts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 720px) {
+      .analytics-callouts { grid-template-columns: 1fr; }
+    }
+    .callout-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .callout-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--color-stone-mist);
+    }
+    .callout-list li:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .callout-meta {
+      font-size: 12px;
+      color: var(--color-smoke);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .insights-list {
+      margin: 0;
+      padding: 0 0 0 1.1rem;
+      color: var(--color-smoke);
+      font-size: var(--text-caption);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .analytics-banner {
+      background: color-mix(in srgb, var(--color-lavender-whisper) 35%, var(--color-white));
+      border: 1px solid color-mix(in srgb, var(--color-lavender-whisper) 60%, var(--color-stone-mist));
+      border-radius: var(--radius-nav);
+      padding: 12px 16px;
+      font-size: var(--text-caption);
+      color: var(--color-midnight-ink);
+      margin-bottom: 8px;
+    }
+    .delta-pos { color: var(--color-deep-forest-teal); font-weight: 600; }
+    .delta-neg { color: var(--color-charcoal); font-weight: 600; }
+    .delta-flat { color: var(--color-smoke); }
+    .num-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .analytics-view[hidden] { display: none !important; }
+    .leaderboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 720px) {
+      .leaderboard-grid { grid-template-columns: 1fr; }
+    }
+    .th-sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+    .th-sortable:hover { color: var(--color-midnight-ink); }
+    .panel--flush {
+      padding: 0;
+      overflow: hidden;
+    }
+    .analytics-panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 12px;
+    }
+    .analytics-peer-note { margin-top: 12px; }
+
     .folder-tag {
       display: inline-block;
       font-size: 12px;
@@ -1363,6 +1596,7 @@
         <nav class="subnav" aria-label="Main">
           <a href="#channels" data-nav-tab="channels">Channels</a>
           <a href="#library" data-nav-tab="library">Library</a>
+          <a href="#analytics" data-nav-tab="analytics">Analytics</a>
           <a href="#settings" data-nav-tab="settings">Settings</a>
         </nav>
         <div class="header-actions">
@@ -1481,6 +1715,182 @@
                 <thead><tr><th>Title</th><th>Channel</th><th>YouTube</th><th>Published</th><th class="th-actions"><span class="sr-only">Actions</span></th></tr></thead>
                 <tbody id="uploaded-body"><tr><td colspan="5">Loading…</td></tr></tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section tab-panel" id="analytics-section" data-tab="analytics" hidden>
+        <div class="section-header">
+          <div>
+            <h2 id="analytics-title">Analytics</h2>
+            <p class="section-desc" id="analytics-desc">Fleet health — views, watch time, and growth by category and channel</p>
+          </div>
+          <div class="section-toolbar">
+            <div class="analytics-range" role="group" aria-label="Time range">
+              <button type="button" class="filter-chip" data-analytics-days="7">7 days</button>
+              <button type="button" class="filter-chip is-active" data-analytics-days="28">28 days</button>
+            </div>
+            <button type="button" class="btn-voltage btn-voltage--compact" id="btn-analytics-refresh">Refresh</button>
+          </div>
+        </div>
+
+        <div class="analytics-toolbar">
+          <button type="button" class="analytics-back" id="analytics-back" hidden>← Back to overview</button>
+          <p class="analytics-meta" id="analytics-meta" aria-live="polite"></p>
+        </div>
+
+        <div id="analytics-banner" class="analytics-banner" hidden></div>
+
+        <!-- Overview -->
+        <div class="analytics-view analytics-stack" id="analytics-view-overview" data-analytics-view="overview">
+          <div class="analytics-block">
+            <h3>Network pulse</h3>
+            <p class="block-desc">Totals across all connected channels for the selected window</p>
+            <div class="pulse-grid" id="analytics-pulse"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Channel health</h3>
+            <p class="block-desc">Compared to the previous window of the same length</p>
+            <div class="health-strip" id="analytics-health"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Category scoreboard</h3>
+            <p class="block-desc">Click a category to drill into channels and top videos</p>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data" id="analytics-scoreboard-table">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Health</th>
+                      <th>Views</th>
+                      <th>Δ</th>
+                      <th>Watch</th>
+                      <th>Subs</th>
+                      <th>CTR</th>
+                      <th>Avg %</th>
+                      <th>Eff.</th>
+                      <th>Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-scoreboard-body">
+                    <tr><td colspan="10"><div class="empty-state">Open Analytics to load</div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-block">
+            <h3>Efficiency leaderboard</h3>
+            <p class="block-desc">Views per upload — carriers and laggards</p>
+            <div class="leaderboard-grid">
+              <div class="panel">
+                <h3 class="analytics-panel-title">Top</h3>
+                <ul class="callout-list" id="analytics-leaderboard-top"></ul>
+              </div>
+              <div class="panel">
+                <h3 class="analytics-panel-title">Bottom</h3>
+                <ul class="callout-list" id="analytics-leaderboard-bottom"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-block">
+            <h3>Breakouts &amp; cooling</h3>
+            <p class="block-desc">Channels up ≥50% or down ≥40% vs the prior window</p>
+            <div class="analytics-callouts">
+              <div class="panel">
+                <h3 class="analytics-panel-title">Breakouts</h3>
+                <ul class="callout-list" id="analytics-breakouts"></ul>
+              </div>
+              <div class="panel">
+                <h3 class="analytics-panel-title">Cooling</h3>
+                <ul class="callout-list" id="analytics-cooling"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category detail -->
+        <div class="analytics-view analytics-stack" id="analytics-view-category" data-analytics-view="category" hidden>
+          <div class="analytics-block">
+            <div class="pulse-grid" id="analytics-cat-pulse"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Insights</h3>
+            <ul class="insights-list" id="analytics-cat-insights"></ul>
+          </div>
+          <div class="analytics-block">
+            <h3>Channels</h3>
+            <p class="block-desc">Sorted by views per upload</p>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Channel</th>
+                      <th>Status</th>
+                      <th>Views</th>
+                      <th>Δ</th>
+                      <th>Watch</th>
+                      <th>Subs</th>
+                      <th>CTR</th>
+                      <th>Avg %</th>
+                      <th>Uploads</th>
+                      <th>Views/up</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-cat-channels"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-block">
+            <h3>Top videos</h3>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Channel</th>
+                      <th>Views</th>
+                      <th>CTR</th>
+                      <th>Avg %</th>
+                      <th>Published</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-cat-videos"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Channel detail -->
+        <div class="analytics-view analytics-stack" id="analytics-view-channel" data-analytics-view="channel" hidden>
+          <div class="analytics-block">
+            <div class="pulse-grid" id="analytics-ch-pulse"></div>
+            <p class="muted analytics-peer-note" id="analytics-ch-peer"></p>
+          </div>
+          <div class="analytics-block">
+            <h3>Recent top videos</h3>
+            <div class="panel panel--flush">
+              <div class="table-wrap">
+                <table class="table-data">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Views</th>
+                      <th>CTR</th>
+                      <th>Avg %</th>
+                      <th>Watch</th>
+                      <th>Published</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-ch-videos"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -2202,6 +2612,383 @@
       setTimeout(() => dock.classList.remove('dock-pulse'), 1000);
     }
 
+    /* —— Analytics —— */
+    const analyticsState = {
+      days: 28,
+      view: 'overview',
+      category: '',
+      channelId: '',
+      overview: null,
+      loading: false,
+    };
+
+    function syncAnalyticsDaysUi(days) {
+      document.querySelectorAll('[data-analytics-days]').forEach(btn => {
+        btn.classList.toggle('is-active', Number(btn.dataset.analyticsDays) === Number(days));
+      });
+    }
+
+    function showAnalyticsView(view) {
+      analyticsState.view = view;
+      document.querySelectorAll('[data-analytics-view]').forEach(el => {
+        el.hidden = el.dataset.analyticsView !== view;
+      });
+      const back = document.getElementById('analytics-back');
+      back.hidden = view === 'overview';
+      const title = document.getElementById('analytics-title');
+      const desc = document.getElementById('analytics-desc');
+      if (view === 'overview') {
+        title.textContent = 'Analytics';
+        desc.textContent = 'Fleet health — views, watch time, and growth by category and channel';
+      }
+    }
+
+    function fmtCompact(n) {
+      if (n == null || Number.isNaN(Number(n))) return '—';
+      const v = Number(n);
+      const abs = Math.abs(v);
+      if (abs >= 1e6) return (v / 1e6).toFixed(abs >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+      if (abs >= 1e3) return (v / 1e3).toFixed(abs >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
+      if (abs >= 100) return String(Math.round(v));
+      if (Number.isInteger(v)) return String(v);
+      return v.toFixed(1);
+    }
+
+    function fmtWatch(minutes) {
+      if (minutes == null) return '—';
+      const m = Number(minutes);
+      if (m >= 60) return fmtCompact(m / 60) + 'h';
+      return fmtCompact(m) + 'm';
+    }
+
+    function fmtDelta(pct) {
+      if (pct == null || Number.isNaN(Number(pct))) return '<span class="delta-flat">—</span>';
+      const v = Number(pct);
+      const sign = v > 0 ? '+' : '';
+      const cls = v > 0.5 ? 'delta-pos' : (v < -0.5 ? 'delta-neg' : 'delta-flat');
+      return '<span class="' + cls + '">' + sign + v.toFixed(0) + '%</span>';
+    }
+
+    function fmtPct(v) {
+      if (v == null || Number.isNaN(Number(v))) return '—';
+      return Number(v).toFixed(1) + '%';
+    }
+
+    function healthBadge(status) {
+      const s = status || 'needs_data';
+      if (s === 'growing') return '<span class="badge badge-ok">Growing</span>';
+      if (s === 'cooling') return '<span class="badge badge-warn">Cooling</span>';
+      if (s === 'flat') return '<span class="badge">Flat</span>';
+      if (s === 'needs_reauth') return '<span class="badge badge-warn">Reauth</span>';
+      if (s === 'error') return '<span class="badge badge-bad">Error</span>';
+      return '<span class="badge">Needs data</span>';
+    }
+
+    function sparklineHtml(values) {
+      const vals = (values || []).map(Number).filter(v => !Number.isNaN(v));
+      if (!vals.length) return '<span class="muted">—</span>';
+      const max = Math.max(...vals, 1);
+      const sample = vals.length > 28 ? vals.slice(-28) : vals;
+      return '<div class="sparkline" aria-hidden="true">'
+        + sample.map(v => {
+          const h = Math.max(2, Math.round((v / max) * 28));
+          return '<span style="height:' + h + 'px"></span>';
+        }).join('')
+        + '</div>';
+    }
+
+    function pulseCardsHtml(pulse) {
+      const items = [
+        { key: 'views', label: 'Views', fmt: fmtCompact },
+        { key: 'watch_minutes', label: 'Watch time', fmt: fmtWatch },
+        { key: 'subs_net', label: 'Subs Δ', fmt: fmtCompact },
+        { key: 'ctr', label: 'CTR', fmt: fmtPct },
+        { key: 'avg_view_percentage', label: 'Avg view %', fmt: fmtPct },
+      ];
+      return items.map(item => {
+        const m = (pulse && pulse[item.key]) || {};
+        const delta = m.delta_pct;
+        let deltaCls = '';
+        let deltaText = 'vs prior window';
+        if (delta != null) {
+          const sign = delta > 0 ? '+' : '';
+          deltaText = sign + Number(delta).toFixed(0) + '% vs prior';
+          if (delta > 0.5) deltaCls = ' is-up';
+          else if (delta < -0.5) deltaCls = ' is-down';
+        }
+        const display = m.value == null ? '—' : item.fmt(m.value);
+        return '<div class="pulse-card">'
+          + '<div class="pulse-label">' + esc(item.label) + '</div>'
+          + '<div class="pulse-value">' + esc(String(display)) + '</div>'
+          + '<div class="pulse-delta' + deltaCls + '">' + esc(deltaText) + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    function setAnalyticsMeta(data) {
+      const el = document.getElementById('analytics-meta');
+      if (!data) { el.textContent = ''; return; }
+      const cached = data.cached ? ' · cached' : '';
+      el.textContent = (data.start_date || '') + ' → ' + (data.end_date || '')
+        + ' · refreshed ' + (data.refreshed_at || '').replace('T', ' ').replace(/\.\d+Z$/, 'Z')
+        + cached;
+    }
+
+    function setAnalyticsBanner(overview) {
+      const el = document.getElementById('analytics-banner');
+      const n = overview && overview.needs_reauth_count;
+      if (!n) { el.hidden = true; el.innerHTML = ''; return; }
+      el.hidden = false;
+      el.innerHTML = '<strong>' + n + ' channel' + (n === 1 ? '' : 's')
+        + '</strong> need reconnect to unlock Analytics (YouTube Analytics scope). '
+        + 'Use Reauth on the Channels tab — uploads still work in the meantime.';
+    }
+
+    function renderHealthStrip(health) {
+      const h = health || {};
+      const chips = [
+        { key: 'growing', label: 'Growing', cls: 'is-growing' },
+        { key: 'flat', label: 'Flat', cls: '' },
+        { key: 'cooling', label: 'Cooling', cls: 'is-cooling' },
+        { key: 'needs_data', label: 'Needs data', cls: '' },
+      ];
+      document.getElementById('analytics-health').innerHTML = chips.map(c =>
+        '<div class="health-chip ' + c.cls + '"><span class="health-n">'
+        + (h[c.key] || 0) + '</span><span>' + c.label + '</span></div>'
+      ).join('');
+    }
+
+    function renderScoreboard(categories) {
+      const tbody = document.getElementById('analytics-scoreboard-body');
+      if (!categories || !categories.length) {
+        tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state">No categories yet. Assign categories on Channels, then refresh.</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = categories.map(cat => {
+        const key = cat.category || 'uncategorized';
+        return '<tr>'
+          + '<td><button type="button" class="row-link" data-open-category="' + esc(key) + '">'
+          + esc(cat.label || key) + '</button>'
+          + '<div class="muted">' + (cat.channel_count || 0) + ' channel'
+          + ((cat.channel_count === 1) ? '' : 's')
+          + (cat.network_view_share_pct != null ? ' · ' + Math.round(cat.network_view_share_pct) + '% of network' : '')
+          + (cat.carrier_risk ? ' · concentrated' : '')
+          + '</div></td>'
+          + '<td>' + healthBadge(cat.health) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(cat.views && cat.views.value)) + '</td>'
+          + '<td class="num-cell">' + fmtDelta(cat.views && cat.views.delta_pct) + '</td>'
+          + '<td class="num-cell">' + esc(fmtWatch(cat.watch_minutes && cat.watch_minutes.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(cat.subs_net && cat.subs_net.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(cat.ctr && cat.ctr.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(cat.avg_view_percentage && cat.avg_view_percentage.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(cat.views_per_upload)) + '</td>'
+          + '<td>' + sparklineHtml(cat.sparkline) + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    function renderCalloutList(elId, rows, emptyMsg) {
+      const el = document.getElementById(elId);
+      if (!rows || !rows.length) {
+        el.innerHTML = '<li class="muted">' + esc(emptyMsg) + '</li>';
+        return;
+      }
+      el.innerHTML = rows.map(c =>
+        '<li><button type="button" class="row-link" data-open-channel="' + esc(c.channel_id) + '">'
+        + esc(c.name || c.channel_id) + '</button>'
+        + '<span class="callout-meta">'
+        + (c.views_per_upload != null ? fmtCompact(c.views_per_upload) + ' v/up · ' : '')
+        + (c.views && c.views.delta_pct != null ? (c.views.delta_pct > 0 ? '+' : '') + Math.round(c.views.delta_pct) + '%' : fmtCompact(c.views && c.views.value) + ' views')
+        + '</span></li>'
+      ).join('');
+    }
+
+    function renderOverview(data) {
+      analyticsState.overview = data;
+      document.getElementById('analytics-pulse').innerHTML = pulseCardsHtml(data.network);
+      renderHealthStrip(data.health);
+      renderScoreboard(data.categories || []);
+      renderCalloutList('analytics-leaderboard-top', data.leaderboard_top, 'No efficiency data yet');
+      renderCalloutList('analytics-leaderboard-bottom', data.leaderboard_bottom, 'No efficiency data yet');
+      renderCalloutList('analytics-breakouts', data.breakouts, 'No breakouts this window');
+      renderCalloutList('analytics-cooling', data.cooling, 'Nothing cooling hard');
+      setAnalyticsMeta(data);
+      setAnalyticsBanner(data);
+    }
+
+    function renderCategoryDetail(data) {
+      const cat = data.category || {};
+      document.getElementById('analytics-title').textContent = cat.label || cat.category || 'Category';
+      document.getElementById('analytics-desc').textContent =
+        (cat.channel_count || 0) + ' channels'
+        + (cat.network_view_share_pct != null ? ' · ' + Math.round(cat.network_view_share_pct) + '% of network views' : '');
+      document.getElementById('analytics-cat-pulse').innerHTML = pulseCardsHtml({
+        views: cat.views,
+        watch_minutes: cat.watch_minutes,
+        subs_net: cat.subs_net,
+        ctr: cat.ctr,
+        avg_view_percentage: cat.avg_view_percentage,
+      });
+      const insights = cat.insights || [];
+      document.getElementById('analytics-cat-insights').innerHTML = insights.length
+        ? insights.map(i => '<li>' + esc(i) + '</li>').join('')
+        : '<li>No insights yet</li>';
+
+      const chBody = document.getElementById('analytics-cat-channels');
+      const channels = cat.channels || [];
+      if (!channels.length) {
+        chBody.innerHTML = '<tr><td colspan="10"><div class="empty-state">No channels in this category</div></td></tr>';
+      } else {
+        chBody.innerHTML = channels.map(c =>
+          '<tr>'
+          + '<td><button type="button" class="row-link" data-open-channel="' + esc(c.channel_id) + '">'
+          + esc(c.name || c.channel_id) + '</button></td>'
+          + '<td>' + healthBadge(c.status) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(c.views && c.views.value)) + '</td>'
+          + '<td class="num-cell">' + fmtDelta(c.views && c.views.delta_pct) + '</td>'
+          + '<td class="num-cell">' + esc(fmtWatch(c.watch_minutes && c.watch_minutes.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(c.subs_net && c.subs_net.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(c.ctr && c.ctr.value)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(c.avg_view_percentage && c.avg_view_percentage.value)) + '</td>'
+          + '<td class="num-cell">' + (c.uploads || 0) + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(c.views_per_upload)) + '</td>'
+          + '</tr>'
+        ).join('');
+      }
+
+      const vBody = document.getElementById('analytics-cat-videos');
+      const videos = cat.top_videos || [];
+      if (!videos.length) {
+        vBody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No video-level Analytics for this window</div></td></tr>';
+      } else {
+        vBody.innerHTML = videos.map(v =>
+          '<tr>'
+          + '<td><a href="' + esc(v.url) + '" target="_blank" rel="noopener">' + esc(v.title || v.video_id) + '</a></td>'
+          + '<td>' + esc(v.channel_name || v.channel_id || '—') + '</td>'
+          + '<td class="num-cell">' + esc(fmtCompact(v.views)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(v.ctr)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(v.avg_view_percentage)) + '</td>'
+          + '<td class="cell-time">' + esc((v.published_at || '').slice(0, 10) || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+      }
+      setAnalyticsMeta(data);
+      document.getElementById('analytics-banner').hidden = true;
+    }
+
+    function renderChannelDetail(data) {
+      const ch = data.channel || {};
+      document.getElementById('analytics-title').textContent = ch.name || ch.channel_id || 'Channel';
+      document.getElementById('analytics-desc').textContent =
+        (ch.category ? ch.category + ' · ' : '') + healthBadge(ch.status).replace(/<[^>]+>/g, '')
+        + (ch.message ? ' — ' + ch.message : '');
+      // Prefer structured desc without stripping HTML from badge
+      document.getElementById('analytics-desc').innerHTML =
+        (ch.category ? esc(ch.category) + ' · ' : '') + healthBadge(ch.status)
+        + (ch.message ? ' <span class="muted">— ' + esc(ch.message) + '</span>' : '');
+
+      document.getElementById('analytics-ch-pulse').innerHTML = pulseCardsHtml({
+        views: ch.views,
+        watch_minutes: ch.watch_minutes,
+        subs_net: ch.subs_net,
+        ctr: ch.ctr,
+        avg_view_percentage: ch.avg_view_percentage,
+      });
+
+      const peer = document.getElementById('analytics-ch-peer');
+      if (data.peer_median_views_per_upload != null && ch.views_per_upload != null) {
+        const vs = data.vs_peer_median_pct;
+        peer.innerHTML = 'Views/upload ' + esc(fmtCompact(ch.views_per_upload))
+          + ' · category peer median ' + esc(fmtCompact(data.peer_median_views_per_upload))
+          + (vs != null ? ' (' + (vs > 0 ? '+' : '') + Math.round(vs) + '% vs peers)' : '');
+      } else {
+        peer.textContent = ch.uploads
+          ? (ch.uploads + ' uploads in window · ' + (fmtCompact(ch.views_per_upload) || '—') + ' views/upload')
+          : 'No uploads recorded in this window';
+      }
+
+      const vBody = document.getElementById('analytics-ch-videos');
+      const videos = ch.top_videos || [];
+      if (!videos.length) {
+        vBody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No video Analytics yet — reconnect if status is Reauth</div></td></tr>';
+      } else {
+        vBody.innerHTML = videos.map(v =>
+          '<tr>'
+          + '<td><a href="' + esc(v.url) + '" target="_blank" rel="noopener">' + esc(v.title || v.video_id) + '</a></td>'
+          + '<td class="num-cell">' + esc(fmtCompact(v.views)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(v.ctr)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtPct(v.avg_view_percentage)) + '</td>'
+          + '<td class="num-cell">' + esc(fmtWatch(v.watch_minutes)) + '</td>'
+          + '<td class="cell-time">' + esc((v.published_at || '').slice(0, 10) || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+      }
+      setAnalyticsMeta(data);
+      document.getElementById('analytics-banner').hidden = true;
+    }
+
+    async function loadAnalyticsOverview(opts) {
+      const refresh = !!(opts && opts.refresh);
+      const days = analyticsState.days || 28;
+      const btn = document.getElementById('btn-analytics-refresh');
+      setButtonLoading(btn, true, 'Loading…');
+      setTableLoading('analytics-scoreboard-body', 10, 'Loading YouTube Analytics…');
+      document.getElementById('analytics-pulse').innerHTML = '<div class="muted">Loading…</div>';
+      try {
+        const q = '?days=' + days + (refresh ? '&refresh=true' : '');
+        const data = await api('/v1/analytics' + q);
+        renderOverview(data);
+      } catch (err) {
+        document.getElementById('analytics-scoreboard-body').innerHTML =
+          '<tr><td colspan="10"><div class="empty-state">' + esc(err.message || String(err)) + '</div></td></tr>';
+        toast(err.message || String(err), true);
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
+    async function loadAnalyticsCategory(category, opts) {
+      const refresh = !!(opts && opts.refresh);
+      const days = analyticsState.days || 28;
+      analyticsState.category = category;
+      const btn = document.getElementById('btn-analytics-refresh');
+      setButtonLoading(btn, true, 'Loading…');
+      setTableLoading('analytics-cat-channels', 10, 'Loading category…');
+      setTableLoading('analytics-cat-videos', 6, 'Loading videos…');
+      try {
+        const slug = encodeURIComponent(category || 'uncategorized');
+        const q = '?days=' + days + (refresh ? '&refresh=true' : '');
+        const data = await api('/v1/analytics/categories/' + slug + q);
+        renderCategoryDetail(data);
+      } catch (err) {
+        document.getElementById('analytics-cat-channels').innerHTML =
+          '<tr><td colspan="10"><div class="empty-state">' + esc(err.message || String(err)) + '</div></td></tr>';
+        toast(err.message || String(err), true);
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
+    async function loadAnalyticsChannel(channelId, opts) {
+      const refresh = !!(opts && opts.refresh);
+      const days = analyticsState.days || 28;
+      analyticsState.channelId = channelId;
+      const btn = document.getElementById('btn-analytics-refresh');
+      setButtonLoading(btn, true, 'Loading…');
+      setTableLoading('analytics-ch-videos', 6, 'Loading channel…');
+      try {
+        const q = '?days=' + days + (refresh ? '&refresh=true' : '');
+        const data = await api('/v1/analytics/channels/' + encodeURIComponent(channelId) + q);
+        renderChannelDetail(data);
+      } catch (err) {
+        document.getElementById('analytics-ch-videos').innerHTML =
+          '<tr><td colspan="6"><div class="empty-state">' + esc(err.message || String(err)) + '</div></td></tr>';
+        toast(err.message || String(err), true);
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
     function switchLibraryTab(tab) {
       const next = normalizeLibraryTab(tab);
       document.querySelectorAll('.library-tabs [data-library-tab]').forEach(btn => {
@@ -2228,6 +3015,15 @@
         const slug = lib === 'history' ? 'published' : lib;
         hash = '#library/' + slug;
         if (opts.channelId) hash += '?channel=' + encodeURIComponent(opts.channelId);
+      } else if (tab === 'analytics') {
+        if (opts.analyticsView === 'category' && opts.category != null) {
+          hash = '#analytics/category/' + encodeURIComponent(opts.category || 'uncategorized');
+        } else if (opts.analyticsView === 'channel' && opts.channelId) {
+          hash = '#analytics/channel/' + encodeURIComponent(opts.channelId);
+        } else {
+          hash = '#analytics';
+        }
+        if (opts.days) hash += (hash.includes('?') ? '&' : '?') + 'days=' + opts.days;
       }
       if (location.hash !== hash) history.replaceState(null, '', hash);
     }
@@ -2258,12 +3054,31 @@
           renderUploadedJobs(dashboardData.uploaded_jobs || []);
         }
       }
+      if (tab === 'analytics') {
+        const view = options.analyticsView || 'overview';
+        const days = options.days || analyticsState.days || 28;
+        analyticsState.days = days;
+        syncAnalyticsDaysUi(days);
+        if (view === 'category') {
+          showAnalyticsView('category');
+          loadAnalyticsCategory(options.category || '', { refresh: !!options.refresh });
+        } else if (view === 'channel') {
+          showAnalyticsView('channel');
+          loadAnalyticsChannel(options.channelId || '', { refresh: !!options.refresh });
+        } else {
+          showAnalyticsView('overview');
+          loadAnalyticsOverview({ refresh: !!options.refresh });
+        }
+      }
       writeNavHash({
         tab,
         libraryTab: options.libraryTab,
         channelId: options.channelId !== undefined
           ? options.channelId
-          : (tab === 'library' ? document.getElementById('channel-filter').value : ''),
+          : (tab === 'library' ? document.getElementById('channel-filter').value : options.channelId),
+        analyticsView: options.analyticsView,
+        category: options.category,
+        days: tab === 'analytics' ? (options.days || analyticsState.days) : undefined,
       });
     }
 
@@ -2273,10 +3088,30 @@
       const parts = pathPart.split('/').filter(Boolean);
       const qs = new URLSearchParams(queryPart || '');
       const channelId = qs.get('channel') || '';
+      const days = qs.get('days') === '7' ? 7 : (qs.get('days') === '28' ? 28 : undefined);
       if (parts[0] === 'settings') return { tab: 'settings' };
       if (parts[0] === 'library') {
         const libraryTab = normalizeLibraryTab(parts[1]);
         return { tab: 'library', libraryTab, channelId };
+      }
+      if (parts[0] === 'analytics') {
+        if (parts[1] === 'category' && parts[2] != null) {
+          return {
+            tab: 'analytics',
+            analyticsView: 'category',
+            category: decodeURIComponent(parts.slice(2).join('/')),
+            days,
+          };
+        }
+        if (parts[1] === 'channel' && parts[2]) {
+          return {
+            tab: 'analytics',
+            analyticsView: 'channel',
+            channelId: decodeURIComponent(parts[2]),
+            days,
+          };
+        }
+        return { tab: 'analytics', analyticsView: 'overview', days };
       }
       return { tab: 'channels' };
     }
@@ -3494,13 +4329,80 @@
     document.querySelectorAll('.subnav [data-nav-tab]').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        navigateTo({ tab: link.dataset.navTab });
+        const tab = link.dataset.navTab;
+        if (tab === 'analytics') {
+          navigateTo({ tab: 'analytics', analyticsView: 'overview', days: analyticsState.days });
+        } else {
+          navigateTo({ tab });
+        }
       });
     });
 
     document.querySelector('.wordmark')?.addEventListener('click', (e) => {
       e.preventDefault();
       navigateTo({ tab: 'channels' });
+    });
+
+    document.querySelectorAll('[data-analytics-days]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const days = Number(btn.dataset.analyticsDays) === 7 ? 7 : 28;
+        analyticsState.days = days;
+        syncAnalyticsDaysUi(days);
+        if (analyticsState.view === 'category') {
+          navigateTo({
+            tab: 'analytics',
+            analyticsView: 'category',
+            category: analyticsState.category,
+            days,
+            refresh: false,
+          });
+        } else if (analyticsState.view === 'channel') {
+          navigateTo({
+            tab: 'analytics',
+            analyticsView: 'channel',
+            channelId: analyticsState.channelId,
+            days,
+          });
+        } else {
+          navigateTo({ tab: 'analytics', analyticsView: 'overview', days });
+        }
+      });
+    });
+
+    document.getElementById('btn-analytics-refresh').onclick = () => {
+      if (analyticsState.view === 'category') {
+        loadAnalyticsCategory(analyticsState.category, { refresh: true });
+      } else if (analyticsState.view === 'channel') {
+        loadAnalyticsChannel(analyticsState.channelId, { refresh: true });
+      } else {
+        loadAnalyticsOverview({ refresh: true });
+      }
+    };
+
+    document.getElementById('analytics-back').onclick = () => {
+      navigateTo({ tab: 'analytics', analyticsView: 'overview', days: analyticsState.days });
+    };
+
+    document.getElementById('analytics-section').addEventListener('click', (e) => {
+      const catBtn = e.target.closest('[data-open-category]');
+      if (catBtn) {
+        navigateTo({
+          tab: 'analytics',
+          analyticsView: 'category',
+          category: catBtn.dataset.openCategory,
+          days: analyticsState.days,
+        });
+        return;
+      }
+      const chBtn = e.target.closest('[data-open-channel]');
+      if (chBtn) {
+        navigateTo({
+          tab: 'analytics',
+          analyticsView: 'channel',
+          channelId: chBtn.dataset.openChannel,
+          days: analyticsState.days,
+        });
+      }
     });
 
     window.addEventListener('hashchange', () => applyHashRoute());
