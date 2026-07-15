@@ -776,7 +776,103 @@ def test_upload_direct(client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert body["privacy"] == "unlisted"
 
 
+def _fake_growth_series():
+    return {
+        "dates": ["2026-07-01", "2026-07-02"],
+        "views": [10.0, 20.0],
+        "watch_minutes": [5.0, 10.0],
+        "subs_net": [1.0, 0.0],
+    }
+
+
+def _fake_velocity_video(**overrides):
+    base = {
+        "video_id": "vid1",
+        "title": "Test Video",
+        "url": "https://youtu.be/vid1",
+        "published_at": "2026-07-10T10:00:00Z",
+        "privacy_status": "public",
+        "channel_id": "testchan",
+        "channel_name": "Test Channel",
+        "category": "korean",
+        "age_hours": 120.0,
+        "views_so_far": 500.0,
+        "watch_minutes_so_far": 40.0,
+        "views_24h": 100.0,
+        "views_72h": 300.0,
+        "views_7d": 450.0,
+        "watch_24h": 10.0,
+        "watch_72h": 30.0,
+        "watch_7d": 40.0,
+        "vs_median_24h_pct": 25.0,
+        "is_underperformer": False,
+        "is_live": True,
+    }
+    base.update(overrides)
+    return base
+
+
+def _fake_cohorts():
+    return {
+        "this_week": {
+            "uploads": 2,
+            "avg_views_72h": 300.0,
+            "avg_views_7d": 450.0,
+            "avg_views_so_far": 500.0,
+        },
+        "last_week": {
+            "uploads": 1,
+            "avg_views_72h": 200.0,
+            "avg_views_7d": 350.0,
+            "avg_views_so_far": 400.0,
+        },
+        "delta_views_72h_pct": 50.0,
+        "delta_views_7d_pct": 28.57,
+    }
+
+
+def _fake_channel_analytics(**overrides):
+    base = {
+        "channel_id": "testchan",
+        "name": "Test Channel",
+        "category": "korean",
+        "youtube_channel_id": "UCtest",
+        "status": "growing",
+        "message": "",
+        "ok": True,
+        "source": "analytics_api",
+        "views": {"value": 1000, "prior": 800, "delta_pct": 25.0},
+        "watch_minutes": {"value": 120, "prior": 100, "delta_pct": 20.0},
+        "subs_net": {"value": 10, "prior": 8, "delta_pct": 25.0},
+        "ctr": {"value": 4.5, "prior": 4.0, "delta_pct": 12.5},
+        "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
+        "avg_view_duration_seconds": {"value": 90.0, "prior": 80.0, "delta_pct": 12.5},
+        "likes": 10,
+        "comments": 2,
+        "shares": 1,
+        "impressions": 20000,
+        "uploads": 2,
+        "views_per_upload": 500.0,
+        "sparkline": [10, 20, 30],
+        "growth_series": _fake_growth_series(),
+        "growth_series_90d": _fake_growth_series(),
+        "median_views_24h": 80.0,
+        "subs_per_day": 0.3571,
+        "subs_per_1k_views": 10.0,
+        "recent_videos": [_fake_velocity_video()],
+        "subscriber_count": 1000,
+        "video_count": 50,
+        "top_videos": [],
+    }
+    base.update(overrides)
+    return base
+
+
 def _fake_analytics_overview(*, days: int = 28, **kwargs):
+    growth = _fake_growth_series()
+    velocity = _fake_velocity_video()
+    cohorts = _fake_cohorts()
+    channel = _fake_channel_analytics()
     return {
         "days": days,
         "start_date": "2026-06-17",
@@ -791,6 +887,8 @@ def _fake_analytics_overview(*, days: int = 28, **kwargs):
             "subs_net": {"value": 10, "prior": 8, "delta_pct": 25.0},
             "ctr": {"value": 4.5, "prior": 4.0, "delta_pct": 12.5},
             "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
+            "subs_per_day": 0.3571,
+            "subs_per_1k_views": 10.0,
         },
         "health": {"growing": 1, "flat": 0, "cooling": 0, "needs_data": 0},
         "categories": [
@@ -806,47 +904,29 @@ def _fake_analytics_overview(*, days: int = 28, **kwargs):
                 "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
                 "uploads": 2,
                 "views_per_upload": 500.0,
+                "subs_per_day": 0.3571,
+                "subs_per_1k_views": 10.0,
                 "network_view_share_pct": 100.0,
                 "carrier_risk": False,
                 "sparkline": [10, 20, 30],
+                "growth_series": growth,
+                "growth_series_90d": growth,
                 "insights": ["100% of network views in this window"],
                 "channels": [],
                 "top_videos": [],
+                "recent_videos": [velocity],
             }
         ],
-        "channels": [
-            {
-                "channel_id": "testchan",
-                "name": "Test Channel",
-                "category": "korean",
-                "youtube_channel_id": "UCtest",
-                "status": "growing",
-                "message": "",
-                "ok": True,
-                "source": "analytics_api",
-                "views": {"value": 1000, "prior": 800, "delta_pct": 25.0},
-                "watch_minutes": {"value": 120, "prior": 100, "delta_pct": 20.0},
-                "subs_net": {"value": 10, "prior": 8, "delta_pct": 25.0},
-                "ctr": {"value": 4.5, "prior": 4.0, "delta_pct": 12.5},
-                "avg_view_percentage": {"value": 35.0, "prior": 33.0, "delta_pct": 6.06},
-                "avg_view_duration_seconds": {"value": 90.0, "prior": 80.0, "delta_pct": 12.5},
-                "likes": 10,
-                "comments": 2,
-                "shares": 1,
-                "impressions": 20000,
-                "uploads": 2,
-                "views_per_upload": 500.0,
-                "sparkline": [10, 20, 30],
-                "subscriber_count": 1000,
-                "video_count": 50,
-                "top_videos": [],
-            }
-        ],
+        "channels": [channel],
         "leaderboard_top": [],
         "leaderboard_bottom": [],
         "breakouts": [],
         "cooling": [],
         "needs_reauth_count": 0,
+        "growth_curves": {"d28": growth, "d90": growth},
+        "new_uploads": [velocity],
+        "underperformers": [],
+        "cohorts": cohorts,
     }
 
 
@@ -905,6 +985,10 @@ def test_analytics_channel_detail(client, monkeypatch: pytest.MonkeyPatch) -> No
             "channel": overview["channels"][0],
             "peer_median_views_per_upload": 400.0,
             "vs_peer_median_pct": 25.0,
+            "growth_curves": overview["growth_curves"],
+            "new_uploads": overview["new_uploads"],
+            "underperformers": overview["underperformers"],
+            "cohorts": overview["cohorts"],
         },
     )
     r = client.get("/v1/analytics/channels/testchan?days=7")
