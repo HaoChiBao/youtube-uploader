@@ -95,6 +95,8 @@ class ChannelPerformance:
     name: str
     category: str
     youtube_channel_id: str = ""
+    custom_url: str = ""
+    thumbnail_url: str = ""
     ok: bool = False
     source: str = "none"  # analytics_api | none
     status_code: str = "needs_data"  # growing|flat|cooling|needs_data|needs_reauth|error
@@ -175,24 +177,33 @@ def _build_services(creds):
     return youtube, analytics, HttpError
 
 
-def _channel_snapshot(youtube) -> tuple[str, int | None, int | None]:
-    """Return (youtube_channel_id, subscriber_count, video_count)."""
+def _channel_snapshot(youtube) -> tuple[str, int | None, int | None, str]:
+    """Return (youtube_channel_id, subscriber_count, video_count, thumbnail_url)."""
     resp = (
         youtube.channels()
-        .list(part="id,statistics", mine=True)
+        .list(part="id,snippet,statistics", mine=True)
         .execute()
     )
     items = resp.get("items") or []
     if not items:
-        return "", None, None
+        return "", None, None, ""
     item = items[0]
     stats = item.get("statistics") or {}
+    snippet = item.get("snippet") or {}
+    thumbs = snippet.get("thumbnails") or {}
+    thumb = ""
+    for key in ("medium", "high", "default"):
+        entry = thumbs.get(key) or {}
+        if entry.get("url"):
+            thumb = entry["url"]
+            break
     sub = stats.get("subscriberCount")
     vids = stats.get("videoCount")
     return (
         item.get("id") or "",
         int(sub) if sub is not None else None,
         int(vids) if vids is not None else None,
+        thumb,
     )
 
 
@@ -794,6 +805,7 @@ def fetch_channel_performance(
     name: str,
     category: str = "",
     youtube_channel_id: str = "",
+    custom_url: str = "",
     days: int = 28,
     client_secret: Path | None = None,
     client_config: dict | None = None,
@@ -810,6 +822,7 @@ def fetch_channel_performance(
         name=name,
         category=category,
         youtube_channel_id=youtube_channel_id,
+        custom_url=custom_url or "",
         uploads_in_window=uploads_in_window,
     )
     try:
@@ -830,10 +843,11 @@ def fetch_channel_performance(
         # Still try lifetime snapshot via Data API.
         try:
             youtube, _analytics, _HttpError = _build_services(creds)
-            ytid, subs, vcount = _channel_snapshot(youtube)
+            ytid, subs, vcount, thumb = _channel_snapshot(youtube)
             result.youtube_channel_id = ytid or youtube_channel_id
             result.subscriber_count = subs
             result.video_count = vcount
+            result.thumbnail_url = thumb
         except Exception:
             pass
         return result
@@ -841,10 +855,11 @@ def fetch_channel_performance(
     start, end, prior_start, prior_end = date_windows(days)
     try:
         youtube, analytics, HttpError = _build_services(creds)
-        ytid, subs, vcount = _channel_snapshot(youtube)
+        ytid, subs, vcount, thumb = _channel_snapshot(youtube)
         result.youtube_channel_id = ytid or youtube_channel_id
         result.subscriber_count = subs
         result.video_count = vcount
+        result.thumbnail_url = thumb
 
         current, series = _fetch_period(
             analytics, HttpError, channel_yt_id=result.youtube_channel_id, start=start, end=end
@@ -909,6 +924,97 @@ def fetch_channel_performance(
     return result
 
 
+def fetch_video_window_metrics(
+    token_path: str | Path,
+    video_id: str,
+    *,
+    youtube_channel_id: str = "",
+    days: int = 28,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
+    oauth_port: int = 8080,
+) -> VideoPerformance | None:
+    """Analytics window totals for a single video (views, CTR, watch, etc.)."""
+    if not video_id:
+        return None
+    try:
+        creds = _load_creds(
+            token_path,
+            client_secret=client_secret,
+            client_config=client_config,
+            oauth_port=oauth_port,
+        )
+    except Exception:
+        return None
+    if not credentials_have_analytics(creds):
+        return None
+    start, end, _ps, _pe = date_windows(days)
+    try:
+        youtube, analytics, HttpError = _build_services(creds)
+        if not youtube_channel_id:
+            ytid, _s, _v, _t = _channel_snapshot(youtube)
+            youtube_channel_id = ytid
+        ids = f"channel=={youtube_channel_id}" if youtube_channel_id else "channel==MINE"
+        metrics_candidates = (
+            _VIDEO_METRICS,
+            "views,estimatedMinutesWatched,averageViewPercentage,subscribersGained",
+        )
+        resp = None
+        for metrics in metrics_candidates:
+            try:
+                resp = _query_report(
+                    analytics,
+                    HttpError,
+                    ids=ids,
+                    start=start,
+                    end=end,
+                    metrics=metrics,
+                    dimensions="video",
+                    filters=f"video=={video_id}",
+                    max_results=1,
+                )
+                break
+            except HttpError as exc:
+                status = int(getattr(exc.resp, "status", 0) or 0)
+                if status in (400, 403) and metrics == _VIDEO_METRICS:
+                    continue
+                return None
+        if not resp:
+            return None
+        headers = resp.get("columnHeaders") or []
+        rows = resp.get("rows") or []
+        if not rows:
+            return VideoPerformance(video_id=video_id, url=f"https://youtu.be/{video_id}")
+        by_name = {h.get("name"): i for i, h in enumerate(headers)}
+        row = rows[0]
+
+        def cell(name: str) -> float | None:
+            idx = by_name.get(name)
+            if idx is None or idx >= len(row) or row[idx] is None:
+                return None
+            try:
+                return float(row[idx])
+            except (TypeError, ValueError):
+                return None
+
+        ctr_raw = cell("impressionClickThroughRate")
+        ctr = None
+        if ctr_raw is not None:
+            ctr = ctr_raw * 100.0 if ctr_raw <= 1.0 else ctr_raw
+        return VideoPerformance(
+            video_id=video_id,
+            url=f"https://youtu.be/{video_id}",
+            views=cell("views") or 0.0,
+            watch_minutes=cell("estimatedMinutesWatched") or 0.0,
+            avg_view_percentage=cell("averageViewPercentage"),
+            ctr=ctr,
+            impressions=cell("impressions"),
+            subscribers_gained=cell("subscribersGained") or 0.0,
+        )
+    except Exception:
+        return None
+
+
 # Re-export for tests / callers
 __all__ = [
     "ChannelPerformance",
@@ -919,6 +1025,7 @@ __all__ = [
     "classify_health",
     "date_windows",
     "fetch_channel_performance",
+    "fetch_video_window_metrics",
     "_build_velocity_from_days",
     "_compute_median_views_24h",
     "_delta_pct",
