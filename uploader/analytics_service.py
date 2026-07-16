@@ -21,6 +21,7 @@ from uploader.youtube_analytics import (
     _delta_pct,
     date_windows,
     fetch_channel_performance,
+    fetch_video_window_metrics,
 )
 
 _lock = threading.Lock()
@@ -169,16 +170,44 @@ def _velocity_to_dict(v: VideoVelocity, *, channel_id: str, channel_name: str, c
     }
 
 
+def _channel_public_urls(
+    *,
+    youtube_channel_id: str = "",
+    custom_url: str = "",
+) -> tuple[str, str]:
+    """Return (channel_url, studio_url)."""
+    ytid = (youtube_channel_id or "").strip()
+    handle = (custom_url or "").strip()
+    if handle and not handle.startswith("@"):
+        handle = "@" + handle.lstrip("/")
+    channel_url = ""
+    if handle:
+        channel_url = f"https://www.youtube.com/{handle}"
+    elif ytid:
+        channel_url = f"https://www.youtube.com/channel/{ytid}"
+    studio_url = f"https://studio.youtube.com/channel/{ytid}" if ytid else "https://studio.youtube.com/"
+    return channel_url, studio_url
+
+
 def channel_to_out(perf: ChannelPerformance, *, days: int = 28) -> dict[str, Any]:
     cur = perf.current
     prior = perf.prior
     subs_net = cur.subscribers_gained - cur.subscribers_lost
     subs_net_prior = prior.subscribers_gained - prior.subscribers_lost
+    custom_url = getattr(perf, "custom_url", "") or ""
+    channel_url, studio_url = _channel_public_urls(
+        youtube_channel_id=perf.youtube_channel_id,
+        custom_url=custom_url,
+    )
     return {
         "channel_id": perf.channel_id,
         "name": perf.name,
         "category": perf.category or "",
         "youtube_channel_id": perf.youtube_channel_id,
+        "custom_url": custom_url,
+        "thumbnail_url": perf.thumbnail_url or "",
+        "channel_url": channel_url,
+        "studio_url": studio_url,
         "status": perf.status_code,
         "message": perf.message,
         "ok": perf.ok,
@@ -622,6 +651,7 @@ def _fetch_all_channels(
             name=ch.name or ch.id,
             category=ch.category or "",
             youtube_channel_id=ch.youtube_channel_id or "",
+            custom_url=ch.custom_url or "",
             days=days,
             client_secret=oauth.client_secret_path,
             client_config=oauth.client_config,
@@ -649,6 +679,7 @@ def _fetch_all_channels(
                     name=ch.name or ch.id,
                     category=ch.category or "",
                     youtube_channel_id=ch.youtube_channel_id or "",
+                    custom_url=ch.custom_url or "",
                     status_code="error",
                     message=str(exc)[:240],
                 )
@@ -827,6 +858,7 @@ def build_category_detail(
             name=ch.name or ch.id,
             category=ch.category or "",
             youtube_channel_id=ch.youtube_channel_id or "",
+            custom_url=ch.custom_url or "",
             days=days,
             client_secret=oauth.client_secret_path,
             client_config=oauth.client_config,
@@ -889,7 +921,7 @@ def build_channel_detail(
     refresh: bool = False,
 ) -> dict[str, Any]:
     days = 7 if days == 7 else 28
-    cache_key = f"channel:v2:{channel.id}:{days}"
+    cache_key = f"channel:v3:{channel.id}:{days}"
     if not refresh:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -905,6 +937,7 @@ def build_channel_detail(
         name=channel.name or channel.id,
         category=channel.category or "",
         youtube_channel_id=channel.youtube_channel_id or "",
+        custom_url=channel.custom_url or "",
         days=days,
         client_secret=oauth.client_secret_path,
         client_config=oauth.client_config,
@@ -961,6 +994,158 @@ def build_channel_detail(
         "new_uploads": all_recent[:40],
         "underperformers": _collect_underperformers([perf], limit=20),
         "cohorts": build_cohort_compare(all_recent),
+    }
+    _cache_set(cache_key, payload)
+    return payload
+
+
+def _youtube_video_to_dict(v) -> dict[str, Any]:
+    studio = f"https://studio.youtube.com/video/{v.video_id}/analytics" if v.video_id else ""
+    return {
+        "video_id": v.video_id,
+        "title": v.title,
+        "privacy_status": v.privacy_status,
+        "publish_at": v.publish_at,
+        "url": v.url,
+        "is_scheduled": v.is_scheduled,
+        "published_at": v.published_at or "",
+        "thumbnail_url": v.thumbnail_url or "",
+        "description": v.description or "",
+        "duration_seconds": v.duration_seconds,
+        "view_count": v.view_count,
+        "like_count": v.like_count,
+        "comment_count": v.comment_count,
+        "studio_url": studio,
+        "youtube_url": v.url or "",
+    }
+
+
+def _find_linked_job(channel: ChannelConfig, video_id: str, *, base) -> dict[str, Any] | None:
+    if not video_id:
+        return None
+    try:
+        from uploader.registry import UploadRegistry
+
+        reg = UploadRegistry(channel.registry_path)
+        for entry in reg.load():
+            if entry.youtube_id == video_id:
+                return {
+                    "job_id": entry.id,
+                    "title": entry.title or "",
+                    "status": entry.status or "",
+                    "youtube_id": entry.youtube_id or "",
+                }
+    except Exception:
+        pass
+    return None
+
+
+def build_video_detail(
+    config: AppConfig,
+    oauth: OAuthSettings,
+    channel: ChannelConfig,
+    video_id: str,
+    *,
+    days: int = 28,
+    base=None,
+    refresh: bool = False,
+) -> dict[str, Any] | None:
+    """Studio-style per-video analytics room for one YouTube video."""
+    from uploader.channel_list import get_channel_video
+
+    days = 7 if days == 7 else 28
+    video_id = (video_id or "").strip()
+    if not video_id:
+        return None
+    cache_key = f"video:v1:{channel.id}:{video_id}:{days}"
+    if not refresh:
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            out = dict(cached)
+            out["cached"] = True
+            return out
+
+    meta = get_channel_video(
+        channel.token_path,
+        video_id,
+        client_secret=oauth.client_secret_path,
+        client_config=oauth.client_config,
+        oauth_port=oauth.oauth_port,
+    )
+    if meta is None:
+        return None
+
+    start, end, prior_start, prior_end = date_windows(days)
+    window = fetch_video_window_metrics(
+        channel.token_path,
+        video_id,
+        youtube_channel_id=channel.youtube_channel_id or "",
+        days=days,
+        client_secret=oauth.client_secret_path,
+        client_config=oauth.client_config,
+        oauth_port=oauth.oauth_port,
+    )
+
+    # Reuse channel detail cache for velocity / median when available.
+    velocity = None
+    median_24h = None
+    channel_detail = _cache_get(f"channel:v3:{channel.id}:{days}") or _cache_get(
+        f"channel:v2:{channel.id}:{days}"
+    )
+    if channel_detail:
+        median_24h = channel_detail.get("channel", {}).get("median_views_24h")
+        for row in (channel_detail.get("new_uploads") or []) + (
+            channel_detail.get("channel", {}).get("recent_videos") or []
+        ):
+            if row.get("video_id") == video_id:
+                velocity = row
+                break
+
+    channel_url, channel_studio = _channel_public_urls(
+        youtube_channel_id=channel.youtube_channel_id or "",
+        custom_url=channel.custom_url or "",
+    )
+    video_dict = _youtube_video_to_dict(meta)
+    window_out = {
+        "video_id": video_id,
+        "title": meta.title,
+        "url": meta.url,
+        "published_at": meta.published_at or "",
+        "channel_id": channel.id,
+        "channel_name": channel.name or channel.id,
+        "category": channel.category or "",
+        "views": round(window.views, 2) if window else 0.0,
+        "watch_minutes": round(window.watch_minutes, 2) if window else 0.0,
+        "avg_view_percentage": None
+        if not window or window.avg_view_percentage is None
+        else round(window.avg_view_percentage, 2),
+        "ctr": None if not window or window.ctr is None else round(window.ctr, 2),
+        "impressions": None
+        if not window or window.impressions is None
+        else round(window.impressions, 2),
+        "subscribers_gained": round(window.subscribers_gained, 2) if window else 0.0,
+    }
+
+    payload = {
+        "days": days,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "prior_start_date": prior_start.isoformat(),
+        "prior_end_date": prior_end.isoformat(),
+        "refreshed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "cached": False,
+        "channel_id": channel.id,
+        "channel_name": channel.name or channel.id,
+        "youtube_channel_id": channel.youtube_channel_id or "",
+        "video": video_dict,
+        "window": window_out,
+        "velocity": velocity,
+        "median_views_24h": median_24h,
+        "linked_job": _find_linked_job(channel, video_id, base=base),
+        "studio_url": video_dict["studio_url"],
+        "youtube_url": meta.url or "",
+        "channel_url": channel_url,
+        "channel_studio_url": channel_studio,
     }
     _cache_set(cache_key, payload)
     return payload

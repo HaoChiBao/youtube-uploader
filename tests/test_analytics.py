@@ -161,6 +161,29 @@ def test_channel_to_out_shape():
     assert out["ctr"]["value"] == 4.5
     assert out["subs_per_day"] == round(10 / 28, 4)
     assert out["subs_per_1k_views"] == round((10 / 500) * 1000, 4)
+    assert out["studio_url"] == "https://studio.youtube.com/"
+    assert out["channel_url"] == ""
+
+
+def test_channel_to_out_urls():
+    perf = ChannelPerformance(
+        channel_id="ch1",
+        name="Test",
+        category="korean",
+        youtube_channel_id="UCabc",
+        custom_url="@coolchannel",
+        thumbnail_url="https://example.com/a.jpg",
+        ok=True,
+        source="analytics_api",
+        status_code="growing",
+        current=PeriodTotals(views=100),
+        prior=PeriodTotals(views=90),
+    )
+    out = channel_to_out(perf, days=28)
+    assert out["channel_url"] == "https://www.youtube.com/@coolchannel"
+    assert out["studio_url"] == "https://studio.youtube.com/channel/UCabc"
+    assert out["thumbnail_url"] == "https://example.com/a.jpg"
+    assert out["custom_url"] == "@coolchannel"
 
 
 def test_build_velocity_from_days_checkpoints():

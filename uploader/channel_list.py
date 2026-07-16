@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from uploader.youtube_client import get_credentials
+
+_ISO_DURATION_RE = re.compile(
+    r"^P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?$"
+)
 
 
 @dataclass
@@ -16,6 +21,13 @@ class YouTubeVideoInfo:
     privacy_status: str
     publish_at: str | None
     url: str
+    published_at: str = ""
+    thumbnail_url: str = ""
+    description: str = ""
+    duration_seconds: int | None = None
+    view_count: int | None = None
+    like_count: int | None = None
+    comment_count: int | None = None
 
     @property
     def is_scheduled(self) -> bool:
@@ -40,6 +52,33 @@ def parse_youtube_datetime(value: str) -> datetime:
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     return datetime.fromisoformat(text)
+
+
+def parse_iso8601_duration(value: str) -> int | None:
+    """Parse YouTube contentDetails.duration (e.g. PT1H2M3S) to seconds."""
+    if not value:
+        return None
+    match = _ISO_DURATION_RE.match(value.strip())
+    if not match:
+        return None
+    days = int(match.group("days") or 0)
+    hours = int(match.group("hours") or 0)
+    minutes = int(match.group("minutes") or 0)
+    seconds = int(match.group("seconds") or 0)
+    return days * 86400 + hours * 3600 + minutes * 60 + seconds
+
+
+def thumbnail_url_for_video(video_id: str, snippet_thumbs: dict | None = None) -> str:
+    """Best available thumbnail URL for a video."""
+    if snippet_thumbs:
+        for key in ("medium", "high", "standard", "maxres", "default"):
+            entry = snippet_thumbs.get(key) or {}
+            url = entry.get("url") or ""
+            if url:
+                return url
+    if video_id:
+        return f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+    return ""
 
 
 def fetch_scheduled_publish_datetimes(
@@ -130,6 +169,38 @@ def _iter_upload_video_ids(youtube, playlist_id: str) -> list[str]:
     return ids
 
 
+def _int_or_none(value: object) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _video_info_from_item(item: dict) -> YouTubeVideoInfo:
+    video_id = item.get("id", "") or ""
+    snippet = item.get("snippet") or {}
+    status = item.get("status") or {}
+    details = item.get("contentDetails") or {}
+    stats = item.get("statistics") or {}
+    publish_at = status.get("publishAt") or None
+    return YouTubeVideoInfo(
+        video_id=video_id,
+        title=snippet.get("title") or video_id,
+        privacy_status=status.get("privacyStatus") or "",
+        publish_at=publish_at,
+        url=f"https://youtu.be/{video_id}" if video_id else "",
+        published_at=snippet.get("publishedAt") or "",
+        thumbnail_url=thumbnail_url_for_video(video_id, snippet.get("thumbnails")),
+        description=(snippet.get("description") or "")[:500],
+        duration_seconds=parse_iso8601_duration(details.get("duration") or ""),
+        view_count=_int_or_none(stats.get("viewCount")),
+        like_count=_int_or_none(stats.get("likeCount")),
+        comment_count=_int_or_none(stats.get("commentCount")),
+    )
+
+
 def list_channel_videos(
     token_path: str | Path,
     *,
@@ -153,28 +224,48 @@ def list_channel_videos(
         batch = video_ids[offset : offset + 50]
         response = (
             youtube.videos()
-            .list(part="snippet,status", id=",".join(batch))
+            .list(part="snippet,status,contentDetails,statistics", id=",".join(batch))
             .execute()
         )
         for item in response.get("items") or []:
-            video_id = item.get("id", "")
-            snippet = item.get("snippet") or {}
-            status = item.get("status") or {}
-            publish_at = status.get("publishAt") or None
-            videos.append(
-                YouTubeVideoInfo(
-                    video_id=video_id,
-                    title=snippet.get("title") or video_id,
-                    privacy_status=status.get("privacyStatus") or "",
-                    publish_at=publish_at,
-                    url=f"https://youtu.be/{video_id}" if video_id else "",
-                )
-            )
+            videos.append(_video_info_from_item(item))
 
     if scheduled_only:
         videos = [v for v in videos if v.is_scheduled]
         videos.sort(key=lambda v: _parse_api_datetime(v.publish_at or ""))
     else:
-        videos.sort(key=lambda v: v.title.casefold())
+        # Newest first for Studio-like browsing (published_at, then scheduled publish_at).
+        def sort_key(v: YouTubeVideoInfo) -> str:
+            return v.published_at or v.publish_at or ""
+
+        videos.sort(key=sort_key, reverse=True)
 
     return videos
+
+
+def get_channel_video(
+    token_path: str | Path,
+    video_id: str,
+    *,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
+    oauth_port: int = 8080,
+) -> YouTubeVideoInfo | None:
+    """Fetch a single video owned by the authorized channel."""
+    if not video_id:
+        return None
+    youtube = _build_youtube(
+        token_path,
+        client_secret=client_secret,
+        client_config=client_config,
+        oauth_port=oauth_port,
+    )
+    response = (
+        youtube.videos()
+        .list(part="snippet,status,contentDetails,statistics", id=video_id)
+        .execute()
+    )
+    items = response.get("items") or []
+    if not items:
+        return None
+    return _video_info_from_item(items[0])

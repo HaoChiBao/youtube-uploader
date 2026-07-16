@@ -94,6 +94,7 @@ from api.schemas import (
     TokenStatus,
     YouTubeVideoOut,
     ScheduledVideosResponse,
+    VideoAnalyticsResponse,
 )
 from uploader import __version__
 from uploader.channel_store import patch_channel_config, remove_channel_from_config
@@ -142,6 +143,28 @@ from uploader.job_views import list_active_uploads
 from uploader.upload_reconcile import _looks_complete, dismiss_stuck_upload, reconcile_uploads
 from uploader.state_store import ensure_bucket_structure
 from uploader.worker_dispatch import dispatch_parallel_uploads
+from uploader.channel_list import YouTubeVideoInfo, list_channel_videos
+
+
+def _youtube_video_out(v: YouTubeVideoInfo) -> YouTubeVideoOut:
+    studio = f"https://studio.youtube.com/video/{v.video_id}/analytics" if v.video_id else ""
+    return YouTubeVideoOut(
+        video_id=v.video_id,
+        title=v.title,
+        privacy_status=v.privacy_status,
+        publish_at=v.publish_at,
+        url=v.url,
+        is_scheduled=v.is_scheduled,
+        published_at=v.published_at or "",
+        thumbnail_url=v.thumbnail_url or "",
+        description=v.description or "",
+        duration_seconds=v.duration_seconds,
+        view_count=v.view_count,
+        like_count=v.like_count,
+        comment_count=v.comment_count,
+        studio_url=studio,
+        youtube_url=v.url or "",
+    )
 
 
 def _apply_upload_at_schedule(
@@ -1407,17 +1430,7 @@ def create_app() -> FastAPI:
             channel_id=ch.id,
             count=len(videos),
             tail_publish_at=tail,
-            videos=[
-                YouTubeVideoOut(
-                    video_id=v.video_id,
-                    title=v.title,
-                    privacy_status=v.privacy_status,
-                    publish_at=v.publish_at,
-                    url=v.url,
-                    is_scheduled=v.is_scheduled,
-                )
-                for v in videos
-            ],
+            videos=[_youtube_video_out(v) for v in videos],
         )
 
     @app.get("/v1/channels/{channel_ref}/youtube/videos", response_model=list[YouTubeVideoOut])
@@ -1439,17 +1452,7 @@ def create_app() -> FastAPI:
             scheduled_only=scheduled_only,
             oauth_port=oauth.oauth_port,
         )
-        return [
-            YouTubeVideoOut(
-                video_id=v.video_id,
-                title=v.title,
-                privacy_status=v.privacy_status,
-                publish_at=v.publish_at,
-                url=v.url,
-                is_scheduled=v.is_scheduled,
-            )
-            for v in videos
-        ]
+        return [_youtube_video_out(v) for v in videos]
 
     def _oauth_start(mode: str, channel_id: str = "", category: str = "") -> OAuthStartResponse:
         if not oauth_configured():
@@ -1610,6 +1613,42 @@ def create_app() -> FastAPI:
             refresh=refresh,
         )
         return ChannelAnalyticsResponse.model_validate(data)
+
+    @app.get(
+        "/v1/analytics/channels/{channel_ref}/videos/{video_id}",
+        response_model=VideoAnalyticsResponse,
+        tags=["analytics"],
+        summary="Per-video analytics detail",
+    )
+    def analytics_video(
+        channel_ref: str,
+        video_id: str,
+        days: int = Query(default=28),
+        refresh: bool = Query(default=False),
+    ):
+        if days not in (7, 28):
+            raise HTTPException(400, "days must be 7 or 28")
+        try:
+            ch = resolve_channel_ref(channel_ref)
+        except KeyError as e:
+            raise HTTPException(404, str(e)) from e
+        oauth = get_oauth_settings()
+        if not _token_status(ch).valid:
+            raise HTTPException(400, "Channel not authenticated")
+        from uploader.analytics_service import build_video_detail
+
+        data = build_video_detail(
+            get_app_config(),
+            oauth,
+            ch,
+            video_id,
+            days=days,
+            base=get_storage_base(),
+            refresh=refresh,
+        )
+        if data is None:
+            raise HTTPException(404, f"Video {video_id!r} not found on this channel")
+        return VideoAnalyticsResponse.model_validate(data)
 
     @app.post("/v1/storage/init")
     def storage_init():
