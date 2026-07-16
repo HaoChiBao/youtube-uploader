@@ -1005,6 +1005,113 @@ def test_dashboard_includes_analytics_nav(client) -> None:
     assert 'data-nav-tab="analytics"' in html
     assert "id=\"analytics-section\"" in html or "id='analytics-section'" in html
     assert "/v1/analytics" in html
+    assert "analytics-ch-video-grid" in html
+    assert "analytics-view-video" in html
+    assert "yt-preview-modal" in html
+
+
+def test_youtube_videos_enriched(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    from uploader.channel_list import YouTubeVideoInfo
+    from api.schemas import TokenStatus
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda *a, **k: TokenStatus(valid=True, has_token=True, status="ok"),
+    )
+    monkeypatch.setattr(
+        "api.app.list_channel_videos",
+        lambda *a, **k: [
+            YouTubeVideoInfo(
+                video_id="abc",
+                title="Hello",
+                privacy_status="public",
+                publish_at=None,
+                url="https://youtu.be/abc",
+                published_at="2026-07-01T00:00:00Z",
+                thumbnail_url="https://i.ytimg.com/vi/abc/hqdefault.jpg",
+                description="desc",
+                duration_seconds=125,
+                view_count=1000,
+                like_count=10,
+                comment_count=2,
+            )
+        ],
+    )
+    r = client.get("/v1/channels/testchan/youtube/videos")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body) == 1
+    assert body[0]["thumbnail_url"].endswith("hqdefault.jpg")
+    assert body[0]["duration_seconds"] == 125
+    assert body[0]["studio_url"].endswith("/video/abc/analytics")
+
+
+def test_analytics_video_detail(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    from api.schemas import TokenStatus
+
+    monkeypatch.setattr(
+        "api.app.get_token_status",
+        lambda *a, **k: TokenStatus(valid=True, has_token=True, status="ok"),
+    )
+    monkeypatch.setattr(
+        "uploader.analytics_service.build_video_detail",
+        lambda *a, **k: {
+            "days": 28,
+            "start_date": "2026-06-17",
+            "end_date": "2026-07-14",
+            "prior_start_date": "2026-05-20",
+            "prior_end_date": "2026-06-16",
+            "refreshed_at": "2026-07-15T00:00:00Z",
+            "cached": False,
+            "channel_id": "testchan",
+            "channel_name": "Test Channel",
+            "youtube_channel_id": "UCtest",
+            "video": {
+                "video_id": "abc",
+                "title": "Hello",
+                "privacy_status": "public",
+                "publish_at": None,
+                "url": "https://youtu.be/abc",
+                "is_scheduled": False,
+                "published_at": "2026-07-01T00:00:00Z",
+                "thumbnail_url": "https://i.ytimg.com/vi/abc/hqdefault.jpg",
+                "description": "desc",
+                "duration_seconds": 125,
+                "view_count": 1000,
+                "like_count": 10,
+                "comment_count": 2,
+                "studio_url": "https://studio.youtube.com/video/abc/analytics",
+                "youtube_url": "https://youtu.be/abc",
+            },
+            "window": {
+                "video_id": "abc",
+                "title": "Hello",
+                "url": "https://youtu.be/abc",
+                "published_at": "2026-07-01T00:00:00Z",
+                "channel_id": "testchan",
+                "channel_name": "Test Channel",
+                "category": "korean",
+                "views": 200.0,
+                "watch_minutes": 30.0,
+                "avg_view_percentage": 40.0,
+                "ctr": 5.0,
+                "impressions": 4000.0,
+                "subscribers_gained": 3.0,
+            },
+            "velocity": None,
+            "median_views_24h": 50.0,
+            "linked_job": None,
+            "studio_url": "https://studio.youtube.com/video/abc/analytics",
+            "youtube_url": "https://youtu.be/abc",
+            "channel_url": "https://www.youtube.com/channel/UCtest",
+            "channel_studio_url": "https://studio.youtube.com/channel/UCtest",
+        },
+    )
+    r = client.get("/v1/analytics/channels/testchan/videos/abc?days=28")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["video"]["video_id"] == "abc"
+    assert body["window"]["views"] == 200.0
 
 
 def test_capabilities_lists_analytics(client) -> None:

@@ -343,12 +343,32 @@ class YouTubeVideoOut(BaseModel):
     publish_at: str | None = None
     url: str
     is_scheduled: bool = False
+    published_at: str = ""
+    thumbnail_url: str = ""
+    description: str = ""
+    duration_seconds: int | None = None
+    view_count: int | None = None
+    like_count: int | None = None
+    comment_count: int | None = None
+    # Window analytics when joined from Analytics (optional)
+    analytics_views: float | None = None
+    analytics_watch_minutes: float | None = None
+    analytics_ctr: float | None = None
+    analytics_avg_view_percentage: float | None = None
+    studio_url: str = ""
+    youtube_url: str = ""
 
 
 class ScheduledVideosResponse(BaseModel):
     channel_id: str
     count: int = 0
     tail_publish_at: str | None = None
+    videos: list[YouTubeVideoOut] = Field(default_factory=list)
+
+
+class ChannelVideosResponse(BaseModel):
+    channel_id: str
+    count: int = 0
     videos: list[YouTubeVideoOut] = Field(default_factory=list)
 
 
@@ -483,6 +503,10 @@ class ChannelAnalyticsOut(BaseModel):
     name: str
     category: str = ""
     youtube_channel_id: str = ""
+    custom_url: str = ""
+    thumbnail_url: str = ""
+    channel_url: str = ""
+    studio_url: str = ""
     status: str = "needs_data"
     message: str = ""
     ok: bool = False
@@ -603,3 +627,32 @@ class ChannelAnalyticsResponse(BaseModel):
     new_uploads: list[VideoVelocityOut] = Field(default_factory=list)
     underperformers: list[VideoVelocityOut] = Field(default_factory=list)
     cohorts: CohortCompareOut = Field(default_factory=CohortCompareOut)
+
+
+class LinkedJobOut(BaseModel):
+    job_id: str
+    title: str = ""
+    status: str = ""
+    youtube_id: str = ""
+
+
+class VideoAnalyticsResponse(BaseModel):
+    days: int
+    start_date: str
+    end_date: str
+    prior_start_date: str
+    prior_end_date: str
+    refreshed_at: str
+    cached: bool = False
+    channel_id: str
+    channel_name: str = ""
+    youtube_channel_id: str = ""
+    video: YouTubeVideoOut
+    window: AnalyticsVideoOut
+    velocity: VideoVelocityOut | None = None
+    median_views_24h: float | None = None
+    linked_job: LinkedJobOut | None = None
+    studio_url: str = ""
+    youtube_url: str = ""
+    channel_url: str = ""
+    channel_studio_url: str = ""

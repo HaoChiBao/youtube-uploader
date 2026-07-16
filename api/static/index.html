@@ -1062,6 +1062,237 @@
       text-decoration: underline;
       text-underline-offset: 2px;
     }
+
+    /* Studio channel browser */
+    .ch-home-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px 20px;
+      padding: 16px 18px;
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+    }
+    .ch-home-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--color-stone-mist);
+      flex-shrink: 0;
+    }
+    .ch-home-avatar--empty {
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      color: var(--color-smoke);
+      font-size: 22px;
+    }
+    .ch-home-meta { flex: 1; min-width: 12rem; }
+    .ch-home-meta h3 {
+      margin: 0 0 4px;
+      font-size: 1.15rem;
+      font-weight: 650;
+    }
+    .ch-home-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--color-smoke);
+    }
+    .ch-home-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .ch-subnav {
+      display: flex;
+      gap: 6px;
+      margin: 4px 0 8px;
+    }
+    .ch-subnav .filter-chip { cursor: pointer; }
+    .video-grid-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .video-grid-toolbar input[type="search"],
+    .video-grid-toolbar select {
+      font: inherit;
+      font-size: 13px;
+      padding: 6px 10px;
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      background: var(--color-white);
+      color: var(--color-midnight-ink);
+    }
+    .video-grid-toolbar input[type="search"] { min-width: 12rem; flex: 1; }
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .video-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--color-white);
+      border: 1px solid var(--color-stone-mist);
+      border-radius: var(--radius-nav);
+      overflow: hidden;
+      text-align: left;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .video-card:hover {
+      border-color: color-mix(in srgb, var(--color-teal-pulse) 45%, var(--color-stone-mist));
+      box-shadow: 0 2px 10px color-mix(in srgb, var(--color-midnight-ink) 6%, transparent);
+    }
+    .video-card__thumb-wrap {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #111;
+      overflow: hidden;
+    }
+    .video-card__thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .video-card__duration {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      background: rgba(0,0,0,0.78);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .video-card__privacy {
+      position: absolute;
+      left: 6px;
+      top: 6px;
+      background: rgba(0,0,0,0.72);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .video-card__body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 4px; }
+    .video-card__title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .video-card__meta {
+      font-size: 12px;
+      color: var(--color-smoke);
+    }
+    .video-card__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 0 10px 10px;
+    }
+    .video-card__actions .btn-text,
+    .video-card__actions .btn-ghost {
+      font-size: 11px;
+      padding: 2px 6px;
+    }
+    .yt-preview-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(20, 24, 32, 0.55);
+    }
+    .yt-preview-modal[hidden] { display: none; }
+    .yt-preview-dialog {
+      width: min(920px, 100%);
+      background: var(--color-cream-paper);
+      border-radius: var(--radius-nav);
+      border: 1px solid var(--color-stone-mist);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: min(90vh, 800px);
+      overflow: auto;
+    }
+    .yt-preview-dialog iframe {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 0;
+      border-radius: 6px;
+      background: #000;
+    }
+    .yt-preview-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .yt-preview-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 650;
+    }
+    .video-detail-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 720px) {
+      .video-detail-hero { grid-template-columns: 1fr; }
+    }
+    .video-detail-thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: var(--radius-nav);
+      background: #111;
+      cursor: pointer;
+    }
+    .video-detail-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .engagement-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      font-size: 13px;
+      color: var(--color-smoke);
+      margin-top: 10px;
+    }
+    .engagement-strip strong { color: var(--color-midnight-ink); font-weight: 600; }
+    /* STUDIO_VIDEO_GRID */
+
     .analytics-stack {
       display: flex;
       flex-direction: column;
@@ -2103,65 +2334,141 @@
 
         <!-- Channel detail -->
         <div class="analytics-view analytics-stack" id="analytics-view-channel" data-analytics-view="channel" hidden>
-          <div class="analytics-block">
-            <div class="pulse-grid pulse-grid--7" id="analytics-ch-pulse"></div>
-            <p class="muted analytics-peer-note" id="analytics-ch-peer"></p>
+          <div class="ch-home-header" id="analytics-ch-header"></div>
+          <div class="ch-subnav" role="tablist" aria-label="Channel sections">
+            <button type="button" class="filter-chip is-active" data-ch-pane="overview">Overview</button>
+            <button type="button" class="filter-chip" data-ch-pane="videos">Videos</button>
           </div>
-          <div class="analytics-block">
-            <h3>Growth</h3>
-            <div class="growth-chart-wrap">
-              <div class="growth-chart-head">
-                <div class="analytics-range" role="group" aria-label="Channel growth curve range">
-                  <button type="button" class="filter-chip is-active" data-ch-growth-curve="d28">28 days</button>
-                  <button type="button" class="filter-chip" data-ch-growth-curve="d90">90 days</button>
+          <div class="analytics-stack" data-ch-pane-panel="overview">
+            <div class="analytics-block">
+              <div class="pulse-grid pulse-grid--7" id="analytics-ch-pulse"></div>
+              <p class="muted analytics-peer-note" id="analytics-ch-peer"></p>
+              <div class="engagement-strip" id="analytics-ch-engagement"></div>
+            </div>
+            <div class="analytics-block">
+              <h3>Growth</h3>
+              <div class="growth-chart-wrap">
+                <div class="growth-chart-head">
+                  <div class="analytics-range" role="group" aria-label="Channel growth curve range">
+                    <button type="button" class="filter-chip is-active" data-ch-growth-curve="d28">28 days</button>
+                    <button type="button" class="filter-chip" data-ch-growth-curve="d90">90 days</button>
+                  </div>
+                </div>
+                <div id="analytics-ch-growth-chart"></div>
+              </div>
+            </div>
+            <div class="analytics-block">
+              <h3>New uploads on this channel</h3>
+              <div class="panel panel--flush">
+                <div class="table-wrap">
+                  <table class="table-data">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Age</th>
+                        <th>24h</th>
+                        <th>72h</th>
+                        <th>7d</th>
+                        <th>vs median</th>
+                        <th>So far</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analytics-ch-new-uploads"></tbody>
+                  </table>
                 </div>
               </div>
-              <div id="analytics-ch-growth-chart"></div>
             </div>
-          </div>
-          <div class="analytics-block">
-            <h3>New uploads on this channel</h3>
-            <div class="panel panel--flush">
-              <div class="table-wrap">
-                <table class="table-data">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Age</th>
-                      <th>24h</th>
-                      <th>72h</th>
-                      <th>7d</th>
-                      <th>vs median</th>
-                      <th>So far</th>
-                    </tr>
-                  </thead>
-                  <tbody id="analytics-ch-new-uploads"></tbody>
-                </table>
+            <div class="analytics-block">
+              <h3>Underperformers</h3>
+              <p class="block-desc">Recent uploads trailing channel median early velocity</p>
+              <div class="panel panel--flush">
+                <div class="table-wrap">
+                  <table class="table-data">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Age</th>
+                        <th>24h</th>
+                        <th>72h</th>
+                        <th>7d</th>
+                        <th>vs median</th>
+                        <th>So far</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analytics-ch-underperformers"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="analytics-block">
+              <h3>Cohort compare</h3>
+              <div id="analytics-ch-cohorts"></div>
+            </div>
+            <div class="analytics-block">
+              <h3>Recent top videos</h3>
+              <div class="panel panel--flush">
+                <div class="table-wrap">
+                  <table class="table-data">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Title</th>
+                        <th>Views</th>
+                        <th>CTR</th>
+                        <th>Avg %</th>
+                        <th>Watch</th>
+                        <th>Published</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analytics-ch-videos"></tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
-          <div class="analytics-block">
-            <h3>Recent top videos</h3>
-            <div class="panel panel--flush">
-              <div class="table-wrap">
-                <table class="table-data">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Views</th>
-                      <th>CTR</th>
-                      <th>Avg %</th>
-                      <th>Watch</th>
-                      <th>Published</th>
-                    </tr>
-                  </thead>
-                  <tbody id="analytics-ch-videos"></tbody>
-                </table>
+          <div class="analytics-stack" data-ch-pane-panel="videos" hidden>
+            <div class="analytics-block">
+              <h3>Channel videos</h3>
+              <p class="block-desc">Live catalog from YouTube — preview, stats, and Studio links</p>
+              <div class="video-grid-toolbar">
+                <input type="search" id="ch-video-search" placeholder="Search titles…" autocomplete="off" />
+                <select id="ch-video-privacy" aria-label="Privacy filter">
+                  <option value="">All privacy</option>
+                  <option value="public">Public</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="private">Private</option>
+                  <option value="scheduled">Scheduled</option>
+                </select>
+                <select id="ch-video-sort" aria-label="Sort videos">
+                  <option value="newest">Newest</option>
+                  <option value="views">Most views</option>
+                  <option value="title">Title A–Z</option>
+                </select>
+                <span class="muted" id="ch-video-count"></span>
+              </div>
+              <div class="video-grid" id="analytics-ch-video-grid">
+                <div class="empty-state">Open a channel to load videos</div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+
+        <!-- Per-video analytics room -->
+        <div class="analytics-view analytics-stack" id="analytics-view-video" data-analytics-view="video" hidden>
+          <div class="video-detail-hero" id="analytics-video-hero"></div>
+          <div class="analytics-block">
+            <h3>Window performance</h3>
+            <div class="pulse-grid pulse-grid--7" id="analytics-video-pulse"></div>
+          </div>
+          <div class="analytics-block">
+            <h3>Early velocity</h3>
+            <div id="analytics-video-velocity"></div>
+          </div>
+          <div class="analytics-block" id="analytics-video-linked-wrap" hidden>
+            <h3>Linked upload job</h3>
+            <p id="analytics-video-linked"></p>
+          </div>
+        </div>
 
       <section class="section tab-panel" id="settings-section" data-tab="settings" hidden>
         <div class="section-header">
@@ -2891,8 +3198,13 @@
       view: 'overview',
       category: '',
       channelId: '',
+      videoId: '',
       overview: null,
       channelDetail: null,
+      channelVideos: null,
+      videoDetail: null,
+      chPane: 'overview',
+      videoFilter: { q: '', privacy: '', sort: 'newest' },
       growthCurveKey: 'd28',
       channelGrowthCurveKey: 'd28',
       loading: false,
@@ -3059,10 +3371,14 @@
           + esc(o.empty || 'No recent uploads with Analytics yet') + '</div></td></tr>';
       }
       return rows.map(v => {
-        const title = '<a href="' + esc(v.url || ('https://youtu.be/' + v.video_id)) + '" target="_blank" rel="noopener">'
-          + esc(v.title || v.video_id) + '</a>'
+        const titleLink = (v.channel_id && v.video_id)
+          ? '<button type="button" class="row-link" data-open-video="' + esc(v.channel_id) + '" data-video-id="' + esc(v.video_id) + '">'
+            + esc(v.title || v.video_id) + '</button>'
+          : '<a href="' + esc(v.url || ('https://youtu.be/' + v.video_id)) + '" target="_blank" rel="noopener">'
+            + esc(v.title || v.video_id) + '</a>';
+        const title = titleLink
           + (v.is_underperformer ? ' <span class="badge badge-warn">Under</span>' : '');
-        let cells = '<td>' + title + '</td>';
+        let cells = o.hideTitle ? '' : ('<td>' + title + '</td>');
         if (!o.hideChannel) {
           cells += '<td><button type="button" class="row-link" data-open-channel="' + esc(v.channel_id || '') + '">'
             + esc(v.channel_name || v.channel_id || '—') + '</button></td>';
@@ -3318,13 +3634,187 @@
       document.getElementById('analytics-banner').hidden = true;
     }
 
+
+    function fmtDuration(sec) {
+      if (sec == null || Number.isNaN(Number(sec))) return '';
+      const s = Math.max(0, Math.floor(Number(sec)));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = s % 60;
+      if (h) return h + ':' + String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+      return m + ':' + String(r).padStart(2, '0');
+    }
+
+    function syncChannelPaneUi() {
+      const pane = analyticsState.chPane === 'videos' ? 'videos' : 'overview';
+      document.querySelectorAll('[data-ch-pane]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.chPane === pane);
+      });
+      document.querySelectorAll('[data-ch-pane-panel]').forEach(el => {
+        el.hidden = el.dataset.chPanePanel !== pane;
+      });
+    }
+
+    function setChannelPane(pane) {
+      analyticsState.chPane = pane === 'videos' ? 'videos' : 'overview';
+      syncChannelPaneUi();
+      if (analyticsState.chPane === 'videos' && analyticsState.channelId) {
+        loadChannelVideos(analyticsState.channelId);
+      }
+    }
+
+    function renderChannelStudioHeader(ch) {
+      const el = document.getElementById('analytics-ch-header');
+      if (!el) return;
+      const initial = (ch.name || ch.channel_id || '?').slice(0, 1).toUpperCase();
+      const avatar = ch.thumbnail_url
+        ? '<img class="ch-home-avatar" src="' + esc(ch.thumbnail_url) + '" alt="" />'
+        : '<div class="ch-home-avatar ch-home-avatar--empty" aria-hidden="true">' + esc(initial) + '</div>';
+      const subs = ch.subscriber_count != null ? fmtCompact(ch.subscriber_count) + ' subscribers' : '';
+      const vids = ch.video_count != null ? fmtCompact(ch.video_count) + ' videos' : '';
+      const stats = [subs, vids].filter(Boolean).join(' · ');
+      const links = [];
+      if (ch.channel_url) {
+        links.push('<a class="btn-ghost btn-ghost--compact" href="' + esc(ch.channel_url) + '" target="_blank" rel="noopener">YouTube</a>');
+      }
+      if (ch.studio_url) {
+        links.push('<a class="btn-voltage btn-voltage--compact" href="' + esc(ch.studio_url) + '" target="_blank" rel="noopener">Studio</a>');
+      }
+      links.push('<button type="button" class="btn-ghost btn-ghost--compact" data-ch-pane="videos">Browse videos</button>');
+      el.innerHTML = avatar
+        + '<div class="ch-home-meta">'
+        + '<h3>' + esc(ch.name || ch.channel_id || 'Channel') + '</h3>'
+        + '<div>' + (ch.category ? esc(ch.category) + ' · ' : '') + healthBadge(ch.status) + '</div>'
+        + (stats ? '<div class="ch-home-stats">' + esc(stats) + '</div>' : '')
+        + (ch.message ? '<div class="muted" style="margin-top:6px">' + esc(ch.message) + '</div>' : '')
+        + '</div>'
+        + '<div class="ch-home-actions">' + links.join('') + '</div>';
+    }
+
+    function openYtPreview(video) {
+      const modal = document.getElementById('yt-preview-modal');
+      const title = document.getElementById('yt-preview-title');
+      const player = document.getElementById('yt-preview-player');
+      const actions = document.getElementById('yt-preview-actions');
+      if (!modal || !player) return;
+      title.textContent = video.title || video.video_id || 'Preview';
+      const canEmbed = (video.privacy_status || '') === 'public' || (video.privacy_status || '') === 'unlisted';
+      if (canEmbed && video.video_id) {
+        player.innerHTML = '<iframe src="https://www.youtube.com/embed/' + encodeURIComponent(video.video_id)
+          + '?rel=0" title="YouTube preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+      } else {
+        const thumb = video.thumbnail_url || ('https://i.ytimg.com/vi/' + video.video_id + '/hqdefault.jpg');
+        player.innerHTML = '<img src="' + esc(thumb) + '" alt="" style="width:100%;border-radius:6px;display:block" />'
+          + '<p class="muted">Private/scheduled videos cannot embed here — open on YouTube or Studio.</p>';
+      }
+      const bits = [];
+      if (video.url || video.youtube_url) {
+        bits.push('<a class="btn-ghost btn-ghost--compact" href="' + esc(video.url || video.youtube_url) + '" target="_blank" rel="noopener">Open on YouTube</a>');
+      }
+      if (video.studio_url) {
+        bits.push('<a class="btn-voltage btn-voltage--compact" href="' + esc(video.studio_url) + '" target="_blank" rel="noopener">Open in Studio</a>');
+      }
+      if (video.video_id && analyticsState.channelId) {
+        bits.push('<button type="button" class="btn-ghost btn-ghost--compact" data-open-video="'
+          + esc(analyticsState.channelId) + '" data-video-id="' + esc(video.video_id) + '">View stats</button>');
+      }
+      actions.innerHTML = bits.join('');
+      modal.hidden = false;
+    }
+
+    function closeYtPreview() {
+      const modal = document.getElementById('yt-preview-modal');
+      const player = document.getElementById('yt-preview-player');
+      if (player) player.innerHTML = '';
+      if (modal) modal.hidden = true;
+    }
+
+    function filteredChannelVideos() {
+      let rows = (analyticsState.channelVideos || []).slice();
+      const f = analyticsState.videoFilter || {};
+      const q = (f.q || '').trim().toLowerCase();
+      if (q) rows = rows.filter(v => (v.title || '').toLowerCase().includes(q));
+      if (f.privacy === 'scheduled') rows = rows.filter(v => v.is_scheduled);
+      else if (f.privacy) rows = rows.filter(v => (v.privacy_status || '') === f.privacy);
+      if (f.sort === 'views') {
+        rows.sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
+      } else if (f.sort === 'title') {
+        rows.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+      } else {
+        rows.sort((a, b) => (b.published_at || b.publish_at || '').localeCompare(a.published_at || a.publish_at || ''));
+      }
+      return rows;
+    }
+
+    function renderChannelVideoGrid() {
+      const grid = document.getElementById('analytics-ch-video-grid');
+      const countEl = document.getElementById('ch-video-count');
+      if (!grid) return;
+      const rows = filteredChannelVideos();
+      if (countEl) countEl.textContent = rows.length + ' video' + (rows.length === 1 ? '' : 's');
+      if (!analyticsState.channelVideos) {
+        grid.innerHTML = '<div class="empty-state">Loading videos…</div>';
+        return;
+      }
+      if (!rows.length) {
+        grid.innerHTML = '<div class="empty-state">No videos match these filters</div>';
+        return;
+      }
+      const channelId = analyticsState.channelId;
+      grid.innerHTML = rows.map(v => {
+        const thumb = v.thumbnail_url || ('https://i.ytimg.com/vi/' + v.video_id + '/hqdefault.jpg');
+        const privacy = v.is_scheduled ? 'scheduled' : (v.privacy_status || '');
+        const dur = fmtDuration(v.duration_seconds);
+        const views = v.view_count != null ? fmtCompact(v.view_count) + ' views' : '';
+        const when = (v.published_at || v.publish_at || '').slice(0, 10);
+        return '<article class="video-card" data-video-card="' + esc(v.video_id) + '">'
+          + '<div class="video-card__thumb-wrap">'
+          + '<img class="video-card__thumb" src="' + esc(thumb) + '" alt="" loading="lazy" />'
+          + (privacy ? '<span class="video-card__privacy">' + esc(privacy) + '</span>' : '')
+          + (dur ? '<span class="video-card__duration">' + esc(dur) + '</span>' : '')
+          + '</div>'
+          + '<div class="video-card__body">'
+          + '<div class="video-card__title">' + esc(v.title || v.video_id) + '</div>'
+          + '<div class="video-card__meta">' + esc([views, when].filter(Boolean).join(' · ') || '—') + '</div>'
+          + '</div>'
+          + '<div class="video-card__actions">'
+          + '<button type="button" class="btn-text" data-preview-video="' + esc(v.video_id) + '">Preview</button>'
+          + '<button type="button" class="btn-text" data-open-video="' + esc(channelId) + '" data-video-id="' + esc(v.video_id) + '">Stats</button>'
+          + '<a class="btn-text" href="' + esc(v.url || ('https://youtu.be/' + v.video_id)) + '" target="_blank" rel="noopener">YouTube</a>'
+          + (v.studio_url ? '<a class="btn-text" href="' + esc(v.studio_url) + '" target="_blank" rel="noopener">Studio</a>' : '')
+          + '</div></article>';
+      }).join('');
+    }
+
+    async function loadChannelVideos(channelId, opts) {
+      const force = !!(opts && opts.refresh);
+      if (!channelId) return;
+      if (!force && analyticsState.channelVideos && analyticsState.channelId === channelId) {
+        renderChannelVideoGrid();
+        return;
+      }
+      const grid = document.getElementById('analytics-ch-video-grid');
+      if (grid) grid.innerHTML = '<div class="empty-state">Loading YouTube catalog…</div>';
+      try {
+        const data = await api('/v1/channels/' + encodeURIComponent(channelId) + '/youtube/videos');
+        analyticsState.channelVideos = Array.isArray(data) ? data : (data.videos || []);
+        renderChannelVideoGrid();
+      } catch (err) {
+        if (grid) grid.innerHTML = '<div class="empty-state">' + esc(err.message || String(err)) + '</div>';
+      }
+    }
+
     function renderChannelDetail(data) {
       analyticsState.channelDetail = data;
       const ch = data.channel || {};
       document.getElementById('analytics-title').textContent = ch.name || ch.channel_id || 'Channel';
       document.getElementById('analytics-desc').innerHTML =
         (ch.category ? esc(ch.category) + ' · ' : '') + healthBadge(ch.status)
-        + (ch.message ? ' <span class="muted">— ' + esc(ch.message) + '</span>' : '');
+        + (ch.subscriber_count != null ? ' · ' + fmtCompact(ch.subscriber_count) + ' subs' : '')
+        + (ch.video_count != null ? ' · ' + fmtCompact(ch.video_count) + ' videos' : '');
+
+      renderChannelStudioHeader(ch);
+      syncChannelPaneUi();
 
       document.getElementById('analytics-ch-pulse').innerHTML = pulseCardsHtml({
         views: ch.views,
@@ -3335,6 +3825,16 @@
         subs_per_day: ch.subs_per_day,
         subs_per_1k_views: ch.subs_per_1k_views,
       });
+
+      const eng = document.getElementById('analytics-ch-engagement');
+      if (eng) {
+        const parts = [];
+        if (ch.likes != null) parts.push('<span>Likes <strong>' + esc(fmtCompact(ch.likes)) + '</strong></span>');
+        if (ch.comments != null) parts.push('<span>Comments <strong>' + esc(fmtCompact(ch.comments)) + '</strong></span>');
+        if (ch.shares != null) parts.push('<span>Shares <strong>' + esc(fmtCompact(ch.shares)) + '</strong></span>');
+        if (ch.impressions != null) parts.push('<span>Impressions <strong>' + esc(fmtCompact(ch.impressions)) + '</strong></span>');
+        eng.innerHTML = parts.join('') || '';
+      }
 
       const curves = data.growth_curves || {};
       const gkey = analyticsState.channelGrowthCurveKey === 'd90' ? 'd90' : 'd28';
@@ -3351,6 +3851,18 @@
           hideChannel: true,
         });
       }
+      const chUnd = document.getElementById('analytics-ch-underperformers');
+      if (chUnd) {
+        chUnd.innerHTML = velocityRowsHtml(data.underperformers || [], {
+          empty: 'No underperformers on this channel',
+          cols: 7,
+          hideChannel: true,
+        });
+      }
+      const chCohort = document.getElementById('analytics-ch-cohorts');
+      if (chCohort && typeof cohortsHtml === 'function') {
+        chCohort.innerHTML = cohortsHtml(data.cohorts);
+      }
 
       const peer = document.getElementById('analytics-ch-peer');
       const bits = [];
@@ -3365,27 +3877,128 @@
       } else if (ch.uploads) {
         bits.push(ch.uploads + ' uploads in window · ' + (fmtCompact(ch.views_per_upload) || '—') + ' views/upload');
       }
-      peer.textContent = bits.join(' · ') || 'No uploads recorded in this window';
+      if (peer) peer.textContent = bits.join(' · ') || 'No uploads recorded in this window';
 
       const vBody = document.getElementById('analytics-ch-videos');
       const videos = ch.top_videos || [];
       if (!videos.length) {
-        vBody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No video Analytics yet — reconnect if status is Reauth</div></td></tr>';
+        vBody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No video Analytics yet — reconnect if status is Reauth</div></td></tr>';
       } else {
-        vBody.innerHTML = videos.map(v =>
-          '<tr>'
-          + '<td><a href="' + esc(v.url) + '" target="_blank" rel="noopener">' + esc(v.title || v.video_id) + '</a></td>'
-          + '<td class="num-cell">' + esc(fmtCompact(v.views)) + '</td>'
-          + '<td class="num-cell">' + esc(fmtPct(v.ctr)) + '</td>'
-          + '<td class="num-cell">' + esc(fmtPct(v.avg_view_percentage)) + '</td>'
-          + '<td class="num-cell">' + esc(fmtWatch(v.watch_minutes)) + '</td>'
-          + '<td class="cell-time">' + esc((v.published_at || '').slice(0, 10) || '—') + '</td>'
-          + '</tr>'
-        ).join('');
+        vBody.innerHTML = videos.map(v => {
+          const thumb = 'https://i.ytimg.com/vi/' + encodeURIComponent(v.video_id) + '/default.jpg';
+          return '<tr>'
+            + '<td><button type="button" class="btn-text" data-preview-video="' + esc(v.video_id) + '" title="Preview">'
+            + '<img src="' + esc(thumb) + '" alt="" width="64" height="36" style="border-radius:3px;display:block;object-fit:cover" /></button></td>'
+            + '<td><button type="button" class="row-link" data-open-video="' + esc(ch.channel_id) + '" data-video-id="' + esc(v.video_id) + '">'
+            + esc(v.title || v.video_id) + '</button></td>'
+            + '<td class="num-cell">' + esc(fmtCompact(v.views)) + '</td>'
+            + '<td class="num-cell">' + esc(fmtPct(v.ctr)) + '</td>'
+            + '<td class="num-cell">' + esc(fmtPct(v.avg_view_percentage)) + '</td>'
+            + '<td class="num-cell">' + esc(fmtWatch(v.watch_minutes)) + '</td>'
+            + '<td class="cell-time">' + esc((v.published_at || '').slice(0, 10) || '—') + '</td>'
+            + '</tr>';
+        }).join('');
+      }
+      setAnalyticsMeta(data);
+      document.getElementById('analytics-banner').hidden = true;
+      if (analyticsState.chPane === 'videos') loadChannelVideos(ch.channel_id || analyticsState.channelId);
+    }
+
+    function renderVideoDetail(data) {
+      analyticsState.videoDetail = data;
+      const v = data.video || {};
+      const w = data.window || {};
+      document.getElementById('analytics-title').textContent = v.title || v.video_id || 'Video';
+      document.getElementById('analytics-desc').innerHTML =
+        esc(data.channel_name || data.channel_id || '')
+        + (v.privacy_status ? ' · ' + esc(v.privacy_status) : '')
+        + (v.is_scheduled ? ' · scheduled' : '');
+
+      const hero = document.getElementById('analytics-video-hero');
+      const thumb = v.thumbnail_url || ('https://i.ytimg.com/vi/' + v.video_id + '/hqdefault.jpg');
+      const actions = [];
+      actions.push('<button type="button" class="btn-voltage btn-voltage--compact" data-preview-video="' + esc(v.video_id) + '">Preview</button>');
+      if (data.youtube_url || v.url) {
+        actions.push('<a class="btn-ghost btn-ghost--compact" href="' + esc(data.youtube_url || v.url) + '" target="_blank" rel="noopener">YouTube</a>');
+      }
+      if (data.studio_url || v.studio_url) {
+        actions.push('<a class="btn-ghost btn-ghost--compact" href="' + esc(data.studio_url || v.studio_url) + '" target="_blank" rel="noopener">Studio analytics</a>');
+      }
+      if (data.channel_url) {
+        actions.push('<a class="btn-ghost btn-ghost--compact" href="' + esc(data.channel_url) + '" target="_blank" rel="noopener">Channel</a>');
+      }
+      if (data.channel_studio_url) {
+        actions.push('<a class="btn-ghost btn-ghost--compact" href="' + esc(data.channel_studio_url) + '" target="_blank" rel="noopener">Channel Studio</a>');
+      }
+      hero.innerHTML = '<div>'
+        + '<img class="video-detail-thumb" src="' + esc(thumb) + '" alt="" data-preview-video="' + esc(v.video_id) + '" />'
+        + '</div><div>'
+        + '<p class="muted">' + esc((v.published_at || v.publish_at || '').slice(0, 10) || '—')
+        + (v.duration_seconds != null ? ' · ' + esc(fmtDuration(v.duration_seconds)) : '')
+        + (v.view_count != null ? ' · ' + fmtCompact(v.view_count) + ' lifetime views' : '')
+        + '</p>'
+        + (v.description ? '<p style="margin-top:10px;font-size:13px;line-height:1.45;max-width:42rem">' + esc(v.description.slice(0, 280)) + (v.description.length > 280 ? '…' : '') + '</p>' : '')
+        + '<div class="video-detail-actions">' + actions.join('') + '</div>'
+        + '</div>';
+
+      document.getElementById('analytics-video-pulse').innerHTML = pulseCardsHtml({
+        views: { value: w.views, prior: null, delta_pct: null },
+        watch_minutes: { value: w.watch_minutes, prior: null, delta_pct: null },
+        subs_net: { value: w.subscribers_gained, prior: null, delta_pct: null },
+        ctr: { value: w.ctr, prior: null, delta_pct: null },
+        avg_view_percentage: { value: w.avg_view_percentage, prior: null, delta_pct: null },
+      });
+
+      const velEl = document.getElementById('analytics-video-velocity');
+      const vel = data.velocity;
+      if (!vel) {
+        velEl.innerHTML = '<p class="muted">No early-velocity sample for this video in the recent cohort.</p>';
+      } else {
+        velEl.innerHTML = '<div class="panel panel--flush"><div class="table-wrap"><table class="table-data"><thead><tr>'
+          + '<th>Age</th><th>24h</th><th>72h</th><th>7d</th><th>vs median</th><th>So far</th></tr></thead><tbody>'
+          + velocityRowsHtml([vel], { empty: '—', cols: 6, hideChannel: true, hideTitle: true })
+          + '</tbody></table></div></div>';
+      }
+
+      const linkedWrap = document.getElementById('analytics-video-linked-wrap');
+      const linkedEl = document.getElementById('analytics-video-linked');
+      if (data.linked_job && data.linked_job.job_id) {
+        linkedWrap.hidden = false;
+        linkedEl.innerHTML = 'Job <button type="button" class="row-link" data-open-library="'
+          + esc(data.channel_id) + '" data-library-tab="history">'
+          + esc(data.linked_job.job_id) + '</button>'
+          + (data.linked_job.title ? ' — ' + esc(data.linked_job.title) : '')
+          + (data.linked_job.status ? ' · ' + esc(data.linked_job.status) : '');
+      } else {
+        linkedWrap.hidden = true;
+        linkedEl.textContent = '';
       }
       setAnalyticsMeta(data);
       document.getElementById('analytics-banner').hidden = true;
     }
+
+    async function loadAnalyticsVideo(channelId, videoId, opts) {
+      const refresh = !!(opts && opts.refresh);
+      const days = analyticsState.days || 28;
+      analyticsState.channelId = channelId;
+      analyticsState.videoId = videoId;
+      const btn = document.getElementById('btn-analytics-refresh');
+      setButtonLoading(btn, true, 'Loading…');
+      const hero = document.getElementById('analytics-video-hero');
+      if (hero) hero.innerHTML = '<div class="muted">Loading video…</div>';
+      try {
+        const q = '?days=' + days + (refresh ? '&refresh=true' : '');
+        const data = await api('/v1/analytics/channels/' + encodeURIComponent(channelId)
+          + '/videos/' + encodeURIComponent(videoId) + q);
+        renderVideoDetail(data);
+      } catch (err) {
+        if (hero) hero.innerHTML = '<div class="empty-state">' + esc(err.message || String(err)) + '</div>';
+        toast(err.message || String(err), true);
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
 
     async function loadAnalyticsOverview(opts) {
       const refresh = !!(opts && opts.refresh);
@@ -3438,17 +4051,22 @@
     async function loadAnalyticsChannel(channelId, opts) {
       const refresh = !!(opts && opts.refresh);
       const days = analyticsState.days || 28;
+      if (analyticsState.channelId !== channelId) {
+        analyticsState.channelVideos = null;
+        analyticsState.chPane = analyticsState.chPane || 'overview';
+      }
       analyticsState.channelId = channelId;
+      analyticsState.videoId = '';
       const btn = document.getElementById('btn-analytics-refresh');
       setButtonLoading(btn, true, 'Loading…');
-      setTableLoading('analytics-ch-videos', 6, 'Loading channel…');
+      setTableLoading('analytics-ch-videos', 7, 'Loading channel…');
       try {
         const q = '?days=' + days + (refresh ? '&refresh=true' : '');
         const data = await api('/v1/analytics/channels/' + encodeURIComponent(channelId) + q);
         renderChannelDetail(data);
       } catch (err) {
         document.getElementById('analytics-ch-videos').innerHTML =
-          '<tr><td colspan="6"><div class="empty-state">' + esc(err.message || String(err)) + '</div></td></tr>';
+          '<tr><td colspan="7"><div class="empty-state">' + esc(err.message || String(err)) + '</div></td></tr>';
         toast(err.message || String(err), true);
       } finally {
         setButtonLoading(btn, false);
@@ -3484,6 +4102,9 @@
       } else if (tab === 'analytics') {
         if (opts.analyticsView === 'category' && opts.category != null) {
           hash = '#analytics/category/' + encodeURIComponent(opts.category || 'uncategorized');
+        } else if (opts.analyticsView === 'video' && opts.channelId && opts.videoId) {
+          hash = '#analytics/channel/' + encodeURIComponent(opts.channelId)
+            + '/video/' + encodeURIComponent(opts.videoId);
         } else if (opts.analyticsView === 'channel' && opts.channelId) {
           hash = '#analytics/channel/' + encodeURIComponent(opts.channelId);
         } else {
@@ -3528,8 +4149,12 @@
         if (view === 'category') {
           showAnalyticsView('category');
           loadAnalyticsCategory(options.category || '', { refresh: !!options.refresh });
+        } else if (view === 'video') {
+          showAnalyticsView('video');
+          loadAnalyticsVideo(options.channelId || '', options.videoId || '', { refresh: !!options.refresh });
         } else if (view === 'channel') {
           showAnalyticsView('channel');
+          if (options.chPane) analyticsState.chPane = options.chPane;
           loadAnalyticsChannel(options.channelId || '', { refresh: !!options.refresh });
         } else {
           showAnalyticsView('overview');
@@ -3542,6 +4167,7 @@
         channelId: options.channelId !== undefined
           ? options.channelId
           : (tab === 'library' ? document.getElementById('channel-filter').value : options.channelId),
+        videoId: options.videoId,
         analyticsView: options.analyticsView,
         category: options.category,
         days: tab === 'analytics' ? (options.days || analyticsState.days) : undefined,
@@ -3570,6 +4196,15 @@
           };
         }
         if (parts[1] === 'channel' && parts[2]) {
+          if (parts[3] === 'video' && parts[4]) {
+            return {
+              tab: 'analytics',
+              analyticsView: 'video',
+              channelId: decodeURIComponent(parts[2]),
+              videoId: decodeURIComponent(parts[4]),
+              days,
+            };
+          }
           return {
             tab: 'analytics',
             analyticsView: 'channel',
@@ -4096,7 +4731,9 @@
         + '<dl><dt>Description</dt><dd>' + (desc ? esc(desc) : '—') + '</dd>'
         + '<dt>Folder</dt><dd>' + storageBadge(job) + ' <span class="detail-path">' + shortPath(jobStoragePrefix(job)) + '</span></dd>'
         + (job.video_uri ? '<dt>Video URI</dt><dd class="detail-path">' + esc(job.video_uri) + '</dd>' : '')
-        + (job.youtube_url ? '<dt>YouTube</dt><dd><a href="' + esc(job.youtube_url) + '" target="_blank" rel="noopener">' + esc(job.youtube_url) + '</a></dd>' : '')
+        + (job.youtube_url ? '<dt>YouTube</dt><dd><a href="' + esc(job.youtube_url) + '" target="_blank" rel="noopener">' + esc(job.youtube_url) + '</a>'
+          + (job.youtube_id ? ' · <button type="button" class="btn-text" data-open-video="' + esc(job.channel_id) + '" data-video-id="' + esc(job.youtube_id) + '">Analytics</button>' : '')
+          + '</dd>' : '')
         + '</dl></div>'
         + '<div class="detail-preview"><h3>Preview</h3>' + thumbHtml
         + '<p class="muted" style="margin:8px 0 4px">Video</p>' + videoHtml + '</div>'
@@ -4335,7 +4972,10 @@
             <span class="cell-title-sub"><code>${esc(shortJobId(j.id))}</code></span>
           </td>
           <td>${esc(j.channel_id)}</td>
-          <td>${j.youtube_url ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>' : '—'}</td>
+          <td>${j.youtube_url
+            ? '<a href="' + esc(j.youtube_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>'
+              + (j.youtube_id ? ' · <button type="button" class="btn-text" data-open-video="' + esc(j.channel_id) + '" data-video-id="' + esc(j.youtube_id) + '" onclick="event.stopPropagation()">Stats</button>' : '')
+            : '—'}</td>
           <td class="cell-time">${esc(formatJobTimestamp(j.uploaded_at))}</td>
           <td class="cell-actions">${jobActionButtons(j)}</td>
         </tr>`).join('');
@@ -4822,6 +5462,14 @@
             days,
             refresh: false,
           });
+        } else if (analyticsState.view === 'video') {
+          navigateTo({
+            tab: 'analytics',
+            analyticsView: 'video',
+            channelId: analyticsState.channelId,
+            videoId: analyticsState.videoId,
+            days,
+          });
         } else if (analyticsState.view === 'channel') {
           navigateTo({
             tab: 'analytics',
@@ -4838,8 +5486,11 @@
     document.getElementById('btn-analytics-refresh').onclick = () => {
       if (analyticsState.view === 'category') {
         loadAnalyticsCategory(analyticsState.category, { refresh: true });
+      } else if (analyticsState.view === 'video') {
+        loadAnalyticsVideo(analyticsState.channelId, analyticsState.videoId, { refresh: true });
       } else if (analyticsState.view === 'channel') {
         loadAnalyticsChannel(analyticsState.channelId, { refresh: true });
+        if (analyticsState.chPane === 'videos') loadChannelVideos(analyticsState.channelId, { refresh: true });
       } else {
         loadAnalyticsOverview({ refresh: true });
       }
@@ -4860,10 +5511,46 @@
     });
 
     document.getElementById('analytics-back').onclick = () => {
+      if (analyticsState.view === 'video' && analyticsState.channelId) {
+        navigateTo({
+          tab: 'analytics',
+          analyticsView: 'channel',
+          channelId: analyticsState.channelId,
+          days: analyticsState.days,
+        });
+        return;
+      }
       navigateTo({ tab: 'analytics', analyticsView: 'overview', days: analyticsState.days });
     };
 
+
     document.getElementById('analytics-section').addEventListener('click', (e) => {
+      const paneBtn = e.target.closest('[data-ch-pane]');
+      if (paneBtn && paneBtn.dataset.chPane) {
+        setChannelPane(paneBtn.dataset.chPane);
+        return;
+      }
+      const previewBtn = e.target.closest('[data-preview-video]');
+      if (previewBtn) {
+        const vid = previewBtn.dataset.previewVideo;
+        const fromCatalog = (analyticsState.channelVideos || []).find(v => v.video_id === vid);
+        const fromDetail = analyticsState.videoDetail && analyticsState.videoDetail.video;
+        const fromTop = ((analyticsState.channelDetail && analyticsState.channelDetail.channel
+          && analyticsState.channelDetail.channel.top_videos) || []).find(v => v.video_id === vid);
+        openYtPreview(fromCatalog || fromDetail || fromTop || { video_id: vid, title: vid });
+        return;
+      }
+      const videoBtn = e.target.closest('[data-open-video]');
+      if (videoBtn) {
+        navigateTo({
+          tab: 'analytics',
+          analyticsView: 'video',
+          channelId: videoBtn.dataset.openVideo,
+          videoId: videoBtn.dataset.videoId,
+          days: analyticsState.days || 28,
+        });
+        return;
+      }
       const catBtn = e.target.closest('[data-open-category]');
       if (catBtn) {
         navigateTo({
@@ -4876,6 +5563,27 @@
     });
 
     document.addEventListener('click', (e) => {
+      const previewBtn = e.target.closest('[data-preview-video]');
+      if (previewBtn && !e.target.closest('#analytics-section')) {
+        const vid = previewBtn.dataset.previewVideo;
+        const fromCatalog = (analyticsState.channelVideos || []).find(v => v.video_id === vid);
+        const fromDetail = analyticsState.videoDetail && analyticsState.videoDetail.video;
+        openYtPreview(fromCatalog || fromDetail || { video_id: vid, title: vid });
+        return;
+      }
+      const videoBtn = e.target.closest('[data-open-video]');
+      if (videoBtn) {
+        e.preventDefault();
+        closeYtPreview();
+        navigateTo({
+          tab: 'analytics',
+          analyticsView: 'video',
+          channelId: videoBtn.dataset.openVideo,
+          videoId: videoBtn.dataset.videoId,
+          days: analyticsState.days || 28,
+        });
+        return;
+      }
       const chBtn = e.target.closest('[data-open-channel]');
       if (!chBtn) return;
       e.preventDefault();
@@ -4886,6 +5594,39 @@
         days: analyticsState.days || 28,
       });
     });
+
+    const ytPreviewClose = document.getElementById('yt-preview-close');
+    if (ytPreviewClose) ytPreviewClose.onclick = () => closeYtPreview();
+    const ytPreviewModal = document.getElementById('yt-preview-modal');
+    if (ytPreviewModal) {
+      ytPreviewModal.addEventListener('click', (e) => {
+        if (e.target === ytPreviewModal) closeYtPreview();
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeYtPreview();
+    });
+    const chSearch = document.getElementById('ch-video-search');
+    if (chSearch) {
+      chSearch.addEventListener('input', () => {
+        analyticsState.videoFilter.q = chSearch.value || '';
+        renderChannelVideoGrid();
+      });
+    }
+    const chPrivacy = document.getElementById('ch-video-privacy');
+    if (chPrivacy) {
+      chPrivacy.addEventListener('change', () => {
+        analyticsState.videoFilter.privacy = chPrivacy.value || '';
+        renderChannelVideoGrid();
+      });
+    }
+    const chSort = document.getElementById('ch-video-sort');
+    if (chSort) {
+      chSort.addEventListener('change', () => {
+        analyticsState.videoFilter.sort = chSort.value || 'newest';
+        renderChannelVideoGrid();
+      });
+    }
 
     window.addEventListener('hashchange', () => applyHashRoute());
 
@@ -4922,5 +5663,17 @@
       pollActiveUploads();
     })();
   </script>
+
+  <div class="yt-preview-modal" id="yt-preview-modal" hidden>
+    <div class="yt-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="yt-preview-title">
+      <div class="yt-preview-head">
+        <h3 id="yt-preview-title">Preview</h3>
+        <button type="button" class="btn-ghost btn-ghost--compact" id="yt-preview-close">Close</button>
+      </div>
+      <div id="yt-preview-player"></div>
+      <div class="video-detail-actions" id="yt-preview-actions"></div>
+    </div>
+  </div>
+
 </body>
 </html>
