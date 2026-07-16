@@ -269,3 +269,36 @@ def get_channel_video(
     if not items:
         return None
     return _video_info_from_item(items[0])
+
+
+def get_channel_videos(
+    token_path: str | Path,
+    video_ids: list[str],
+    *,
+    client_secret: Path | None = None,
+    client_config: dict | None = None,
+    oauth_port: int = 8080,
+) -> dict[str, YouTubeVideoInfo]:
+    """Fetch selected videos in batches, keyed by YouTube video id."""
+    ids = list(dict.fromkeys(video_id.strip() for video_id in video_ids if video_id.strip()))
+    if not ids:
+        return {}
+    youtube = _build_youtube(
+        token_path,
+        client_secret=client_secret,
+        client_config=client_config,
+        oauth_port=oauth_port,
+    )
+    out: dict[str, YouTubeVideoInfo] = {}
+    for offset in range(0, len(ids), 50):
+        batch = ids[offset : offset + 50]
+        response = (
+            youtube.videos()
+            .list(part="snippet,status,contentDetails,statistics", id=",".join(batch))
+            .execute()
+        )
+        for item in response.get("items") or []:
+            video = _video_info_from_item(item)
+            if video.video_id:
+                out[video.video_id] = video
+    return out

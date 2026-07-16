@@ -424,6 +424,36 @@ class DashboardResponse(BaseModel):
     cached: bool = False
 
 
+class TodayVideoOut(BaseModel):
+    job_id: str
+    channel_id: str
+    channel_name: str = ""
+    title: str = ""
+    status: str = Field(description="uploaded | scheduled")
+    event_at: str = ""
+    schedule_kind: str = Field(default="", description="uploaded_at | upload_at | publish_at")
+    video_id: str = ""
+    youtube_url: str = ""
+    thumbnail_url: str = ""
+    privacy_status: str = ""
+    views: int | None = None
+    likes: int | None = None
+    comments: int | None = None
+
+
+class TodayPulseResponse(BaseModel):
+    date: str
+    timezone: str
+    uploaded_count: int = 0
+    scheduled_count: int = 0
+    views_so_far: int = 0
+    likes_so_far: int = 0
+    comments_so_far: int = 0
+    metrics_available_count: int = 0
+    refreshed_at: str
+    videos: list[TodayVideoOut] = Field(default_factory=list)
+
+
 class CapabilitiesOut(BaseModel):
     cli_commands: list[dict]
     youtube_features: list[dict]
