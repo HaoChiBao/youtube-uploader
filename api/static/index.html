@@ -227,6 +227,122 @@
     .stat.stat--active {
       border-color: color-mix(in srgb, var(--color-deep-forest-teal) 35%, var(--color-stone-mist));
     }
+    .today-pulse {
+      margin-bottom: 12px;
+      background: color-mix(in srgb, var(--color-white) 88%, var(--color-lavender-whisper));
+      border: 1px solid color-mix(in srgb, var(--color-deep-forest-teal) 22%, var(--color-stone-mist));
+      border-radius: var(--radius-nav);
+      overflow: hidden;
+    }
+    .today-pulse__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--color-stone-mist);
+    }
+    .today-pulse__title {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      min-width: 0;
+    }
+    .today-pulse__title h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .today-pulse__summary {
+      font-size: 12px;
+      color: var(--color-smoke);
+    }
+    .today-pulse__metrics {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 5px 12px;
+      font-size: 12px;
+      color: var(--color-smoke);
+      font-variant-numeric: tabular-nums;
+    }
+    .today-pulse__metrics strong {
+      color: var(--color-midnight-ink);
+      font-weight: 650;
+    }
+    .today-pulse__rows {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--color-stone-mist);
+    }
+    .today-video {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      min-width: 0;
+      background: var(--color-white);
+    }
+    .today-video__thumb {
+      width: 54px;
+      height: 31px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: var(--color-stone-mist);
+    }
+    .today-video__thumb--scheduled {
+      display: grid;
+      place-items: center;
+      color: var(--color-deep-forest-teal);
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .today-video__body { min-width: 0; }
+    .today-video__name {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-midnight-ink);
+    }
+    .today-video__meta {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--color-smoke);
+    }
+    .today-video__stats {
+      text-align: right;
+      white-space: nowrap;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--color-smoke);
+      font-variant-numeric: tabular-nums;
+    }
+    .today-video__stats strong {
+      display: block;
+      color: var(--color-midnight-ink);
+      font-size: 12px;
+    }
+    .today-pulse__empty {
+      padding: 12px;
+      background: var(--color-white);
+      color: var(--color-smoke);
+      font-size: 12px;
+    }
+    @media (max-width: 720px) {
+      .today-pulse__head { align-items: flex-start; }
+      .today-pulse__metrics { justify-content: flex-start; }
+      .today-pulse__rows { grid-template-columns: 1fr; }
+    }
     .section-header {
       display: flex;
       align-items: flex-start;
@@ -1964,6 +2080,19 @@
     </div>
 
     <main class="page">
+      <section class="today-pulse" id="today-pulse" aria-live="polite">
+        <div class="today-pulse__head">
+          <div class="today-pulse__title">
+            <h2>Today</h2>
+            <span class="today-pulse__summary" id="today-pulse-summary">Loading today’s uploads…</span>
+          </div>
+          <div class="today-pulse__metrics" id="today-pulse-metrics"></div>
+        </div>
+        <div class="today-pulse__rows" id="today-pulse-rows">
+          <div class="today-pulse__empty">Loading live video metrics…</div>
+        </div>
+      </section>
+
       <div class="stats-bar" id="stats-bar" aria-live="polite">
         <button type="button" class="stat stat-btn" data-nav="channels">
           <span class="stat-value" id="stat-channels">—</span><span class="stat-label">Channels</span>
@@ -2636,6 +2765,12 @@
 
     function beginDashboardLoad() {
       setStatsLoading(true);
+      const todaySummary = document.getElementById('today-pulse-summary');
+      const todayRows = document.getElementById('today-pulse-rows');
+      if (todaySummary) todaySummary.textContent = 'Loading today’s uploads…';
+      if (todayRows) {
+        todayRows.innerHTML = '<div class="today-pulse__empty">Loading live video metrics…</div>';
+      }
       setTableLoading('channels-body', 5, 'Loading channels…');
       setTableLoading('queue-body', 5, 'Loading queue…');
       setTableLoading('scheduled-body', 7, 'Loading scheduled…');
@@ -3086,6 +3221,88 @@
       document.getElementById('stat-uploaded').textContent = String(totalPublished || uploaded);
       const uploadingStat = document.querySelector('.stat-btn[data-nav="dock"]');
       if (uploadingStat) uploadingStat.classList.toggle('stat--active', uploading > 0);
+    }
+
+    function dashboardTimezone() {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      } catch (_) {
+        return 'UTC';
+      }
+    }
+
+    function todayTime(value) {
+      if (!value) return '—';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '—';
+      return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function renderTodayPulse(data) {
+      const summary = document.getElementById('today-pulse-summary');
+      const metrics = document.getElementById('today-pulse-metrics');
+      const rowsEl = document.getElementById('today-pulse-rows');
+      const uploaded = Number(data.uploaded_count || 0);
+      const scheduled = Number(data.scheduled_count || 0);
+      summary.textContent = uploaded + ' uploaded · ' + scheduled + ' still scheduled';
+      metrics.innerHTML = uploaded
+        ? '<span><strong>' + esc(fmtCompact(data.views_so_far || 0)) + '</strong> views</span>'
+          + '<span><strong>' + esc(fmtCompact(data.likes_so_far || 0)) + '</strong> likes</span>'
+          + '<span><strong>' + esc(fmtCompact(data.comments_so_far || 0)) + '</strong> comments</span>'
+        : '<span class="muted">Live metrics appear after upload</span>';
+
+      const videos = data.videos || [];
+      if (!videos.length) {
+        rowsEl.innerHTML = '<div class="today-pulse__empty">No uploads or scheduled uploads today.</div>';
+        return;
+      }
+      rowsEl.innerHTML = videos.map(video => {
+        const uploadedNow = video.status === 'uploaded';
+        const name = video.video_id
+          ? '<button type="button" class="row-link today-video__name" data-open-video="'
+            + esc(video.channel_id) + '" data-video-id="' + esc(video.video_id) + '">'
+            + esc(video.title || video.job_id) + '</button>'
+          : '<button type="button" class="row-link today-video__name" data-today-library="'
+            + esc(video.channel_id) + '">' + esc(video.title || video.job_id) + '</button>';
+        const thumb = video.thumbnail_url
+          ? '<img class="today-video__thumb" src="' + esc(video.thumbnail_url) + '" alt="" loading="lazy" />'
+          : '<div class="today-video__thumb today-video__thumb--scheduled" aria-hidden="true">'
+            + (uploadedNow ? '✓' : '◷') + '</div>';
+        const eventLabel = uploadedNow
+          ? 'Uploaded ' + todayTime(video.event_at)
+          : (video.schedule_kind === 'publish_at' ? 'Publishes ' : 'Uploads ') + todayTime(video.event_at);
+        const stats = uploadedNow && video.views != null
+          ? '<div class="today-video__stats"><strong>' + esc(fmtCompact(video.views)) + ' views</strong>'
+            + esc(fmtCompact(video.likes || 0)) + ' likes · ' + esc(fmtCompact(video.comments || 0)) + ' comments</div>'
+          : '<div class="today-video__stats"><strong>' + (uploadedNow ? 'Metrics pending' : 'Scheduled') + '</strong>'
+            + esc(todayTime(video.event_at)) + '</div>';
+        return '<article class="today-video">'
+          + thumb
+          + '<div class="today-video__body">' + name
+          + '<div class="today-video__meta">' + esc(video.channel_name || video.channel_id)
+          + ' · ' + esc(eventLabel) + '</div></div>'
+          + stats
+          + '</article>';
+      }).join('');
+    }
+
+    async function loadTodayPulse(refresh) {
+      const summary = document.getElementById('today-pulse-summary');
+      const rows = document.getElementById('today-pulse-rows');
+      if (refresh) {
+        summary.textContent = 'Refreshing today’s uploads…';
+        rows.innerHTML = '<div class="today-pulse__empty">Loading live video metrics…</div>';
+      }
+      const qs = new URLSearchParams({ timezone: dashboardTimezone() });
+      if (refresh) qs.set('refresh', 'true');
+      try {
+        renderTodayPulse(await api('/v1/dashboard/today?' + qs.toString()));
+        todayPulseLoaded = true;
+      } catch (err) {
+        todayPulseLoaded = false;
+        summary.textContent = 'Today’s pulse unavailable';
+        rows.innerHTML = '<div class="today-pulse__empty">' + esc(err.message || String(err)) + '</div>';
+      }
     }
 
     function setUploadingSectionVisible(active) {
@@ -4514,6 +4731,7 @@
         data.uploaded_jobs || [],
         data.uploading_jobs || []
       );
+      if (force || !todayPulseLoaded) loadTodayPulse(false);
       return channels;
     }
 
@@ -4676,6 +4894,7 @@
     }
 
     let dashboardData = null;
+    let todayPulseLoaded = false;
     const expandedJobKeys = new Set();
     const jobDetailCache = new Map();
 
@@ -5581,6 +5800,16 @@
           channelId: videoBtn.dataset.openVideo,
           videoId: videoBtn.dataset.videoId,
           days: analyticsState.days || 28,
+        });
+        return;
+      }
+      const todayLibraryBtn = e.target.closest('[data-today-library]');
+      if (todayLibraryBtn) {
+        e.preventDefault();
+        navigateTo({
+          tab: 'library',
+          libraryTab: 'scheduled',
+          channelId: todayLibraryBtn.dataset.todayLibrary,
         });
         return;
       }

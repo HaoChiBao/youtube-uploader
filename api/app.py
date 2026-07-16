@@ -69,6 +69,7 @@ from api.schemas import (
     ChannelUpdateRequest,
     PublishConfigOut,
     DashboardResponse,
+    TodayPulseResponse,
     HealthResponse,
     JobDetailResponse,
     JobMediaOut,
@@ -420,6 +421,29 @@ def create_app() -> FastAPI:
     def dashboard(refresh: bool = Query(default=False, description="Bypass cache and reload from storage")):
         """Cached snapshot of all channels plus queue and uploaded jobs."""
         return build_dashboard(config_path(), force=refresh)
+
+    @app.get(
+        "/v1/dashboard/today",
+        response_model=TodayPulseResponse,
+        tags=["dashboard", "analytics"],
+        summary="Today's upload pulse",
+    )
+    def dashboard_today(
+        timezone_name: str = Query(default="UTC", alias="timezone"),
+        refresh: bool = Query(default=False, description="Refresh dashboard jobs before building pulse"),
+    ):
+        """Videos uploaded today, remaining scheduled uploads, and live quick metrics."""
+        from uploader.today_pulse import build_today_pulse
+
+        try:
+            return build_today_pulse(
+                get_app_config(),
+                get_oauth_settings(),
+                build_dashboard(config_path(), force=refresh),
+                timezone_name=timezone_name,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     @app.get("/v1/channels", response_model=ChannelListResponse, tags=["channels"])
     def list_channels():

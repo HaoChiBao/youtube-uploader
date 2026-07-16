@@ -86,6 +86,31 @@ def test_dashboard(client):
     assert r3.json()["cached"] is False
 
 
+def test_dashboard_today(client, monkeypatch: pytest.MonkeyPatch):
+    from api.schemas import TodayPulseResponse
+
+    monkeypatch.setattr(
+        "uploader.today_pulse.build_today_pulse",
+        lambda *a, **k: TodayPulseResponse(
+            date="2026-07-16",
+            timezone=k["timezone_name"],
+            uploaded_count=1,
+            scheduled_count=1,
+            views_so_far=123,
+            likes_so_far=9,
+            comments_so_far=2,
+            metrics_available_count=1,
+            refreshed_at="2026-07-16T15:00:00Z",
+            videos=[],
+        ),
+    )
+    response = client.get("/v1/dashboard/today?timezone=America%2FNew_York")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["timezone"] == "America/New_York"
+    assert body["views_so_far"] == 123
+
+
 def test_channels_list(client):
     r = client.get("/v1/channels")
     assert r.status_code == 200
@@ -1008,6 +1033,8 @@ def test_dashboard_includes_analytics_nav(client) -> None:
     assert "analytics-ch-video-grid" in html
     assert "analytics-view-video" in html
     assert "yt-preview-modal" in html
+    assert "id=\"today-pulse\"" in html
+    assert "/v1/dashboard/today" in html
 
 
 def test_youtube_videos_enriched(client, monkeypatch: pytest.MonkeyPatch) -> None:
